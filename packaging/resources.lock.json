@@ -2,7 +2,7 @@
   "schema": 1,
   "architecture": "arm64",
   "minimum_macos_metadata": "14.0",
-  "model_bundled": false,
+  "model_bundled": true,
   "assets": {
     "worker": {
       "file": "portable-worker-runtime-3.12.15-macos-arm64.tar.gz",
@@ -23,6 +23,11 @@
       "file": "clipdeck-maintained-decoder-corresponding-source.tar.gz",
       "sha256": "7a4f003e4db417c260146a8f055f2549b9657af56f6f7f11af96671138d3ccca",
       "bytes": 12265465
+    },
+    "punctuation": {
+      "file": "clipdeck-punctuation-ct-transformer-8f239ff.tar.gz",
+      "sha256": "fb36c704f606915f20c0752304c408f9a2b0f238963e35bebb9b4817a11fe3a9",
+      "bytes": 262581052
     }
   },
   "electron": {
@@ -124,6 +129,28 @@
       "file": "worker-wheel-inputs.json",
       "sha256": "01ed79187e4f8619875c4764662186ff49161cf2e101d8c85acfc4ddaaafd4c9",
       "bytes": 5641
+    },
+    {
+      "file": "notices/models/FunASR-LICENSE",
+      "bytes": 1061,
+      "sha256": "f382b62dcc61fc566b9215b1e3b604b539bfd96ed52ae1eeff5090f6dc176057"
+    },
+    {
+      "file": "notices/models/CT-punctuation-model-card.md",
+      "bytes": 4981,
+      "sha256": "8c358b90a63a8b4f970568717a5faa2ec8491b4e518a9b2175dced5fa3c21874"
+    },
+    {
+      "file": "notices/models/CT-punctuation-Apache-2.0.txt",
+      "bytes": 11358,
+      "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+    },
+    {
+      "file": "notices/models/punctuation-provenance.json",
+      "bytes": 499,
+      "sha256": "bc67f7836d10a93613fd53cb5115de574e3c62d0b3ccb847c546241d813a78d7"
     }
-  ]
+  ],
+  "asr_model_bundled": false,
+  "punctuation_model_bundled": true
 }

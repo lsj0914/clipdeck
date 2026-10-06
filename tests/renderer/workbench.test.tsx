@@ -473,6 +473,16 @@ describe("actual bridge workbench interactions", () => {
 });
 
 describe("keyboard and asynchronous workspace states", () => {
+  it("gives an actionable range-editing path after an empty recognition result", async () => {
+    const value = fixture();
+    value.project.transcripts[0]!.words = [];
+    value.project.transcripts[0]!.segments = [];
+    const b = bridge(value);
+    render(<App api={b.api} />);
+    expect(await screen.findByText("No clear speech was detected. Listen to the source or select a time range.")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Select a time range instead" }));
+    expect(screen.getByRole("heading", { name: "Select a time range" })).toBeTruthy();
+  });
   it("extends a passage by keyboard and auditions the inclusive range", async () => {
     const b = bridge();
     render(<App api={b.api} />);
@@ -1747,6 +1757,28 @@ describe("Task 7 complete editing workflow", () => {
 });
 
 describe("Task 7 readiness and long reading regressions", () => {
+  it("keeps first-source actions visible while optional vocabulary settings can open and close", async () => {
+    const initial = fixture();
+    initial.project.transcripts = [];
+    const b = bridge(initial);
+    render(<App api={b.api} />);
+    const action = await screen.findByRole("button", { name: "Transcribe source" });
+    const settings = screen.getByRole("button", { name: "Transcription settings" });
+    expect(settings.getAttribute("aria-expanded")).toBe("false");
+    expect(screen.queryByRole("textbox", { name: "Names and vocabulary" })).toBeNull();
+    fireEvent.click(settings);
+    fireEvent.change(screen.getByRole("textbox", { name: "Names and vocabulary" }), {
+      target: { value: "A retained term" },
+    });
+    fireEvent.click(settings);
+    expect(settings.getAttribute("aria-expanded")).toBe("false");
+    expect(screen.queryByRole("textbox", { name: "Names and vocabulary" })).toBeNull();
+    expect((action as HTMLButtonElement).disabled).toBe(false);
+    fireEvent.click(action);
+    expect(b.api.transcribe).toHaveBeenCalledWith("source-one", "auto", {
+      vocabulary: "A retained term",
+    });
+  });
   it("requires a completed real seek as well as a decoded frame for the current URL", async () => {
     autoDecode = false;
     autoSeek = false;

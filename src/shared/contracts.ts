@@ -50,6 +50,7 @@ export interface Transcript {
     conditionOnPreviousText?: boolean;
     // Absent on legacy transcripts whose word-timing review provenance is unknown.
     wordTimingReview?: boolean;
+    punctuation?: { id: string; revision: string; sha256: string };
   };
 }
 export interface Cut {

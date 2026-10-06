@@ -1230,7 +1230,7 @@ function Workbench({ api = window.clipdeck }: { api?: ClipDeckAPI }) {
                             )?.status !== "completed"
                               ? `${t(snapshot.jobs.findLast((j) => j.kind === "transcription" && j.assetId === source.id)?.status ?? "")} · ${snapshot.jobs.findLast((j) => j.kind === "transcription" && j.assetId === source.id)?.stage}`
                               : source.status !== "ready"
-                                ? source.status
+                                ? t(source.status === "missing" ? "Source missing" : "Source changed")
                                 : project.transcripts.some(
                                       (t) => t.assetId === source.id,
                                     )
@@ -1447,7 +1447,7 @@ function Workbench({ api = window.clipdeck }: { api?: ClipDeckAPI }) {
                       busy={busy}
                     />
                   </div>
-                ) : transcript ? (
+                ) : transcript && (transcript.words.length > 0 || transcript.segments.some(segment => segment.text.trim())) ? (
                   <TranscriptView
                     key={`${asset.id}-${transcriptOrigin}`}
                     transcript={transcript}
@@ -1474,9 +1474,9 @@ function Workbench({ api = window.clipdeck }: { api?: ClipDeckAPI }) {
                         <div className="transcript-empty quiet">
                           <Icon name="audio" />
                           <p>
-                            {t(
-                              "Your transcript will appear here. Select timed passages, or use a time range.",
-                            )}
+                            {t(transcript
+                              ? "No clear speech was detected. Listen to the source or select a time range."
+                              : "Your transcript will appear here. Select timed passages, or use a time range.")}
                           </p>
                           <button
                             className="text-button"

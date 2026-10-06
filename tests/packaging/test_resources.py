@@ -46,6 +46,7 @@ class ResourcePreparationTests(unittest.TestCase):
                 ('runtime/worker/bin/python3.12', b'portable python', 0o755),
                 ('runtime/worker/bin/python3', ('python3.12',), 0o777)]),
             'media': self.archive('media.tar.gz', [('runtime/bin/ffmpeg', b'ffmpeg', 0o755), ('runtime/bin/ffprobe', b'ffprobe', 0o755)]),
+            'punctuation': self.archive('punctuation.tar.gz', [('runtime/punctuation/model_quant.onnx', b'pinned model', 0o644), ('runtime/punctuation/tokens.json', b'tokens', 0o644)]),
             'media_source': self.archive('media-source.tar.gz', [('source/build.sh', b'source', 0o755)]),
             'decoder_source': self.archive('decoder-source.tar.gz', [('source/build.sh', b'decoder', 0o755)])}
         lock = self.root / 'lock.json'
@@ -64,7 +65,9 @@ class ResourcePreparationTests(unittest.TestCase):
         self.assertEqual((out / 'runtime/bin/ffmpeg').stat().st_mode & 0o777, 0o755)
         self.assertTrue((out / 'corresponding-source/media-source.tar.gz').exists())
         manifest = json.loads((out / 'resource-manifest.json').read_text())
-        self.assertEqual(len(manifest['files']), 6)
+        self.assertEqual(len(manifest['files']), 8)
+        self.assertFalse(manifest['asr_model_bundled'])
+        self.assertTrue(manifest['punctuation_model_bundled'])
 
     def test_standard_archive_parent_directories_are_allowed_without_broadening_file_scope(self):
         lock = self.inputs([('runtime', None, 0o755), ('runtime/worker', None, 0o755), ('runtime/worker/bin/python3.12', b'portable python', 0o755)])
@@ -133,6 +136,7 @@ class ResourcePreparationTests(unittest.TestCase):
         out = self.root / 'Prepared With Spaces'
         self.assertTrue((out / 'worker/bin/python3.12').exists())
         self.assertTrue((out / 'bin/ffmpeg').exists())
+        self.assertTrue((out / 'punctuation/model_quant.onnx').exists())
         self.assertFalse((out / 'runtime').exists())
 
 

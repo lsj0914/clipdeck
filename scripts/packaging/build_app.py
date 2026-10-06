@@ -101,7 +101,7 @@ def add_notices(product: Path, electron: Path, resources: Path, package: dict) -
     for row in rows:
         if sha256(resources / 'runtime/worker' / row['path']) != row['sha256']:
             raise PackagingError(f'Worker license changed: {row["path"]}')
-    return {'schema': 1, 'application_license': 'GPL-3.0-or-later', 'frontend': frontend, 'worker_license_inventory': 'notices/worker-license-inventory.json', 'model_bundled': False, 'notices': manifest(notices), 'built_font_notices': manifest(font_notices), 'source_companions': manifest(resources / 'corresponding-source')}
+    return {'schema': 1, 'application_license': 'GPL-3.0-or-later', 'frontend': frontend, 'worker_license_inventory': 'notices/worker-license-inventory.json', 'model_bundled': True, 'asr_model_bundled': False, 'punctuation_model_bundled': True, 'punctuation_files': manifest(resources / 'runtime/punctuation'), 'notices': manifest(notices), 'built_font_notices': manifest(font_notices), 'source_companions': manifest(resources / 'corresponding-source')}
 
 
 def sign_inside_out(app: Path, receipt: Path) -> list[dict]:
@@ -163,6 +163,7 @@ def build(product: Path, resources_input: Path, electron_zip: Path, snapshot: Pa
         write_json(appcode / 'package.json', {'name': 'clipdeck', 'productName': 'ClipDeck', 'version': package['version'], 'private': True, 'main': 'dist/main/main.cjs', 'type': 'module'})
         (resources / 'worker').mkdir()
         shutil.copy2(product / 'worker/transcribe.py', resources / 'worker/transcribe.py')
+        shutil.copy2(product / 'worker/punctuation.py', resources / 'worker/punctuation.py')
         shutil.copy2(application_source, resources / 'corresponding-source' / application_source.name)
         rebrand_app(app, package['version'], product / 'assets/branding/ClipDeck.icns')
         notice_inventory = add_notices(product, extracted, resources, package)
@@ -179,13 +180,15 @@ def build(product: Path, resources_input: Path, electron_zip: Path, snapshot: Pa
                 raise PackagingError('Copied build file changed')
         if sha256(resources / 'worker/transcribe.py') != frozen['worker_sha256']:
             raise PackagingError('Worker changed while copying')
+        if sha256(resources / 'worker/punctuation.py') != frozen['source_files']['worker/punctuation.py']['sha256']:
+            raise PackagingError('Punctuation worker changed while copying')
         sign_inside_out(app, output / 'signing.json')
         result = audit(app)
         write_json(output / 'native-audit.json', result)
         if result['errors'] or not result['bundle_strict_deep_signature_verified']:
             raise PackagingError('Native/signature audit failed; inspect native-audit.json')
         write_json(output / 'sha256-manifest.json', {'schema': 1, 'files': manifest(app), 'directories': [{'path': path.relative_to(app).as_posix(), 'mode': oct(path.stat().st_mode & 0o777)} for path in sorted(app.rglob('*')) if path.is_dir() and not path.is_symlink()]})
-        receipt = {'schema': 1, 'status': 'ad-hoc preview; final workflow acceptance remains separate', 'created_at': datetime.now(timezone.utc).isoformat(), 'version': package['version'], 'source_commit': frozen['source_commit'], 'dirty_context_at_snapshot': frozen['dirty_context'], 'snapshot_sha256': sha256(snapshot), 'electron_archive': lock['electron'], 'resource_lock_sha256': prepared['lock_sha256'], 'native_count': result['native_count'], 'highest_binary_minos': result['highest_binary_minos'], 'architecture': 'arm64', 'bundle_minimum_macos': '14.0', 'developer_id_signed': False, 'notarized': False, 'oldest_os_execution_verified': False, 'model_bundled': False, 'R15_full_workflow_accepted': False}
+        receipt = {'schema': 1, 'status': 'ad-hoc preview; final workflow acceptance remains separate', 'created_at': datetime.now(timezone.utc).isoformat(), 'version': package['version'], 'source_commit': frozen['source_commit'], 'dirty_context_at_snapshot': frozen['dirty_context'], 'snapshot_sha256': sha256(snapshot), 'electron_archive': lock['electron'], 'resource_lock_sha256': prepared['lock_sha256'], 'native_count': result['native_count'], 'highest_binary_minos': result['highest_binary_minos'], 'architecture': 'arm64', 'bundle_minimum_macos': '14.0', 'developer_id_signed': False, 'notarized': False, 'oldest_os_execution_verified': False, 'model_bundled': True, 'asr_model_bundled': False, 'punctuation_model_bundled': True, 'R15_full_workflow_accepted': False}
         write_json(output / 'preparation.json', receipt)
         # Preserve archive identity via the lock/receipt; extracted duplicates are
         # an intermediate, not part of the downloadable app or source payload.

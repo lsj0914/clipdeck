@@ -22,8 +22,19 @@ def audit_notices(app: Path) -> dict:
             errors.append(f'{directory}: {error}')
     if inventory['application_license'] != 'GPL-3.0-or-later':
         errors.append('Unreviewed application license')
+    if (resources / 'runtime/punctuation').exists() and not inventory['model_bundled']:
+        errors.append('Undeclared punctuation model')
     if inventory['model_bundled']:
-        errors.append('Model implicitly bundled')
+        if inventory.get('asr_model_bundled') is not False or inventory.get('punctuation_model_bundled') is not True:
+            errors.append('Model implicitly bundled')
+        else:
+            try:
+                verify_manifest(resources / 'runtime/punctuation', inventory['punctuation_files'])
+                for name in ('FunASR-LICENSE', 'CT-punctuation-model-card.md', 'CT-punctuation-Apache-2.0.txt', 'punctuation-provenance.json'):
+                    if not (resources / 'notices/upstream/models' / name).is_file():
+                        errors.append('Missing punctuation model notice: ' + name)
+            except (PackagingError, KeyError) as error:
+                errors.append('Punctuation resources: ' + str(error))
     if len(inventory['source_companions']) != 3:
         errors.append('Require application, media and maintained decoder source archives')
     return {'schema': 1, 'notice_file_count': len(inventory['notices']), 'font_notice_count': len(inventory['built_font_notices']), 'source_companion_count': len(inventory['source_companions']), 'errors': errors}

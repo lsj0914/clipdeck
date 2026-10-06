@@ -1,6 +1,10 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 export type Locale = "en" | "zh";
 const zh: Record<string, string> = {
+  "Source missing": "素材未关联",
+  "Source changed": "素材已变化",
+  "restoring punctuation": "正在恢复标点",
+  "No clear speech was detected. Listen to the source or select a time range.": "没有检测到清晰语音。请试听原片，或直接按时间范围选段。",
   "Select all timed text": "选择全部有时间定位的文字",
   "This passage has no word timing. Listen and set a time range.": "这段文字没有逐词时间，请试听并手动确定时间范围。",
   "Timing needs review": "时间需核对",

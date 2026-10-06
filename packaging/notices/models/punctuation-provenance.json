@@ -1,0 +1,10 @@
+{
+  "modelId": "iic/punc_ct-transformer_zh-cn-common-vocab272727-onnx",
+  "modelRevision": "8f239ff78c6267c4d859233e7eb3bbdb68c61824",
+  "modelLicense": "Apache-2.0",
+  "upstreamAlgorithmRepository": "https://github.com/modelscope/FunASR",
+  "algorithmRevision": "66d7a4c264a5993a2a63ed00c1f402c296ee521a",
+  "algorithmPath": "runtime/python/onnxruntime/funasr_onnx/punc_bin.py",
+  "algorithmLicense": "MIT",
+  "modelCardSHA256": "8c358b90a63a8b4f970568717a5faa2ec8491b4e518a9b2175dced5fa3c21874"
+}

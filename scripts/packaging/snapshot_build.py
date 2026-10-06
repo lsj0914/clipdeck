@@ -41,7 +41,7 @@ def snapshot(product: Path, application_source: Path, output: Path) -> dict:
             raise PackagingError('Submodules are unsupported in the application source archive')
         blob = subprocess.run(['git', '-C', str(product), 'cat-file', 'blob', oid], capture_output=True, check=True).stdout
         expected[name.decode()] = {'sha256': hashlib.sha256(blob).hexdigest(), 'mode': mode}
-    for name in ('package.json', 'worker/transcribe.py', 'LICENSE', 'THIRD_PARTY_NOTICES.md', 'packaging/resources.lock.json', 'assets/branding/ClipDeck.icns'):
+    for name in ('package.json', 'worker/transcribe.py', 'worker/punctuation.py', 'LICENSE', 'THIRD_PARTY_NOTICES.md', 'packaging/resources.lock.json', 'assets/branding/ClipDeck.icns'):
         if name not in expected:
             raise PackagingError(f'Required committed packaging input is missing: {name}')
     seen = set()

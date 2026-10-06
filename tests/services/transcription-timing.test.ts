@@ -7,17 +7,20 @@ import { MediaService, SourceRegistry } from "../../src/main/services/media";
 import { ModelRegistry, MODEL_DIGEST, MODEL_MANIFEST } from "../../src/main/services/models";
 import { JobManager } from "../../src/main/services/jobs";
 import { createProject } from "../../src/domain/project";
-import type { Project, TranscriptionDraft } from "../../src/shared/contracts";
+import type { Project, TranscriptionDraft, Transcript, Language } from "../../src/shared/contracts";
 import { asset } from "../domain/fixtures";
 import type { ProcessOptions } from "../../src/main/services/process";
 
 // Only external decoding/inference transport is substituted; actual adapter,
 // JobManager, parsing, validation, draft updates and commit remain exercised.
-const transport = vi.hoisted(() => ({ packets: [] as unknown[] }));
+const transport = vi.hoisted(() => ({ packets: [] as unknown[], punctuation: [] as Array<{type: string; message?: string}> }));
 vi.mock("../../src/main/services/process", async importOriginal => ({
   ...(await importOriginal<typeof import("../../src/main/services/process")>()),
   runProcess: vi.fn(async (_file: string, _args: string[], options: ProcessOptions) => {
-    if (options?.onStdout) for (const packet of transport.packets) options.onStdout(JSON.stringify(packet) + "\n");
+    const punctuate = options.input && JSON.parse(options.input).mode === "punctuate";
+    if (options?.onStdout) for (const packet of punctuate ? transport.punctuation : transport.packets) options.onStdout(JSON.stringify(packet) + "\n");
+    if (punctuate && transport.punctuation.some(packet => packet.type === "error"))
+      throw new Error("Native process failed");
     return { stdout: "", stderr: "" };
   }),
 }));
@@ -35,15 +38,19 @@ const complete = (segmentCount: number, wordTimingReview: unknown = true) => ({
   modelId: MODEL_MANIFEST.id, modelDigest: MODEL_DIGEST, simplifiedChinese: false,
   conditionOnPreviousText: false, wordTimingReview,
 });
-async function execute(packets: unknown[]) {
+async function execute(packets: unknown[], options: {language?: Language; previous?: Transcript; cancelPunctuation?: boolean} = {}) {
   transport.packets = packets;
   const sources = new SourceRegistry(); sources.register(asset.id, path.join(dir, "unit-source.mp4"));
   const media = new MediaService("unit-ffprobe", sources);
   vi.spyOn(media, "verifyAssetIdentity").mockResolvedValue();
   const models = new ModelRegistry(path.join(dir, "settings"), path.join(dir, "unused-model"), () => {});
   vi.spyOn(models, "verify").mockResolvedValue({ id: MODEL_MANIFEST.id, digest: MODEL_DIGEST, directory: path.join(dir, "unit-model"), choice: "small" });
-  let project: Project = { ...createProject(), assets: [asset] };
-  const jobs = new JobManager(() => {}), drafts: TranscriptionDraft[] = [];
+  let project: Project = { ...createProject(), assets: [asset], transcripts: options.previous ? [options.previous] : [] };
+  const jobs = new JobManager(() => {
+    const job = jobs.list().at(-1);
+    if (options.cancelPunctuation && job?.stage === "restoring punctuation" && !job.cancelRequested)
+      void jobs.cancel(job.id);
+  }), drafts: TranscriptionDraft[] = [];
   let commits = 0;
   const service = new TranscriptionService({
     ffmpeg: "unit-ffmpeg", python: "unit-python", worker: "unit-worker", tempRoot: dir,
@@ -51,7 +58,7 @@ async function execute(packets: unknown[]) {
     onDraft: (_id, draft) => { if (draft) drafts.push(draft); },
     onTranscript: transcript => { commits++; project = { ...project, transcripts: [transcript] }; },
   });
-  const id = await service.start(asset.id, "en"); await jobs.wait(id);
+  const id = await service.start(asset.id, options.language ?? "en"); await jobs.wait(id);
   return { project, job: jobs.list().find(j => j.id === id)!, drafts, commits, id };
 }
 
@@ -107,4 +114,24 @@ it("cannot establish supported provenance with a complete packet alone", async (
 it.each(["true", 1, null])("rejects malformed native word flags %j before commit", async timingNeedsReview => {
   const result = await execute([{ type: "ready", wordTimingReview: true }, packet(0, "Word", [{ text: "Word", startMs: 100, endMs: 300, timingNeedsReview }]), complete(1)]);
   expect(result.job.status).toBe("failed"); expect(result.commits).toBe(0);
+});
+
+it.each([false, true])("failed or cancelled punctuation retains the previous complete transcript (cancel=%s)", async cancelPunctuation => {
+  const previous: Transcript = {
+    assetId: asset.id, fingerprint: asset.fingerprint, revision: 1, language: "zh",
+    words: [{id:"old-word",text:"原来的完整结果。",startMs:100,endMs:300}],
+    segments: [{id:"old-sentence",text:"原来的完整结果。",startMs:100,endMs:300,wordIds:["old-word"]}],
+    model: {id:MODEL_MANIFEST.id,digest:MODEL_DIGEST}, engine: {name:"faster-whisper",version:"1.2.1"},
+    parameters: {vad:true},
+  };
+  transport.punctuation = [{type:"error",message:"Missing or invalid local punctuation resource: model_quant.onnx"}];
+  const result = await execute([
+    {type:"ready",wordTimingReview:true},
+    {...packet(0,"新的识别结果",[{text:"新的识别结果",startMs:100,endMs:300}]),language:"zh"},
+    {...complete(1),language:"zh",simplifiedChinese:true},
+  ], {language:"zh",previous,cancelPunctuation});
+  expect(result.job.status).toBe(cancelPunctuation ? "cancelled" : "failed");
+  if (!cancelPunctuation) expect(result.job.error).toContain("punctuation resource");
+  expect(result.commits).toBe(0);
+  expect(result.project.transcripts).toEqual([previous]);
 });

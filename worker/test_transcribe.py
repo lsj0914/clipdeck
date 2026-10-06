@@ -177,7 +177,7 @@ class QualityOptions(unittest.TestCase):
             + len(tokenizer.encode(options["hotwords"]).ids),
             128,
         )
-        self.assertIsNone(decode_options("en", "", tokenizer)["initial_prompt"])
+        self.assertIn("commas and full stops", decode_options("en", "", tokenizer)["initial_prompt"])
         for vocabulary in [
             "词" * 1001,
             ",".join(["word"] * 65),

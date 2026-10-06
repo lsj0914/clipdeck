@@ -15,13 +15,61 @@ import {
   resolveProjectReference,
 } from "../../src/main/services/storage";
 import { createProject, applyProjectEdit } from "../../src/domain/project";
-import { SourceRegistry } from "../../src/main/services/media";
+import { SourceRegistry, type MediaService } from "../../src/main/services/media";
+import { asset } from "../domain/fixtures";
 let dir: string;
 beforeEach(async () => {
   dir = await mkdtemp(path.join(tmpdir(), "clipdeck-store-"));
 });
 afterEach(async () => {
   await rm(dir, { recursive: true, force: true });
+});
+it("reopens a natively selected external source after restart without trusting arbitrary project paths", async () => {
+  const projectDir = path.join(dir, "projects"), dataDir = path.join(dir, "private-state");
+  await mkdir(projectDir);
+  const source = path.join(dir, "recording.mp4");
+  await writeFile(source, "authorized recording");
+  const canonical = await realpath(source), sources = new SourceRegistry();
+  sources.register(asset.id, canonical);
+  const p = { ...createProject(), assets: [{ ...asset }] };
+  const target = path.join(projectDir, "p.clipdeck"), recovery = path.join(dataDir, "recovery.json");
+  await new ProjectStore(recovery, sources).save(p, target);
+  const reopenedSources = new SourceRegistry();
+  const media = { relink: async (a: typeof asset, file: string) => {
+    expect(file).toBe(canonical);
+    reopenedSources.register(a.id, file);
+    return { ...a, status: "ready" as const };
+  }} as MediaService;
+  const reopened = await new ProjectStore(recovery, reopenedSources, media).open(target);
+  expect(reopened.assets[0]!.status).toBe("ready");
+  expect(reopenedSources.resolve(asset.id)).toBe(canonical);
+  // Changing the project identity cannot borrow another project's source grant.
+  const serialized = JSON.parse(await readFile(target, "utf8"));
+  serialized.id = "foreign-project";
+  await writeFile(target, JSON.stringify(serialized));
+  expect((await new ProjectStore(recovery, new SourceRegistry(), media).open(target)).assets[0]!.status).toBe("missing");
+  // A fresh profile has no authority, even for an unchanged external reference.
+  serialized.id = p.id;
+  await writeFile(target, JSON.stringify(serialized));
+  expect((await new ProjectStore(path.join(dir, "new-profile/recovery.json"), new SourceRegistry(), media).open(target)).assets[0]!.status).toBe("missing");
+  expect(serialized).not.toHaveProperty("sourceGrants");
+});
+
+it("an authorized project cannot substitute a different external file reference", async () => {
+  const projectDir = path.join(dir, "projects");
+  await mkdir(projectDir);
+  const source = path.join(dir, "authorized.mp4"), other = path.join(dir, "other.mp4");
+  await writeFile(source, "authorized"); await writeFile(other, "private");
+  const sources = new SourceRegistry(); sources.register(asset.id, await realpath(source));
+  const p = { ...createProject(), assets: [{ ...asset }] }, target = path.join(projectDir, "p.clipdeck");
+  const recovery = path.join(dir, "state/recovery.json");
+  await new ProjectStore(recovery, sources).save(p, target);
+  const serialized = JSON.parse(await readFile(target, "utf8"));
+  serialized.assets[0].fileRef = "../other.mp4";
+  await writeFile(target, JSON.stringify(serialized));
+  const media = { relink: async () => { throw new Error("must not read substituted source"); }} as unknown as MediaService;
+  const reopened = await new ProjectStore(recovery, new SourceRegistry(), media).open(target);
+  expect(reopened.assets[0]!.status).toBe("missing");
 });
 it("save-as switches current target and later normal saves update only that file", async () => {
   const store = new ProjectStore(

@@ -11,7 +11,7 @@ ClipDeck is a local desktop editor for interviews, lessons and spoken recordings
 ## The workflow
 
 1. **Import your videos.** Use the native file picker. Projects keep references to the originals, so retain the source files.
-2. **Create a transcript, or use a time range.** English and Chinese recognition run locally. Prepare the selected model explicitly; silent footage can be cut without transcription.
+2. **Create a transcript, or use a time range.** English and Chinese recognition run locally, with punctuation and sentence grouping in the saved result. Prepare the selected model explicitly; silent footage can be cut without transcription.
 3. **Keep a passage.** Select its words, audition it against the original, and add it to the assembly. Repeat across sources.
 4. **Shape the story.** Reorder passages, adjust in/out points, and use undo/redo. Check the continuous assembly preview before exporting.
 5. **Export and save.** Export a playable MP4 and save a `.clipdeck` project to continue later. Moving originals requires relinking; changed source bytes invalidate old anchors.
@@ -44,7 +44,7 @@ npm run build
 npm start
 ```
 
-The four exact runtime/source archives are available in the [resources-only prerelease](https://github.com/lsj0914/clipdeck/releases/tag/resources-bootstrap-0.1.0). Preparation downloads anonymously and verifies every pinned size and hash; this resource release is separate from an accepted application download. [Packaging guide](docs/packaging.md) documents the complete route. The CI model helper explicitly downloads the pinned Small model to its canonical test cache; it verifies cache hits and rejects corrupt existing content.
+The five exact runtime, punctuation and source archives are available in the [resources-only prerelease](https://github.com/lsj0914/clipdeck/releases/tag/resources-bootstrap-0.1.0). Preparation downloads anonymously and verifies every pinned size and hash; this resource release is separate from an accepted application download. [Packaging guide](docs/packaging.md) documents the complete route. The CI model helper explicitly downloads the pinned Small model to its canonical test cache; it verifies cache hits and rejects corrupt existing content.
 
 The repository also separates resource-free unit checks from native checks. [Contributing](CONTRIBUTING.md) has the exact commands. A successful bundle build or desktop smoke is not evidence of the complete import-to-export workflow. Fixture-gated ASR checks are explicitly skipped when their recordings are absent. [Benchmark notes](docs/verification/benchmarks.md) distinguish generated fixtures, recorded speech, fresh processes, filesystem-warm runs and measured limits.
 

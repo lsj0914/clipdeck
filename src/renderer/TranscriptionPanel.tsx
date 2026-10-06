@@ -119,7 +119,7 @@ export function TranscriptionPanel({
       <div className="transcription-summary">
         <span>
           {active
-            ? `${t("Transcribing")} · ${job?.stage ?? t("Waiting for local processing")}`
+            ? `${t("Transcribing")} · ${t(job?.stage ?? "Waiting for local processing")}`
             : error
               ? t("Transcription needs attention")
               : transcript
@@ -127,7 +127,7 @@ export function TranscriptionPanel({
                 : t("Next: prepare text or select a time range")}
         </span>
         <button
-          aria-expanded={opened || !transcript}
+          aria-expanded={opened}
           onClick={() => setOpened(!opened)}
         >
           {t("Transcription settings")}
@@ -223,15 +223,15 @@ export function TranscriptionPanel({
               </select>
             </label>
           </div>
-          <p className="muted">
+          {opened && <p className="muted">
             {choice === "small"
               ? t("Small: lower memory use.")
               : t("Turbo: larger model; needs more memory.")}{" "}
             {t(
               "Recognition can make mistakes. Listen and correct important names.",
             )}
-          </p>
-          <label>
+          </p>}
+          {opened && <div className="vocabulary-settings"><label>
             {t("Names and vocabulary")}
             <textarea
               aria-label={t("Names and vocabulary")}
@@ -248,6 +248,7 @@ export function TranscriptionPanel({
               "Optional comma-separated terms guide recognition; they are not verified words.",
             )}
           </small>
+          </div>}
           {!modelReady && (
             <div className="model-first-run">
               <p>
@@ -304,10 +305,11 @@ export function TranscriptionPanel({
               )}
             </div>
           )}
+          <div className="transcription-action-row">
           {modelReady && (
             <p className="model-ready">
               {t("Verified model:")}
-              {snapshot.model.id}
+              <span title={snapshot.model.id ?? undefined}>{snapshot.model.id}</span>
             </p>
           )}
           <button
@@ -323,6 +325,7 @@ export function TranscriptionPanel({
                 ? t("Transcribe again")
                 : t("Transcribe source")}
           </button>
+          </div>
           {!snapshot.capabilities.transcription && (
             <p>
               {t(

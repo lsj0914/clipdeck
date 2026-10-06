@@ -17,6 +17,7 @@ import { ModelRegistry } from "./models";
 import { JobManager } from "./jobs";
 import { offlineWorkerCommand, runProcess } from "./process";
 import { groupSentences } from "./sentences";
+import { PUNCTUATION_MODEL, restorePunctuation } from "./punctuation";
 export interface TranscriptionOptions {
   ffmpeg: string;
   python: string;
@@ -268,11 +269,12 @@ export class TranscriptionService {
                     throw new Error("Worker word timing review provenance mismatch");
                   if (event.segmentCount !== segments.length)
                     throw new Error("Incomplete worker transcript");
+                  detected = event.language === "en" || event.language === "zh" ? event.language : language;
                   if (
                     event.modelChoice !== model.choice ||
                     event.modelId !== model.id ||
                     event.modelDigest !== model.digest ||
-                    event.simplifiedChinese !== (language === "zh") ||
+                    event.simplifiedChinese !== (language === "zh" || (language === "auto" && detected === "zh")) ||
                     event.conditionOnPreviousText !== false
                   )
                     throw new Error(
@@ -291,6 +293,19 @@ export class TranscriptionService {
           if (buffer.trim() || !complete)
             throw new Error("Worker exited without complete transcript");
           ctx.throwIfCancelled();
+          if (detected === "zh" && words.length) {
+            ctx.update({ stage: "restoring punctuation", progress: null });
+            const restored = await restorePunctuation({
+              python: o.python,
+              worker: o.worker,
+              directory: path.join(path.dirname(path.dirname(path.dirname(o.python))), "punctuation"),
+              words,
+              signal: ctx.signal,
+            });
+            for (let index = 0; index < restored.length; index++)
+              words[index] = restored[index]!;
+            ctx.throwIfCancelled();
+          }
           await o.media.verifyAssetIdentity(asset);
           ctx.throwIfCancelled();
           const current = o.getProject();
@@ -321,9 +336,10 @@ export class TranscriptionService {
               ...(requestOptions.vocabulary
                 ? { vocabulary: requestOptions.vocabulary }
                 : {}),
-              simplifiedChinese: language === "zh",
+              simplifiedChinese: language === "zh" || (language === "auto" && detected === "zh"),
               conditionOnPreviousText: false,
               wordTimingReview: true,
+              ...(detected === "zh" && words.length ? { punctuation: PUNCTUATION_MODEL } : {}),
             },
           };
           validateProject({

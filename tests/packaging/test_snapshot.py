@@ -18,7 +18,7 @@ class SnapshotTests(unittest.TestCase):
         self.root = Path(self.tmp.name)
         self.product = self.root / 'product'
         self.product.mkdir()
-        files = {'package.json': '{}', 'worker/transcribe.py': 'worker', 'LICENSE': 'license', 'src/renderer.ts': 'reviewed source', 'THIRD_PARTY_NOTICES.md': 'notices', 'packaging/resources.lock.json': '{}', 'assets/branding/ClipDeck.icns': 'icon'}
+        files = {'package.json': '{}', 'worker/transcribe.py': 'worker', 'worker/punctuation.py': 'punctuation', 'LICENSE': 'license', 'src/renderer.ts': 'reviewed source', 'THIRD_PARTY_NOTICES.md': 'notices', 'packaging/resources.lock.json': '{}', 'assets/branding/ClipDeck.icns': 'icon'}
         for name, contents in files.items():
             path = self.product / name
             path.parent.mkdir(parents=True, exist_ok=True)

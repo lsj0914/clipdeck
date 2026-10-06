@@ -150,9 +150,13 @@ def decode_options(language, vocabulary, tokenizer):
     vocabulary = vocabulary.strip()
     if len([term for term in re.split(r"[,，;；\n]", vocabulary) if term.strip()]) > 64:
         raise ValueError("Vocabulary must contain at most 64 terms")
-    prompt = "请使用简体中文转写。" if language == "zh" else ""
+    prompt = (
+        "请使用简体中文转写。" if language == "zh"
+        else "Hello, welcome. We use normal punctuation, with commas and full stops."
+        if language == "en" else ""
+    )
     if vocabulary:
-        prompt += ("\n词汇：" if language == "zh" else "") + vocabulary
+        prompt += ("\n词汇：" if language == "zh" else "\n") + vocabulary
     if len(tokenizer.encode(prompt).ids) + len(tokenizer.encode(vocabulary).ids) > 128:
         raise ValueError("Vocabulary and prompt exceed the 128-token context budget")
     return {
@@ -254,18 +258,6 @@ def transcribe(request):
         )
     if not np.isfinite(audio).all():
         raise ValueError("Nonfinite decoded PCM")
-    decode = decode_options(
-        language,
-        request.get("vocabulary", ""),
-        Tokenizer.from_file(str(Path(request["modelDirectory"]) / "tokenizer.json")),
-    )
-    ready = {
-        **ready,
-        **identity,
-        "simplifiedChinese": language == "zh",
-        "conditionOnPreviousText": decode["condition_on_previous_text"],
-        "wordTimingReview": True,
-    }
     model = WhisperModel(
         request["modelDirectory"],
         device="cpu",
@@ -273,10 +265,43 @@ def transcribe(request):
         local_files_only=True,
         cpu_threads=4,
     )
+    effective_language = language
+    if language == "auto":
+        from faster_whisper.vad import get_speech_timestamps, collect_chunks
+
+        speech = get_speech_timestamps(audio)
+        # A source with no detected speech has no useful language evidence. VAD
+        # will produce an empty transcript; do not run detection on an empty array.
+        if speech:
+            # The pinned detector uses one 30-second window. Bound its temporary
+            # waveform without truncating the full source supplied to ASR below.
+            detection_speech, remaining = [], 16000 * 30
+            for span in speech:
+                end = min(span["end"], span["start"] + remaining)
+                detection_speech.append({"start": span["start"], "end": end})
+                remaining -= end - span["start"]
+                if remaining == 0:
+                    break
+            chunks, _ = collect_chunks(audio, detection_speech)
+            effective_language = model.detect_language(audio=np.concatenate(chunks))[0]
+        else:
+            effective_language = "en"
+    decode = decode_options(
+        effective_language,
+        request.get("vocabulary", ""),
+        Tokenizer.from_file(str(Path(request["modelDirectory"]) / "tokenizer.json")),
+    )
+    ready = {
+        **ready,
+        **identity,
+        "simplifiedChinese": effective_language == "zh",
+        "conditionOnPreviousText": decode["condition_on_previous_text"],
+        "wordTimingReview": True,
+    }
     emit({"type": "ready", **ready})
     (segments, info) = model.transcribe(
         audio,
-        language=None if language == "auto" else language,
+        language=effective_language,
         word_timestamps=True,
         vad_filter=True,
         beam_size=5,
@@ -331,10 +356,12 @@ def transcribe(request):
 
 def main():
     try:
-        line = sys.stdin.buffer.readline(65537)
-        if len(line) > 65536:
+        line = sys.stdin.buffer.readline(64 * 1024 * 1024 + 1)
+        if len(line) > 64 * 1024 * 1024:
             raise ValueError("Worker request exceeds byte limit")
         request = json.loads(line)
+        if request.get("mode") != "punctuate" and len(line) > 65536:
+            raise ValueError("Worker request exceeds byte limit")
         if request.get("mode") == "check":
             emit(
                 {
@@ -344,6 +371,25 @@ def main():
             )
         elif request.get("mode") == "transcribe":
             transcribe(request)
+        elif request.get("mode") == "punctuate":
+            from punctuation import Restorer
+
+            restorer = Restorer(request["punctuationDirectory"])
+            fragments = restorer.restore(request["fragments"])
+            # Keep each JSONL packet bounded even when a word contains folded
+            # untimed text. Main validates contiguous offsets before committing.
+            start, batch, batch_bytes = 0, [], 0
+            for fragment in fragments:
+                size = len(fragment.encode("utf-8")) + 16
+                if batch and batch_bytes + size > 128 * 1024:
+                    emit({"type": "punctuation", "start": start, "fragments": batch})
+                    start += len(batch)
+                    batch, batch_bytes = [], 0
+                batch.append(fragment)
+                batch_bytes += size
+            if batch:
+                emit({"type": "punctuation", "start": start, "fragments": batch})
+            emit({"type": "complete", "fragmentCount": len(fragments), "model": restorer.identity})
         else:
             raise ValueError("Unsupported worker mode")
     except Exception as error:

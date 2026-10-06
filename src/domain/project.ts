@@ -154,6 +154,7 @@ function parseTranscript(input: unknown): Transcript {
       "simplifiedChinese",
       "conditionOnPreviousText",
       "wordTimingReview",
+      "punctuation",
     ]);
   const words = list(v.words, parseWord, 500000);
   unique(words.map((w) => w.id));
@@ -211,6 +212,12 @@ function parseTranscript(input: unknown): Transcript {
       ...(parameters.wordTimingReview === undefined
         ? {}
         : { wordTimingReview: bool(parameters.wordTimingReview) }),
+      ...(parameters.punctuation === undefined
+        ? {}
+        : (() => {
+            const model = record(parameters.punctuation, ["id", "revision", "sha256"]);
+            return { punctuation: { id: text(model.id, 200), revision: text(model.revision, 200), sha256: text(model.sha256, 200) } };
+          })()),
     },
   };
 }

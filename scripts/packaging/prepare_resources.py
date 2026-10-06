@@ -13,7 +13,7 @@ import urllib.parse
 from common import PackagingError, download_asset, extract_tar, manifest, require_executable, safe_path, sha256, verify_asset, verify_manifest, write_json
 
 DEFAULT_LOCK = Path(__file__).resolve().parents[2] / 'packaging/resources.lock.json'
-ROLES = ('worker', 'media', 'media_source', 'decoder_source')
+ROLES = ('worker', 'media', 'punctuation', 'media_source', 'decoder_source')
 
 
 def prepare(lock_path: Path, assets_dir: Path, output: Path, layout: str, release_url: str | None = None) -> dict:
@@ -40,6 +40,7 @@ def prepare(lock_path: Path, assets_dir: Path, output: Path, layout: str, releas
     try:
         extract_tar(assets_dir / lock['assets']['worker']['file'], stage, 'runtime/worker')
         extract_tar(assets_dir / lock['assets']['media']['file'], stage, 'runtime/bin')
+        extract_tar(assets_dir / lock['assets']['punctuation']['file'], stage, 'runtime/punctuation')
         for name in ('runtime/worker/bin/python3.12', 'runtime/bin/ffmpeg', 'runtime/bin/ffprobe'):
             require_executable(stage / name)
         worker_manifest = lock.get('worker_manifest')
@@ -64,7 +65,7 @@ def prepare(lock_path: Path, assets_dir: Path, output: Path, layout: str, releas
             for entry in list(runtime.iterdir()):
                 entry.rename(stage / entry.name)
             runtime.rmdir()
-        receipt = {'schema': 1, 'layout': layout, 'lock_sha256': sha256(lock_path), 'assets': {role: lock['assets'][role] for role in ROLES}, 'files': manifest(stage), 'standalone_python': True, 'model_bundled': False}
+        receipt = {'schema': 1, 'layout': layout, 'lock_sha256': sha256(lock_path), 'assets': {role: lock['assets'][role] for role in ROLES}, 'files': manifest(stage), 'standalone_python': True, 'model_bundled': True, 'asr_model_bundled': False, 'punctuation_model_bundled': True}
         write_json(stage / 'resource-manifest.json', receipt)
         stage.rename(output)
         return receipt
@@ -87,7 +88,7 @@ def main() -> int:
     except (PackagingError, OSError, KeyError, json.JSONDecodeError) as error:
         print(f'Resource preparation failed: {error}', file=sys.stderr)
         return 1
-    print(json.dumps({'output': str(args.output), 'files': len(result['files']), 'layout': args.layout, 'model_bundled': False}))
+    print(json.dumps({'output': str(args.output), 'files': len(result['files']), 'layout': args.layout, 'model_bundled': result['model_bundled'], 'asr_model_bundled': False, 'punctuation_model_bundled': True}))
     return 0
 
 

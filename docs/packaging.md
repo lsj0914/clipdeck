@@ -6,9 +6,10 @@ The intended binary deployment floor is macOS 14 on Apple Silicon. Native tests 
 
 ## Inputs and release assets
 
-`packaging/resources.lock.json` pins complete archive names, SHA-256 values and byte lengths. Never use a floating `latest` URL, a copied virtual environment, a system FFmpeg, or an implicit Hugging Face cache. The four resource assets are:
+`packaging/resources.lock.json` pins complete archive names, SHA-256 values and byte lengths. Never use a floating `latest` URL, a copied virtual environment, a system FFmpeg, or an implicit Hugging Face cache. The five resource assets are:
 
 - `portable-worker-runtime-3.12.15-macos-arm64.tar.gz`: standalone CPython 3.12.15, 23 pinned worker dependencies, retained licenses and the required VAD resource. No Whisper model.
+- `clipdeck-punctuation-ct-transformer-8f239ff.tar.gz`: the pinned Apache-2.0 Chinese punctuation weights and vocabulary, verified again before local inference.
 - `clipdeck-media-runtime-9.0.2-macos-arm64.tar.gz`: the reviewed FFmpeg 9.0.2 and ffprobe CLIs with x264, GPL version 3 configuration, file/pipe protocols and networking disabled.
 - `clipdeck-media-corresponding-source.tar.gz`: exact FFmpeg/x264/pkgconf source inputs, configuration and build recipe for those CLIs.
 - `clipdeck-maintained-decoder-corresponding-source.tar.gz`: the maintained PyAV BSD decoder and minimal FFmpeg 8.1.2 LGPL source, modifications, build/relinking recipe and configuration. This is not the former GPL vendor wheel.
@@ -17,7 +18,7 @@ The official Electron 44.5.1 Darwin ARM64 ZIP is separately pinned in the same l
 
 The current resource set uses the neutral compiled 003 rebuild with a corrected media source recipe that creates its own log directory. The media CLIs and maintained FFmpeg decoder were compiled with `/opt/clipdeck-runtime`, relative include/library paths, and compiler source/debug mapping to `/clipdeck-build`; the PyAV wheel and standalone Python payload were prepared afresh with the same 23 dependency versions. No compiled string replacement was used. `packaging/resource-rebuild.json` binds those current assets, unchanged upstream sources and recipe inventories; `worker-wheel-inputs.json` records the exact wheel inputs. Every regular member and tar metadata were independently scanned for the identified private maintainer home/research needles, including all 95 native resource files. This named-needle scan is not a universal secret scan or a final application-source/privacy acceptance claim. Earlier 002 source-diagnostic normalization and prototypes remain historical evidence.
 
-The exact four archives are publicly available in the [resources-only prerelease](https://github.com/lsj0914/clipdeck/releases/tag/resources-bootstrap-0.1.0). It contains no accepted application ZIP or model. Use the explicit download directory below; no GitHub credentials are required or accepted by the preparation tools. A later accepted application release must also retain its exact application-source archive and these runtime/source companions.
+The exact five archives are publicly available in the [resources-only prerelease](https://github.com/lsj0914/clipdeck/releases/tag/resources-bootstrap-0.1.0). It contains no accepted application ZIP or Whisper recognition model; the punctuation model is a separate pinned resource. Use the explicit download directory below; no GitHub credentials are required or accepted by the preparation tools. A later accepted application release must also retain its exact application-source archive and these runtime/source companions.
 
 ## Prepare resources
 
@@ -30,21 +31,22 @@ python3 scripts/packaging/prepare_resources.py \
   --output ../clipdeck-resources
 ```
 
-This downloads the four exact archives into `../clipdeck-downloads`, then verifies and extracts them. For an offline preparation, place those exact archives there first and omit `--release-base-url`. Downloads are HTTPS, pinned, fail closed on changed bytes and do not use `latest`. Existing outputs are preserved. Filesystem traversal, escaping links, unexpected archive scopes and privileged modes are rejected. Executable modes and relative symlinks are retained. The prepared output contains:
+This downloads the five exact archives into `../clipdeck-downloads`, then verifies and extracts them. For an offline preparation, place those exact archives there first and omit `--release-base-url`. Downloads are HTTPS, pinned, fail closed on changed bytes and do not use `latest`. Existing outputs are preserved. Filesystem traversal, escaping links, unexpected archive scopes and privileged modes are rejected. Executable modes and relative symlinks are retained. The prepared output contains:
 
 ```text
 runtime/bin/ffmpeg
 runtime/bin/ffprobe
 runtime/worker/bin/python3.12
+runtime/punctuation/            # pinned ONNX weights and vocabulary
 worker/                       # added from the reviewed app source during assembly
 notices/
 corresponding-source/
 resource-manifest.json        # preparation receipt, kept outside the final app
 ```
 
-For development, use `--layout developer --output .runtime` in a checkout where `.runtime` does not exist. That layout produces `.runtime/bin` and `.runtime/worker`, matching the actual development resolver. If `.runtime` already exists, prepare to a fresh directory, preserve the old directory and deliberately move the verified tree into place. Do not run the older directory-only `prepare-worker` route with the new public manifest: that compatibility tool pins a different historical manifest. No package installation, global Python change or developer PATH lookup occurs in this preparation route.
+For development, use `--layout developer --output .runtime` in a checkout where `.runtime` does not exist. That layout produces `.runtime/bin`, `.runtime/worker` and `.runtime/punctuation`, matching the actual development resolver. If `.runtime` already exists, prepare to a fresh directory, preserve the old directory and deliberately move the verified tree into place. Do not run the older directory-only `prepare-worker` route with the new public manifest: that compatibility tool pins a different historical manifest. No package installation, global Python change or developer PATH lookup occurs in this preparation route.
 
-One optional real worker preflight, without a model or inference:
+One optional real worker preflight, without a Whisper recognition model or inference:
 
 ```sh
 python3 scripts/packaging/check_runtime.py \
@@ -80,7 +82,7 @@ python3 scripts/packaging/build_app.py \
   --output ../clipdeck-preview
 ```
 
-The recipe follows [Electron's documented manual packaging and rebranding](https://www.electronjs.org/docs/latest/tutorial/application-distribution). It copies the app under `Contents/Resources/app`, uses the original ClipDeck icon, renames the outer executable and every helper, and retains the framework identity. The worker script remains outside ASAR at `Contents/Resources/worker/transcribe.py`; native resources remain at exactly `Contents/Resources/runtime/{bin,worker}`. No model is bundled. Full Electron/Chromium, Mantle/ReactiveObjC, media, worker and current frontend/font licenses are retained. Matching application, media and maintained decoder source archives travel inside `corresponding-source`.
+The recipe follows [Electron's documented manual packaging and rebranding](https://www.electronjs.org/docs/latest/tutorial/application-distribution). It copies the app under `Contents/Resources/app`, uses the original ClipDeck icon, renames the outer executable and every helper, and retains the framework identity. The worker scripts remain outside ASAR at `Contents/Resources/worker/{transcribe,punctuation}.py`; resources remain at exactly `Contents/Resources/runtime/{bin,worker,punctuation}`. The pinned punctuation model is bundled; Whisper recognition models require explicit setup. Full Electron/Chromium, Mantle/ReactiveObjC, media, worker and current frontend/font licenses are retained. Matching application, media and maintained decoder source archives travel inside `corresponding-source`.
 
 The official ZIP omits the base helper's empty `Contents/Resources`. The recipe creates that real readable 0755 directory before signing, independently of developer Electron preparation. A prior moved prototype still logged `sandbox_extension_issue_file ... Helper.app/Contents/Resources: EPERM` although the directory existed and normal startup/preflight/close succeeded. Focused API probes established an extension-issuance denial, not a missing directory. The upper private Apple caller remains unproven. Preserve any warning; do not hide stderr, add `--no-sandbox`, change Electron's renderer sandbox, or claim the warning is harmless on all systems.
 
@@ -154,7 +156,7 @@ python3 scripts/packaging/normalize_sources.py \
   --receipt ../public-assets/decoder-normalization.json
 ```
 
-Compare historical outputs to `source-normalization.json`, not the current lock. They are not current release assets. Current preparation uses the four exact 003 identities in `resources.lock.json` unchanged, and checks the complete current worker manifest and notice metadata. Keep old archives and receipts preserved when upgrading; never replace an asset silently.
+Compare historical outputs to `source-normalization.json`, not the current lock. They are not current release assets. Current preparation preserves the four exact 003 runtime/source identities and adds the separately pinned punctuation archive in `resources.lock.json`, and checks the complete current worker manifest and notice metadata. Keep old archives and receipts preserved when upgrading; never replace an asset silently.
 
 The media runtime archive is reproducible from the reviewed executable pair:
 

@@ -5,6 +5,13 @@ import type { Project } from "../../shared/contracts";
 import { serializeProject, validateProject } from "../../domain/project";
 import { SourceRegistry, MediaService } from "./media";
 export const PROJECT_BYTE_LIMIT = 64 * 1024 * 1024;
+interface SourceGrant {
+  projectFile: string;
+  projectId: string;
+  assetId: string;
+  fingerprint: string;
+  source: string;
+}
 async function readBounded(file: string, limit: number): Promise<string> {
   const handle = await open(file, "r");
   try {
@@ -90,11 +97,47 @@ export class ProjectStore {
   private recoveryRevision = -1;
   private recoveryProjectId: string | null = null;
   private queue: Promise<void> = Promise.resolve();
+  private grantQueue: Promise<void> = Promise.resolve();
+  private get grantPath(): string {
+    return path.join(path.dirname(this.recoveryPath), "source-grants.json");
+  }
   constructor(
     readonly recoveryPath: string,
     readonly sources: SourceRegistry,
     readonly media?: MediaService,
   ) {}
+  private async grants(): Promise<SourceGrant[]> {
+    let value: unknown;
+    try {
+      value = JSON.parse(await readBounded(this.grantPath, PROJECT_BYTE_LIMIT));
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") return [];
+      throw error;
+    }
+    if (!Array.isArray(value) || value.length > 10000)
+      throw new Error("Invalid local source authorization record");
+    return value.filter((row): row is SourceGrant =>
+      row && typeof row === "object" &&
+      [row.projectFile, row.projectId, row.assetId, row.fingerprint, row.source]
+        .every(value => typeof value === "string" && value.length <= 10000) &&
+      path.isAbsolute(row.projectFile) && path.isAbsolute(row.source),
+    );
+  }
+  private async remember(p: Project, target: string, approved: Map<string, string>): Promise<void> {
+    if (!approved.size) return;
+    const additions = p.assets.flatMap(asset => {
+      const source = approved.get(asset.id);
+      return source ? [{ projectFile: target, projectId: p.id, assetId: asset.id, fingerprint: asset.fingerprint, source }] : [];
+    });
+    const operation = this.grantQueue.catch(() => {}).then(async () => {
+      const previous = await this.grants();
+      const matching = (a: SourceGrant, b: SourceGrant) => a.projectFile === b.projectFile && a.projectId === b.projectId && a.assetId === b.assetId;
+      const combined = previous.filter(old => !additions.some(next => matching(old, next))).concat(additions).slice(-10000);
+      await atomicJson(this.grantPath, combined);
+    });
+    this.grantQueue = operation;
+    await operation;
+  }
   private async data(p: Project, target: string) {
     const approved = new Map(
       this.sources.ids().map((id) => [id, this.sources.resolve(id)]),
@@ -102,6 +145,9 @@ export class ProjectStore {
     await mkdir(path.dirname(target), { recursive: true });
     const root = await realpath(path.dirname(target));
     const result = serializeProject(p);
+    // Only main-owned paths selected/imported through native dialogs can enter
+    // this private ledger. It is never included in the portable project file.
+    await this.remember(p, path.join(root, path.basename(target)), approved);
     result.assets = result.assets.map((a) => {
       try {
         const source = approved.get(a.id);
@@ -172,11 +218,22 @@ export class ProjectStore {
     return saved;
   }
   private async approve(p: Project, file: string): Promise<Project> {
+    await this.grantQueue.catch(() => {});
+    let grants: SourceGrant[] = [];
+    try { grants = await this.grants(); } catch { /* Fail closed; native relink remains available. */ }
     this.sources.clear();
     const assets = [];
     for (const asset of p.assets) {
       try {
-        const source = await resolveProjectReference(file, asset.fileRef);
+        let source: string;
+        try {
+          source = await resolveProjectReference(file, asset.fileRef);
+        } catch {
+          const candidate = await realpath(path.resolve(path.dirname(file), asset.fileRef));
+          if (!grants.some(grant => grant.projectFile === file && grant.projectId === p.id && grant.assetId === asset.id && grant.fingerprint === asset.fingerprint && grant.source === candidate))
+            throw new Error("External source requires native relink authorization");
+          source = candidate;
+        }
         if (!this.media) throw new Error("Media service unavailable");
         assets.push(await this.media.relink(asset, source));
       } catch {
