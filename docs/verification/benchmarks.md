@@ -1,10 +1,16 @@
 # Reproducible native and renderer benchmarks
 
-These measurements cover specific development workloads on one Mac. They do not establish a universal speed claim, packaged installation acceptance, native file-picker use or human listening/viewing. The full R17 and Task 5 gates include separate correctness and independent-review evidence.
+These historical measurements cover specific development workloads on one Mac. Their exact source commits and resource identities are retained below; they are not measurements of the later continuous transcript UI, independent-window ASR policy or neutral resource rebuild. Current renderer remeasurement and whole-recording desktop acceptance remain pending. They do not establish a universal speed claim, packaged installation acceptance, native file-picker use or human listening/viewing.
+
+## Public-source native CI
+
+[GitHub Actions run 37460832685](https://github.com/lsj0914/clipdeck/actions/runs/37460832685), attempt 2, verified public source `67cb80e669eeae454a399e37220e2c234a1c07e7` on macOS **15.7.9 ARM64**, Node **24.20.0** and Electron **44.5.1**. All 22 TypeScript test files passed: **238 cases passed, 12 fixture-gated cases skipped**. The skipped cases require separately provisioned recorded speech, Turbo, codec or workspace inference fixtures; this is not 250 executed cases or a speech accuracy test. Locked runtime preparation, explicit pinned Small-model acquisition, Node offline instrumentation, typecheck/build and sandboxed startup/close also passed. The fresh app profile had no selected model, so startup correctly reported transcription unavailable. Three retained Apple backupd XPC diagnostics did not prevent startup or close.
+
+The initial attempt started before the resource draft existed, so its resource fetch failed and native job was skipped; the failed attempt remains visible. After all four exact assets were uploaded, only the failed/dependent jobs were rerun. This source-era bootstrap result is separate from later anonymous-download CI and final packaged workflow acceptance.
 
 ## Renderer: 50,000 words and 500 cuts
 
-The retained current-build measurement uses source commit `e35b0975f721d17284f03489bd742a7f1129010c`: three fresh Electron processes, each with a first cohort and three warm cohorts. Nine actual editing operations have 12 samples each, **108 interaction samples** in total. Every operation's p95 is at most 200 ms; adding all 50,000 selected words has p95 **173.2 ms**. The prior **434.9 ms** failure is retained and is not dropped from the record. Pooled interaction p95 is 164.4 ms; project-open p95 254.2 ms is separate from editing.
+The retained historical measurement uses source commit `e35b0975f721d17284f03489bd742a7f1129010c`: three fresh Electron processes, each with a first cohort and three warm cohorts. Nine actual editing operations have 12 samples each, **108 interaction samples** in total. Every operation's p95 is at most 200 ms; adding all 50,000 selected words has p95 **173.2 ms**. The prior **434.9 ms** failure is retained and is not dropped from the record. Pooled interaction p95 is 164.4 ms; project-open p95 254.2 ms is separate from editing.
 
 | Operation | First-cohort p95 ms | Warm p95 ms | All 12 p95 ms |
 | --- | ---: | ---: | ---: |

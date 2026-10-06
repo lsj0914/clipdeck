@@ -2,7 +2,7 @@
 
 ClipDeck application source is **GPL-3.0-or-later**. The preview bundle uses ad-hoc signing. It is **not Developer ID signed or notarized**. Gatekeeper may reject a downloaded preview; this project does not ask users to disable security protections. A reviewed source build is the supported alternative until a signed distribution exists.
 
-The intended binary deployment floor is macOS 14 on Apple Silicon. Execution has been checked on macOS 27.0.1 ARM64; macOS 14 execution, Intel Macs, Windows and Linux are unverified. A Mach-O minimum-version field is build metadata, not evidence of execution on an older system.
+The intended binary deployment floor is macOS 14 on Apple Silicon. Native tests and sandboxed startup have run on macOS 15.7.9 ARM64 in GitHub Actions and macOS 27.0.1 ARM64 locally; complete moved-package workflow acceptance remains separate. macOS 14 execution, Intel Macs, Windows and Linux are unverified. A Mach-O minimum-version field is build metadata, not evidence of execution on an older system.
 
 ## Inputs and release assets
 
@@ -17,7 +17,7 @@ The official Electron 44.5.1 Darwin ARM64 ZIP is separately pinned in the same l
 
 The current resource set uses the neutral compiled 003 rebuild with a corrected media source recipe that creates its own log directory. The media CLIs and maintained FFmpeg decoder were compiled with `/opt/clipdeck-runtime`, relative include/library paths, and compiler source/debug mapping to `/clipdeck-build`; the PyAV wheel and standalone Python payload were prepared afresh with the same 23 dependency versions. No compiled string replacement was used. `packaging/resource-rebuild.json` binds those current assets, unchanged upstream sources and recipe inventories; `worker-wheel-inputs.json` records the exact wheel inputs. Every regular member and tar metadata were independently scanned for the identified private maintainer home/research needles, including all 95 native resource files. This named-needle scan is not a universal secret scan or a final application-source/privacy acceptance claim. Earlier 002 source-diagnostic normalization and prototypes remain historical evidence.
 
-A maintainer must publish the locked resource assets and corresponding-source archives together with the preview and its exact application-source archive. Availability on a draft release is not a public download claim. Supply the release URL explicitly after it exists. For a private draft, use an authenticated GitHub download outside this script, then use the local archive route. No credentials are accepted by these tools.
+The exact four archives are publicly available in the [resources-only prerelease](https://github.com/lsj0914/clipdeck/releases/tag/resources-bootstrap-0.1.0). It contains no accepted application ZIP or model. Use the explicit download directory below; no GitHub credentials are required or accepted by the preparation tools. A later accepted application release must also retain its exact application-source archive and these runtime/source companions.
 
 ## Prepare resources
 
@@ -26,10 +26,11 @@ These tools use the Python standard library. On a Mac, Apple's command-line tool
 ```sh
 python3 scripts/packaging/prepare_resources.py \
   --assets-dir ../clipdeck-downloads \
+  --release-base-url https://github.com/lsj0914/clipdeck/releases/download/resources-bootstrap-0.1.0 \
   --output ../clipdeck-resources
 ```
 
-Put the four exact local assets in `../clipdeck-downloads` first. Alternatively add `--release-base-url https://github.com/OWNER/REPO/releases/download/REVIEWED_TAG`; replace the placeholder with the actual reviewed release directory. Downloads are HTTPS, pinned, fail closed on changed bytes and do not use `latest`. Existing outputs are preserved. Filesystem traversal, escaping links, unexpected archive scopes and privileged modes are rejected. Executable modes and relative symlinks are retained. The prepared output contains:
+This downloads the four exact archives into `../clipdeck-downloads`, then verifies and extracts them. For an offline preparation, place those exact archives there first and omit `--release-base-url`. Downloads are HTTPS, pinned, fail closed on changed bytes and do not use `latest`. Existing outputs are preserved. Filesystem traversal, escaping links, unexpected archive scopes and privileged modes are rejected. Executable modes and relative symlinks are retained. The prepared output contains:
 
 ```text
 runtime/bin/ffmpeg

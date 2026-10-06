@@ -26,6 +26,6 @@ Explain the concrete before/after behavior, validation and remaining limits in a
 
 ## Release work
 
-[Packaging guide](docs/packaging.md) documents immutable resources, source matching, signatures, licenses and the separate full-workflow gates. During bootstrap, ordinary pull requests run unit checks; native Actions uses a trusted default-branch job to read the unpublished resource draft. No fork code runs with write permission. Once resources are public, the bootstrap will be replaced with anonymous pinned downloads and native PR checks.
+[Packaging guide](docs/packaging.md) documents immutable resources, source matching, signatures, licenses and the separate full-workflow gates. Unit and native Actions run for pushes and pull requests, including forks. Native preparation downloads anonymously from the fixed [public resource release](https://github.com/lsj0914/clipdeck/releases/tag/resources-bootstrap-0.1.0) and verifies locked sizes/hashes. Repository contents permission is read-only, checkout credentials are not retained, and there is no privileged draft-resource job.
 
 Contributions are distributed under GPL-3.0-or-later. Retain third-party notices and only use demo media whose redistribution rights are recorded.

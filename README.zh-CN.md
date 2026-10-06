@@ -27,11 +27,11 @@ ClipDeck 是一个本地文字剪辑工具，面向访谈、课程、播客和�
 - 完整原片预览与成片输出最长六小时。更长的素材仍能导入、编辑并导出较短选段；如需完整原片播放，请先拆分。预览缓存最多八份、4 GiB；成片处理中间文件上限 16 GiB。预览不可用时仍可以继续文字编辑。
 - 首版不包含云账号、自动爆款评分、字幕、特效、协作或专业剪辑工程格式导出。
 
-预期二进制最低版本是 macOS 14、ARM64。目前本地实际检查在 macOS 27.0.1 进行；旧版本系统、Intel Mac、Windows、Linux 尚未验证。预览安装包使用临时签名，尚无 Developer ID 签名与公证。[安装包说明](docs/packaging.md) 记录具体边界。
+预期二进制最低版本是 macOS 14、ARM64。原生测试与沙箱启动已在 GitHub Actions 的 macOS 15.7.9 和本地 macOS 27.0.1 运行；macOS 14、Intel Mac、Windows、Linux 尚未验证。这些检查不代表完整安装包操作流程已通过。预览安装包使用临时签名，尚无 Developer ID 签名与公证。[安装包说明](docs/packaging.md) 记录具体边界。
 
 ## 开发
 
-使用 Node 24。依赖、媒体引擎和 Python 运行时都有固定版本与完整性校验。安装与验证步骤见 [英文 README](README.md#develop-and-verify) 和 [贡献说明](CONTRIBUTING.md)。原始录音与生成测试素材在验证报告里分别注明，界面成功打开不等于完整流程通过。
+使用 Node 24。依赖、媒体引擎和 Python 运行时都有固定版本与完整性校验。四份运行资源与对应源码已在 [资源预发布页](https://github.com/lsj0914/clipdeck/releases/tag/resources-bootstrap-0.1.0) 公开；开发准备会直接下载并校验，无需 GitHub 登录。这是资源下载，程序安装包仍在验收。安装与验证步骤见 [英文 README](README.md#develop-and-verify) 和 [贡献说明](CONTRIBUTING.md)。原始录音与生成测试素材在验证报告里分别注明，界面成功打开不等于完整流程通过。
 
 ## 开源许可
 

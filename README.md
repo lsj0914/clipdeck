@@ -27,7 +27,7 @@ The core is multi-source speech editing rather than a traditional effects timeli
 - Full-source preview and the assembled output are limited to six hours. Longer sources can still be imported and edited, with shorter selections exported; split the source if you need full-source playback. Preview cache: eight owned artifacts and 4 GiB; assembly staging: 16 GiB. Text editing remains available when preview is unavailable.
 - No cloud account, automatic highlight scoring, subtitles, effects, collaboration or professional project-format export in this first release.
 
-The intended binary floor is macOS 14 on ARM64. Actual local checks have run on macOS 27.0.1; earlier OS execution and Intel/Windows/Linux are unverified. Preview packaging is ad-hoc signed, without Developer ID signing or notarization. See [packaging and distribution status](docs/packaging.md).
+The intended binary floor is macOS 14 on ARM64. Native tests and sandboxed startup have run on macOS 15.7.9 in GitHub Actions and macOS 27.0.1 locally; macOS 14 execution and Intel/Windows/Linux are unverified. These checks do not establish the complete packaged desktop workflow. Preview packaging is ad-hoc signed, without Developer ID signing or notarization. See [packaging and distribution status](docs/packaging.md).
 
 ## Develop and verify
 
@@ -36,7 +36,7 @@ Use Node 24 and the locked dependencies. The Python/media resources are exact pi
 ```sh
 npm ci
 npm run prepare:electron
-python3 scripts/packaging/prepare_resources.py --assets-dir ../clipdeck-downloads --output .runtime --layout developer
+python3 scripts/packaging/prepare_resources.py --assets-dir ../clipdeck-downloads --release-base-url https://github.com/lsj0914/clipdeck/releases/download/resources-bootstrap-0.1.0 --output .runtime --layout developer
 node scripts/ci/prepare-model.mjs
 npm run typecheck
 npm test -- --maxWorkers=2
@@ -44,7 +44,7 @@ npm run build
 npm start
 ```
 
-The preparation step requires the four locked archives from the resource release; they are currently being prepared for publication. [Packaging guide](docs/packaging.md) documents their identities, corresponding sources and complete preparation route. The CI model helper explicitly downloads the pinned Small model to its canonical test cache; it verifies cache hits and rejects corrupt existing content.
+The four exact runtime/source archives are available in the [resources-only prerelease](https://github.com/lsj0914/clipdeck/releases/tag/resources-bootstrap-0.1.0). Preparation downloads anonymously and verifies every pinned size and hash; this resource release is separate from an accepted application download. [Packaging guide](docs/packaging.md) documents the complete route. The CI model helper explicitly downloads the pinned Small model to its canonical test cache; it verifies cache hits and rejects corrupt existing content.
 
 The repository also separates resource-free unit checks from native checks. [Contributing](CONTRIBUTING.md) has the exact commands. A successful bundle build or desktop smoke is not evidence of the complete import-to-export workflow. Fixture-gated ASR checks are explicitly skipped when their recordings are absent. [Benchmark notes](docs/verification/benchmarks.md) distinguish generated fixtures, recorded speech, fresh processes, filesystem-warm runs and measured limits.
 
