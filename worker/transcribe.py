@@ -164,7 +164,7 @@ def decode_options(language, vocabulary, tokenizer):
     }
 
 
-def normalize_words(words, duration_ms):
+def normalize_words(words, duration_ms, *, fold_leading=True):
     result = []
     untimed = 0
     prefix = ""
@@ -189,17 +189,27 @@ def normalize_words(words, duration_ms):
             untimed += 1
             if result:
                 result[-1]["text"] += text
+                if text:
+                    result[-1]["timingNeedsReview"] = True
             else:
                 prefix += text
             continue
-        result.append({"text": prefix + text, "startMs": int(s), "endMs": int(e)})
+        anchor = {
+            "text": (prefix if fold_leading else "") + text,
+            "startMs": int(s),
+            "endMs": int(e),
+        }
+        if prefix and fold_leading:
+            anchor["timingNeedsReview"] = True
+        result.append(anchor)
         prefix = ""
     return (result, untimed)
 
 
 def normalize_batch(words, duration_ms):
     batch = list(words)
-    normalized, count = normalize_words(batch, duration_ms)
+    # Main transfers batch-leading text; flag only anchors retaining folded text here.
+    normalized, count = normalize_words(batch, duration_ms, fold_leading=False)
     leading = ""
     for word in batch:
         start = min(duration_ms, round(float(word.start) * 1000))
@@ -207,8 +217,6 @@ def normalize_batch(words, duration_ms):
         if end > start:
             break
         leading += str(word.word)
-    if leading and normalized:
-        normalized[0]["text"] = normalized[0]["text"][len(leading) :]
     return normalized, count, leading
 
 
@@ -256,6 +264,7 @@ def transcribe(request):
         **identity,
         "simplifiedChinese": language == "zh",
         "conditionOnPreviousText": decode["condition_on_previous_text"],
+        "wordTimingReview": True,
     }
     model = WhisperModel(
         request["modelDirectory"],

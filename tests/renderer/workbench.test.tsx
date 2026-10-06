@@ -247,6 +247,102 @@ afterEach(() => {
   Reflect.deleteProperty(HTMLElement.prototype, "scrollTo");
   vi.unstubAllGlobals();
 });
+describe("uncertain word timing recovery", () => {
+  it("blocks a packed phrase cut and audition, then adds an explicitly adjusted manual range", async () => {
+    const state = fixture();
+    const transcript = state.project.transcripts[0]!;
+    transcript.parameters.wordTimingReview = true;
+    transcript.words[0] = {
+      id: "w1",
+      text: "A phrase without word timing",
+      startMs: 1000,
+      endMs: 1040,
+      timingNeedsReview: true,
+    };
+    const b = bridge(state);
+    render(<App api={b.api} />);
+    fireEvent.click(await screen.findByRole("button", {
+      name: "A phrase without word timing · Timing needs review",
+    }));
+    expect(screen.getByRole("button", { name: "Add selection" })).toHaveProperty("disabled", true);
+    expect(screen.getByRole("button", { name: "Audition" })).toHaveProperty("disabled", true);
+    fireEvent.click(screen.getByRole("button", { name: "Add selection" }));
+    fireEvent.keyDown(window, { key: "e" });
+    expect(b.api.applyEdit).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Review time range" }));
+    expect(screen.getByRole("heading", { name: "Review passage timing" })).toBeTruthy();
+    expect(screen.getByLabelText("Selection in")).toHaveProperty("value", "00:00.000");
+    expect(screen.getByLabelText("Selection out")).toHaveProperty("value", "00:03.040");
+    fireEvent.change(screen.getByLabelText("Selection in"), { target: { value: "1.000" } });
+    fireEvent.change(screen.getByLabelText("Selection out"), { target: { value: "2.500" } });
+    fireEvent.click(screen.getByRole("button", { name: "Audition range" }));
+    expect(screen.getByLabelText("Source video")).toHaveProperty("currentTime", 1);
+    fireEvent.click(screen.getByRole("button", { name: "Add range" }));
+    await waitFor(() => expect(b.get().project.cuts).toHaveLength(1));
+    expect(b.get().project.cuts[0]).toMatchObject({
+      startMs: 1000, endMs: 2500, wordIds: [], transcriptRevision: null,
+    });
+    expect(b.get().project.transcripts[0]!.words[0]).toEqual(transcript.words[0]);
+  });
+  it("blocks an uncertain overlapping interior word that supplies the actual out boundary", async () => {
+    const state = fixture();
+    const transcript = state.project.transcripts[0]!;
+    transcript.parameters.wordTimingReview = true;
+    transcript.words[1] = { ...transcript.words[1]!, endMs: 4500, timingNeedsReview: true };
+    const b = bridge(state);
+    render(<App api={b.api} />);
+    fireEvent.click(await screen.findByRole("button", { name: "今天" }));
+    fireEvent.click(screen.getByRole("button", { name: "开始。" }), { shiftKey: true });
+    expect(screen.getByRole("button", { name: "Add selection" })).toHaveProperty("disabled", true);
+    expect(screen.getByRole("button", { name: "Audition" })).toHaveProperty("disabled", true);
+    fireEvent.keyDown(window, { key: "e" });
+    expect(b.api.applyEdit).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: "Review time range" })).toBeTruthy();
+  });
+  it("retains an interior timing warning while allowing healthy passage boundaries", async () => {
+    const state = fixture();
+    const transcript = state.project.transcripts[0]!;
+    transcript.parameters.wordTimingReview = true;
+    transcript.words[1]!.timingNeedsReview = true;
+    const b = bridge(state);
+    render(<App api={b.api} />);
+    fireEvent.click(await screen.findByRole("button", { name: "今天" }));
+    fireEvent.click(screen.getByRole("button", { name: "开始。" }), { shiftKey: true });
+    expect(screen.getByText("Some selected text has uncertain word timing. Listen to the passage before keeping it.")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Add selection" })).toHaveProperty("disabled", false);
+    fireEvent.click(screen.getByRole("button", { name: "Add selection" }));
+    await waitFor(() => expect(b.get().project.cuts).toHaveLength(1));
+    expect(b.get().project.cuts[0]).toMatchObject({ startMs: 1000, endMs: 2600, wordIds: ["w1", "w2", "w3"] });
+  });
+  it("explains legacy timing provenance without rewriting a saved transcript", async () => {
+    const state = fixture();
+    const before = structuredClone(state.project.transcripts);
+    const b = bridge(state);
+    render(<App api={b.api} />);
+    expect(await screen.findByText("This saved transcript does not identify uncertain word timing. Listen before cutting, or transcribe again.")).toBeTruthy();
+    expect(b.get().project.transcripts).toEqual(before);
+    expect(b.api.applyEdit).not.toHaveBeenCalled();
+  });
+  it("does not carry a timing-review draft into a different project", async () => {
+    const state = fixture();
+    state.project.transcripts[0]!.parameters.wordTimingReview = true;
+    state.project.transcripts[0]!.words[0]!.timingNeedsReview = true;
+    const b = bridge(state);
+    render(<App api={b.api} />);
+    fireEvent.click(await screen.findByRole("button", { name: "今天 · Timing needs review" }));
+    fireEvent.click(screen.getByRole("button", { name: "Review time range" }));
+    fireEvent.change(screen.getByLabelText("Selection in"), { target: { value: "3.000" } });
+    const next = fixture();
+    next.project.id = "another-project";
+    act(() => b.emit(next));
+    await screen.findByRole("button", { name: "今天" });
+    fireEvent.click(screen.getByRole("button", { name: "Range" }));
+    expect(screen.getByLabelText("Selection in")).toHaveProperty("value", "00:00.000");
+    expect(screen.getByLabelText("Selection out")).toHaveProperty("value", "00:10.000");
+    expect(screen.queryByRole("heading", { name: "Review passage timing" })).toBeNull();
+    expect(b.api.applyEdit).not.toHaveBeenCalled();
+  });
+});
 describe("actual bridge workbench interactions", () => {
   it("seeks words, extends backward inclusively and adds distinct revision-bound cuts", async () => {
     const b = bridge();
@@ -407,6 +503,26 @@ describe("keyboard and asynchronous workspace states", () => {
     fireEvent.click(screen.getByRole("button", { name: "Add selection" }));
     await waitFor(() => expect(b.get().project.cuts).toHaveLength(1));
     expect(b.get().project.cuts[0]!.wordIds).toEqual(["w1", "w2", "w3"]);
+  });
+  it("shows an untimed live passage without allowing draft text into the assembly", async () => {
+    const state = fixture();
+    state.project.transcripts = [];
+    state.transcriptionDrafts = {
+      "source-one": {
+        assetId: "source-one",
+        language: "zh",
+        words: [],
+        segments: [{ id: "untimed-live", text: "A live passage awaiting word timing", startMs: 1000, endMs: 2000, wordIds: [] }],
+      },
+    };
+    const b = bridge(state);
+    render(<App api={b.api} />);
+    expect(await screen.findByText("A live passage awaiting word timing")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Review passage timing" })).toHaveProperty("disabled", true);
+    expect(screen.getByRole("button", { name: "Select all timed text" })).toHaveProperty("disabled", true);
+    expect(screen.queryByRole("button", { name: "Add selection" })).toBeNull();
+    fireEvent.keyDown(window, { key: "e" });
+    expect(b.api.applyEdit).not.toHaveBeenCalled();
   });
   it("renders partial transcription without allowing draft words into the assembly", async () => {
     const state = fixture(),

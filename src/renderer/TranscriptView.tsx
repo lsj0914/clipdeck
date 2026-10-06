@@ -1,6 +1,6 @@
 import { useLocale } from "./locale";
-import { readingGroups, phraseMatches, wordSeparator } from "./reading";
-import React, { useMemo, useRef, useState, useEffect } from "react";
+import { transcriptRows, transcriptMatches, wordSeparator } from "./reading";
+import React, { useMemo, useRef, useState, useEffect, useId } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import type { TimedWord, Transcript } from "../shared/contracts";
 import { time } from "./format";
@@ -16,6 +16,8 @@ interface Props {
   currentMs: number;
   addedWords: Set<string>;
   draft?: boolean;
+  timingProvenanceKnown?: boolean;
+  onReviewTimingRange?: (startMs: number, endMs: number) => void;
 }
 export function TranscriptView({
   transcript,
@@ -24,23 +26,33 @@ export function TranscriptView({
   currentMs,
   addedWords,
   draft = false,
+  timingProvenanceKnown = false,
+  onReviewTimingRange,
 }: Props) {
   const { t } = useLocale();
+  const timingNoteId = useId();
+  const hasTimingIssues = useMemo(
+    () => transcript.words.some((w) => w.timingNeedsReview),
+    [transcript.words],
+  );
   const scroller = useRef<HTMLDivElement>(null),
     dragging = useRef(false),
     [query, setQuery] = useState(""),
     [matchIndex, setMatchIndex] = useState(0),
     [focused, setFocused] = useState(0);
   const groups = useMemo(
-    () => readingGroups(transcript.words),
-    [transcript.words],
+    () => transcriptRows(transcript),
+    [transcript.words, transcript.segments],
   );
+  const hasUntimedText = groups.some((row) => row.kind === "untimed");
   const index = useMemo(
     () => new Map(transcript.words.map((w, i) => [w.id, i])),
     [transcript],
   );
   const wordGroup = useMemo(
-    () => new Map(groups.flatMap((g, i) => g.map((w) => [w.id, i] as const))),
+    () => new Map(groups.flatMap((g, i) =>
+      g.kind === "timed" ? g.words.map((w) => [w.id, i] as const) : [],
+    )),
     [groups],
   );
   const virtual = useVirtualizer({
@@ -61,8 +73,8 @@ export function TranscriptView({
   const a = selection ? (index.get(selection.anchor) ?? -1) : -1,
     b = selection ? (index.get(selection.focus) ?? -1) : -1;
   const matches = useMemo(
-    () => phraseMatches(transcript.words, query),
-    [query, transcript.words],
+    () => transcriptMatches(groups, transcript.words, query),
+    [query, transcript.words, groups],
   );
   const match = matches[matchIndex % (matches.length || 1)];
   function focusWord(position: number, extend: boolean) {
@@ -106,7 +118,7 @@ export function TranscriptView({
     const first = matches[0];
     if (first)
       virtual.scrollToIndex(
-        wordGroup.get(transcript.words[first.start]!.id) ?? 0,
+        first.row,
         { align: "center" },
       );
   }, [query]);
@@ -115,7 +127,7 @@ export function TranscriptView({
     const nextIndex = (matchIndex + delta + matches.length) % matches.length;
     setMatchIndex(nextIndex);
     virtual.scrollToIndex(
-      wordGroup.get(transcript.words[matches[nextIndex]!.start]!.id) ?? 0,
+      matches[nextIndex]!.row,
       { align: "center" },
     );
   }
@@ -227,9 +239,9 @@ export function TranscriptView({
               {t("Next")}
             </button>
             <button
-              disabled={!match || draft}
+              disabled={!match || match.kind === "untimed" || draft}
               onClick={() => {
-                if (match) {
+                if (match?.kind === "timed") {
                   onSelect(transcript.words[match.start]!.id, false);
                   onSelect(transcript.words[match.end]!.id, true);
                 }
@@ -246,12 +258,19 @@ export function TranscriptView({
             onSelect(transcript.words.at(-1)!.id, true);
           }}
         >
-          {t("Select all text")}
+          {t(hasUntimedText ? "Select all timed text" : "Select all text")}
         </button>
         <span className="reading-hint">
           {t("Click to seek \u00b7 Shift-click to select")}
         </span>
       </div>
+      {(hasTimingIssues || (!draft && !timingProvenanceKnown)) && (
+        <p id={timingNoteId} className="transcript-timing-note" role="note">
+          {hasTimingIssues
+            ? t("Underlined passages have uncertain word timing. Use a time range to check them.")
+            : t("This saved transcript does not identify uncertain word timing. Listen before cutting, or transcribe again.")}
+        </p>
+      )}
       <div
         ref={scroller}
         className="transcript-scroll"
@@ -298,7 +317,36 @@ export function TranscriptView({
           style={{ height: virtual.getTotalSize() }}
         >
           {virtual.getVirtualItems().map((row) => {
-            const words = groups[row.index]!;
+            const group = groups[row.index]!;
+            if (group.kind === "untimed") {
+              const segment = group.segment;
+              return (
+                <div
+                  key={row.key}
+                  data-index={row.index}
+                  ref={virtual.measureElement}
+                  className="transcript-paragraph transcript-untimed"
+                  style={{ transform: `translateY(${row.start}px)` }}
+                >
+                  <span className="paragraph-time">{time(segment.startMs)}</span>
+                  <div>
+                    <p className={match?.kind === "untimed" && match.row === row.index ? "search-match" : undefined}>
+                      {segment.text}
+                    </p>
+                    <div className="untimed-review">
+                      <span>{t("This passage has no word timing. Listen and set a time range.")}</span>
+                      <button
+                        disabled={draft || !onReviewTimingRange}
+                        onClick={() => onReviewTimingRange?.(segment.startMs, segment.endMs)}
+                      >
+                        {t("Review passage timing")}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            }
+            const words = group.words;
             return (
               <div
                 key={row.key}
@@ -325,7 +373,10 @@ export function TranscriptView({
                           data-position={position}
                           data-word={word.id}
                           tabIndex={focused === position ? 0 : -1}
-                          className={`word${selected ? " selected" : ""}${selected && position === Math.min(a, b) ? " selection-start" : ""}${selected && position === Math.max(a, b) ? " selection-end" : ""}${match && position >= match.start && position <= match.end ? " search-match" : ""}${active ? " playing" : ""}${addedWords.has(word.id) ? " added" : ""}`}
+                          className={`word${selected ? " selected" : ""}${selected && position === Math.min(a, b) ? " selection-start" : ""}${selected && position === Math.max(a, b) ? " selection-end" : ""}${match?.kind === "timed" && position >= match.start && position <= match.end ? " search-match" : ""}${active ? " playing" : ""}${addedWords.has(word.id) ? " added" : ""}${word.timingNeedsReview ? " timing-review" : ""}`}
+                          aria-label={word.timingNeedsReview ? `${word.text} · ${t("Timing needs review")}` : undefined}
+                          aria-describedby={word.timingNeedsReview ? timingNoteId : undefined}
+                          title={word.timingNeedsReview ? t("Timing needs review") : undefined}
                           aria-pressed={selected}
                           onClick={(e) => {
                             if (!draft && e.detail === 0) {

@@ -16,7 +16,10 @@ import type {
   OutputPreset,
   WorkspaceSnapshot,
 } from "../shared/contracts";
-import { selectionToCut } from "../domain/selection";
+import {
+  selectionToCut,
+  selectionBoundaryNeedsTimingReview,
+} from "../domain/selection";
 import { TranscriptView, type WordSelection } from "./TranscriptView";
 import {
   CutInspector,
@@ -70,6 +73,11 @@ function Workbench({ api = window.clipdeck }: { api?: ClipDeckAPI }) {
     [view, setView] = useState<"source" | "assembly">("source"),
     [panel, setPanel] = useState<"video" | "inspector">("video"),
     [rangeMode, setRangeMode] = useState(false),
+    [timingRange, setTimingRange] = useState<{
+      assetId: string;
+      startMs: number;
+      endMs: number;
+    } | null>(null),
     [sourcesOpen, setSourcesOpen] = useState(false),
     [queueOpen, setQueueOpen] = useState(false),
     [helpOpen, setHelpOpen] = useState(false),
@@ -281,11 +289,15 @@ function Workbench({ api = window.clipdeck }: { api?: ClipDeckAPI }) {
   const selectionDuration = selectedWords.length
     ? selectionEnd - selectedWords[0]!.startMs
     : 0;
+  const selectionTimingUnsafe = selectionBoundaryNeedsTimingReview(selectedWords);
+  const selectionHasTimingIssues = selectedWords.some((w) => w.timingNeedsReview);
+  const currentTimingRange = timingRange?.assetId === asset?.id ? timingRange : null;
   useEffect(() => {
     setSelection(null);
     setCorrectionOpen(false);
     setCurrentMs(0);
     setRangeMode(false);
+    setTimingRange(null);
     setView("source");
     setPlaying(false);
     stopAudition(true);
@@ -724,6 +736,7 @@ function Workbench({ api = window.clipdeck }: { api?: ClipDeckAPI }) {
     }
   }
   async function addSelection() {
+    if (rangeMode || readingMode !== "source") return;
     if (
       !asset ||
       asset.status !== "ready" ||
@@ -733,6 +746,10 @@ function Workbench({ api = window.clipdeck }: { api?: ClipDeckAPI }) {
       busyRef.current
     ) {
       setSelection(null);
+      return;
+    }
+    if (selectionTimingUnsafe) {
+      setAnnouncement(t("Word timing needs review; select a time range instead."));
       return;
     }
     let addedId = "";
@@ -787,7 +804,26 @@ function Workbench({ api = window.clipdeck }: { api?: ClipDeckAPI }) {
       );
     }
   }
+  function reviewTimingWindow(fromMs: number, toMs: number) {
+    if (!asset || asset.status !== "ready") return;
+    // This is an editable listening window, not a replacement word alignment.
+    const startMs = Math.max(0, fromMs - 2000);
+    const endMs = Math.min(asset.durationMs, toMs + 2000);
+    setTimingRange({ assetId: asset.id, startMs, endMs });
+    setRangeMode(true);
+    setView("source");
+    setPanel("video");
+    seek(startMs);
+  }
+  function reviewSelectionTiming() {
+    if (selectedWords.length)
+      reviewTimingWindow(selectedWords[0]!.startMs, selectionEnd);
+  }
   function auditionSelection() {
+    if (selectionTimingUnsafe) {
+      setAnnouncement(t("Word timing needs review; select a time range instead."));
+      return;
+    }
     if (selectedWords.length)
       seek(selectedWords[0]!.startMs, true, selectionEnd);
   }
@@ -1262,7 +1298,10 @@ function Workbench({ api = window.clipdeck }: { api?: ClipDeckAPI }) {
                     </button>
                     <button
                       aria-pressed={rangeMode}
-                      onClick={() => setRangeMode(true)}
+                      onClick={() => {
+                        setTimingRange(null);
+                        setRangeMode(true);
+                      }}
                     >
                       {t("Range")}
                     </button>
@@ -1390,15 +1429,19 @@ function Workbench({ api = window.clipdeck }: { api?: ClipDeckAPI }) {
                 ) : rangeMode || !asset.hasAudio ? (
                   <div className="manual-pane">
                     <h2>
-                      {asset.hasAudio
-                        ? t("Select a time range")
-                        : t("Cut video without a transcript")}
+                      {currentTimingRange
+                        ? t("Review passage timing")
+                        : asset.hasAudio
+                          ? t("Select a time range")
+                          : t("Cut video without a transcript")}
                     </h2>
                     <RangeEditor
                       canAudition={sourceReady}
                       key={asset.id}
                       asset={asset}
                       currentMs={view === "source" ? currentMs : 0}
+                      {...(currentTimingRange ? { initialRange: currentTimingRange } : {})}
+                      reviewTiming={!!currentTimingRange}
                       onAdd={(a, b) => void addRange(a, b)}
                       onAudition={(a, b) => seek(a, true, b)}
                       busy={busy}
@@ -1412,10 +1455,12 @@ function Workbench({ api = window.clipdeck }: { api?: ClipDeckAPI }) {
                     onSelect={selectWord}
                     currentMs={view === "source" ? currentMs : -1}
                     addedWords={addedWords}
+                    timingProvenanceKnown={transcript.parameters.wordTimingReview === true}
+                    onReviewTimingRange={reviewTimingWindow}
                   />
                 ) : (
                   <>
-                    {draft && draft.words.length > 0 ? (
+                    {draft && (draft.words.length > 0 || draft.segments.some((segment) => segment.text.trim())) ? (
                       <TranscriptView
                         transcript={draft}
                         selection={null}
@@ -1430,7 +1475,7 @@ function Workbench({ api = window.clipdeck }: { api?: ClipDeckAPI }) {
                           <Icon name="audio" />
                           <p>
                             {t(
-                              "Your transcript will appear here, with a time anchor for every word.",
+                              "Your transcript will appear here. Select timed passages, or use a time range.",
                             )}
                           </p>
                           <button
@@ -1451,6 +1496,13 @@ function Workbench({ api = window.clipdeck }: { api?: ClipDeckAPI }) {
                 asset.status === "ready" &&
                 selectedWords.length > 0 && (
                   <div className="selection-tray">
+                    {selectionHasTimingIssues && (
+                      <p className="selection-timing-note" role="note">
+                        {selectionTimingUnsafe
+                          ? t("Selection boundaries have uncertain timing. Listen and set a time range.")
+                          : t("Some selected text has uncertain word timing. Listen to the passage before keeping it.")}
+                      </p>
+                    )}
                     <div>
                       {selectedWords.length > 0 ? (
                         <>
@@ -1504,12 +1556,17 @@ function Workbench({ api = window.clipdeck }: { api?: ClipDeckAPI }) {
                       {t("Correct text")}
                     </button>
                     <button
-                      disabled={!selectedWords.length || !sourceReady}
+                      disabled={!selectedWords.length || !sourceReady || selectionTimingUnsafe}
                       onClick={auditionSelection}
                     >
                       <Icon name="play" />
                       <span>{t("Audition")}</span>
                     </button>
+                    {selectionHasTimingIssues && (
+                      <button onClick={reviewSelectionTiming} disabled={busy}>
+                        {t("Review time range")}
+                      </button>
+                    )}
                     <button
                       className="primary"
                       aria-label={t("Add selection")}
@@ -1517,6 +1574,7 @@ function Workbench({ api = window.clipdeck }: { api?: ClipDeckAPI }) {
                       disabled={
                         busy ||
                         !selectedWords.length ||
+                        selectionTimingUnsafe ||
                         asset.status !== "ready"
                       }
                       onClick={() => void addSelection()}

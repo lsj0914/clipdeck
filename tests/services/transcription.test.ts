@@ -222,7 +222,7 @@ it.each([
     source,
   ]);
   const events = [
-    { type: "ready" },
+    { type: "ready", wordTimingReview: true },
     {
       type: "segment",
       index: 0,
@@ -275,6 +275,7 @@ it.each([
       modelDigest: MODEL_DIGEST,
       simplifiedChinese: false,
       conditionOnPreviousText: reported,
+      wordTimingReview: true,
     },
   ];
   // Deterministic worker transport fixture; the separate acceptance tests exercise actual inference.
@@ -323,6 +324,7 @@ it.each([
     vocabulary: "editing",
     simplifiedChinese: false,
     conditionOnPreviousText: false,
+    wordTimingReview: true,
   });
   expect(transcript.originId).toBe(id);
   expect(transcript.segments.map((segment) => segment.text)).toEqual([
@@ -337,6 +339,7 @@ it.each([
     text: " Next.",
     startMs: 1500,
     endMs: 1800,
+    timingNeedsReview: true,
   });
   expect(drafts[0]?.segments[0]?.id).toBe(transcript.segments[0]?.id);
   expect(drafts[0]?.words.at(-1)?.text).toBe(" Then");

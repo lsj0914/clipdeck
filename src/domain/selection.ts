@@ -2,6 +2,15 @@ import type { Asset, TimedWord, Cut } from "../shared/contracts";
 import { parseWord } from "./project";
 import { joinTranscriptText } from "./transcript-text";
 import { unique, interval } from "./validation";
+export function selectionBoundaryNeedsTimingReview(
+  words: readonly TimedWord[],
+): boolean {
+  if (words[0]?.timingNeedsReview === true) return true;
+  const endMs = words.reduce((end, word) => Math.max(end, word.endMs), 0);
+  return words.some(
+    (word) => word.endMs === endMs && word.timingNeedsReview === true,
+  );
+}
 export function selectionToCut(
   asset: Asset,
   words: TimedWord[],
@@ -20,6 +29,8 @@ export function selectionToCut(
     to = valid.findIndex((w) => w.id === toId);
   if (from < 0 || to < 0) throw new Error("Unknown selection word");
   const selected = valid.slice(Math.min(from, to), Math.max(from, to) + 1);
+  if (selectionBoundaryNeedsTimingReview(selected))
+    throw new Error("Word timing needs review; select a time range instead.");
   return {
     id: `cut-${asset.id}-${selected[0]!.id}-${selected.at(-1)!.id}`,
     assetId: asset.id,

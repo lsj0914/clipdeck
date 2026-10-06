@@ -10,6 +10,8 @@ export function RangeEditor({
   onAudition,
   canAudition,
   busy,
+  initialRange,
+  reviewTiming = false,
 }: {
   asset: SafeAsset;
   currentMs: number;
@@ -17,10 +19,12 @@ export function RangeEditor({
   onAudition: (start: number, end: number) => void;
   busy: boolean;
   canAudition: boolean;
+  initialRange?: { startMs: number; endMs: number };
+  reviewTiming?: boolean;
 }) {
   const { t } = useLocale();
-  const [start, setStart] = useState(time(0, true)),
-    [end, setEnd] = useState(time(asset.durationMs, true)),
+  const [start, setStart] = useState(time(initialRange?.startMs ?? 0, true)),
+    [end, setEnd] = useState(time(initialRange?.endMs ?? asset.durationMs, true)),
     [error, setError] = useState("");
   const alert = useRef<HTMLParagraphElement>(null);
   function submit(action: (a: number, b: number) => void) {
@@ -36,7 +40,9 @@ export function RangeEditor({
   return (
     <div className="range-editor">
       <p className="muted">
-        {asset.hasAudio
+        {reviewTiming
+          ? t("This suggested range includes up to two seconds of context on each side. Listen and adjust In and Out before adding it.")
+          : asset.hasAudio
           ? t("Make a selection by time, including pauses.")
           : t(
               "This source has no audio. Set an in and out point to add video.",
@@ -49,6 +55,7 @@ export function RangeEditor({
           <input
             aria-label={t("Selection in")}
             inputMode="decimal"
+            autoFocus={reviewTiming}
             value={start}
             onChange={(e) => setStart(e.target.value)}
           />

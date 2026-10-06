@@ -86,12 +86,15 @@ export function parseAsset(input: unknown): Asset {
   };
 }
 export function parseWord(input: unknown): TimedWord {
-  const v = record(input, ["id", "text", "startMs", "endMs"]);
+  const v = record(input, ["id", "text", "startMs", "endMs", "timingNeedsReview"]);
   const w = {
     id: id(v.id),
     text: text(v.text, 10000),
     startMs: integer(v.startMs),
     endMs: integer(v.endMs),
+    ...(v.timingNeedsReview === undefined
+      ? {}
+      : { timingNeedsReview: bool(v.timingNeedsReview) }),
   };
   interval(w.startMs, w.endMs, Number.MAX_SAFE_INTEGER);
   return w;
@@ -150,6 +153,7 @@ function parseTranscript(input: unknown): Transcript {
       "vocabulary",
       "simplifiedChinese",
       "conditionOnPreviousText",
+      "wordTimingReview",
     ]);
   const words = list(v.words, parseWord, 500000);
   unique(words.map((w) => w.id));
@@ -204,6 +208,9 @@ function parseTranscript(input: unknown): Transcript {
         : {
             conditionOnPreviousText: bool(parameters.conditionOnPreviousText),
           }),
+      ...(parameters.wordTimingReview === undefined
+        ? {}
+        : { wordTimingReview: bool(parameters.wordTimingReview) }),
     },
   };
 }

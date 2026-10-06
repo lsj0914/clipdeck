@@ -1,6 +1,18 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 export type Locale = "en" | "zh";
 const zh: Record<string, string> = {
+  "Select all timed text": "选择全部有时间定位的文字",
+  "This passage has no word timing. Listen and set a time range.": "这段文字没有逐词时间，请试听并手动确定时间范围。",
+  "Timing needs review": "时间需核对",
+  "Review time range": "试听并调整范围",
+  "Review passage timing": "核对片段时间",
+  "Word timing needs review; select a time range instead.": "这段文字的时间不可靠，请改用时间范围选段。",
+  "Selection boundaries have uncertain timing. Listen and set a time range.": "选区边界的时间不可靠，请试听后手动确定范围。",
+  "Some selected text has uncertain word timing. Listen to the passage before keeping it.": "选区内有文字时间不可靠，请先试听整段原片。",
+  "Underlined passages have uncertain word timing. Use a time range to check them.": "波浪下划线标出时间不可靠的文字，可按时间范围试听和选段。",
+  "This saved transcript does not identify uncertain word timing. Listen before cutting, or transcribe again.": "这份旧转写没有记录时间不确定的片段，请先试听，或重新转写。",
+  "This suggested range includes up to two seconds of context on each side. Listen and adjust In and Out before adding it.": "这里暂保留前后最多各两秒供试听，请调整入点与出点后再加入。",
+  "Your transcript will appear here. Select timed passages, or use a time range.": "转写后可选择有时间定位的原文，也可直接按时间范围选段。",
   "Assembly changed. Update the summary before exporting.":
     "成片已变化，请更新摘要后再导出。",
   "Update export summary": "更新导出摘要",

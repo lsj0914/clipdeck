@@ -11,7 +11,7 @@ import type {
   TranscriptionOptions as TranscriptionRequestOptions,
 } from "../../shared/contracts";
 import { validateProject, serializeProject } from "../../domain/project";
-import { record, text, integer, list, oneOf } from "../../domain/validation";
+import { record, text, integer, list, oneOf, bool } from "../../domain/validation";
 import { MediaService } from "./media";
 import { ModelRegistry } from "./models";
 import { JobManager } from "./jobs";
@@ -87,6 +87,7 @@ export class TranscriptionService {
         const segments: TranscriptSegment[] = [];
         let detected: Language = language;
         let complete = false;
+        let wordTimingReviewReady = false;
         let workerError: string | undefined;
         let buffer = "";
         let bytes = 0;
@@ -164,10 +165,15 @@ export class TranscriptionService {
                   throw new Error(workerError);
                 }
                 if (event.type === "ready") {
+                  if (event.wordTimingReview !== true)
+                    throw new Error("Worker word timing review provenance mismatch");
+                  wordTimingReviewReady = true;
                   ctx.update({ stage: "transcribing", progress: null });
                   continue;
                 }
                 if (event.type === "segment") {
+                  if (!wordTimingReviewReady)
+                    throw new Error("Worker word timing review provenance mismatch");
                   const v = record(event, [
                     "type",
                     "index",
@@ -185,12 +191,20 @@ export class TranscriptionService {
                   const segmentWords = list(
                     v.words,
                     (item) => {
-                      const w = record(item, ["text", "startMs", "endMs"]);
+                      const w = record(item, [
+                        "text",
+                        "startMs",
+                        "endMs",
+                        "timingNeedsReview",
+                      ]);
                       return {
                         id: "pending",
                         text: text(w.text, 10000, true),
                         startMs: integer(w.startMs),
                         endMs: integer(w.endMs),
+                        ...(w.timingNeedsReview === undefined
+                          ? {}
+                          : { timingNeedsReview: bool(w.timingNeedsReview) }),
                       };
                     },
                     500000,
@@ -208,9 +222,12 @@ export class TranscriptionService {
                       words[words.length - 1] = {
                         ...last,
                         text: last.text + leading,
+                        timingNeedsReview: true,
                       };
-                    } else if (segmentWords.length)
+                    } else if (segmentWords.length) {
                       segmentWords[0]!.text = leading + segmentWords[0]!.text;
+                      segmentWords[0]!.timingNeedsReview = true;
+                    }
                   }
                   words.push(...segmentWords);
                   const rawText = text(v.text, 100000, true);
@@ -247,6 +264,8 @@ export class TranscriptionService {
                   continue;
                 }
                 if (event.type === "complete") {
+                  if (!wordTimingReviewReady || event.wordTimingReview !== true)
+                    throw new Error("Worker word timing review provenance mismatch");
                   if (event.segmentCount !== segments.length)
                     throw new Error("Incomplete worker transcript");
                   if (
@@ -304,6 +323,7 @@ export class TranscriptionService {
                 : {}),
               simplifiedChinese: language === "zh",
               conditionOnPreviousText: false,
+              wordTimingReview: true,
             },
           };
           validateProject({

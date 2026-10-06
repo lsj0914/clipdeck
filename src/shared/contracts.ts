@@ -24,6 +24,7 @@ export interface TimedWord {
   text: string;
   startMs: number;
   endMs: number;
+  timingNeedsReview?: boolean;
 }
 export interface TranscriptSegment {
   id: string;
@@ -47,6 +48,8 @@ export interface Transcript {
     vocabulary?: string;
     simplifiedChinese?: boolean;
     conditionOnPreviousText?: boolean;
+    // Absent on legacy transcripts whose word-timing review provenance is unknown.
+    wordTimingReview?: boolean;
   };
 }
 export interface Cut {

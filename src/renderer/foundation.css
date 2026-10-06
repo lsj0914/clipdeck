@@ -1581,6 +1581,27 @@ progress::-webkit-progress-value {
 .save-error > span {
   min-width: 0;
 }
+.transcript-timing-note,
+.selection-timing-note {
+  flex: none;
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--quiet-ink);
+}
+.transcript-timing-note {
+  padding: 6px 20px 10px;
+}
+.selection-timing-note {
+  flex-basis: 100%;
+  color: var(--select);
+}
+.word.timing-review {
+  text-decoration-line: underline;
+  text-decoration-style: wavy;
+  text-decoration-color: var(--select);
+  text-underline-offset: 5px;
+}
 .import-errors {
   display: flex;
   align-items: center;
@@ -2190,4 +2211,28 @@ progress::-webkit-progress-value {
   text-overflow: ellipsis;
   white-space: nowrap;
   min-width: 0;
+}
+
+/* Display-only recognition text never adopts exact-word controls. */
+.transcript-untimed p {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.transcript-untimed .search-match {
+  outline: 1px dashed var(--quiet-ink);
+  outline-offset: 3px;
+}
+.untimed-review {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+  color: var(--quiet-ink);
+  font-size: 12px;
+  line-height: 1.5;
+}
+.untimed-review button {
+  font-size: 12px;
+  flex-shrink: 0;
 }
