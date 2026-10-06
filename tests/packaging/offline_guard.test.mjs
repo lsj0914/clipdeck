@@ -10,8 +10,28 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
 import test from 'node:test';
+import { isExpectedProxyRefusal } from '../../scripts/packaging/offline-canary-errors.mjs';
 const run = promisify(execFile);
 const guard = fileURLToPath(new URL('../../scripts/packaging/offline-node-guard.js', import.meta.url));
+
+test('recognizes the actual socket refusal observed in the moved packaged canary', () => {
+  assert.equal(isExpectedProxyRefusal('Error: net::ERR_SOCKET_NOT_CONNECTED'), true);
+});
+
+test('retains the previously observed reset and empty-response refusals', () => {
+  assert.equal(isExpectedProxyRefusal('Error: net::ERR_CONNECTION_RESET'), true);
+  assert.equal(isExpectedProxyRefusal('Error: net::ERR_EMPTY_RESPONSE'), true);
+});
+
+test('rejects successful results, unrelated errors and misleading refusal substrings', () => {
+  for (const result of [
+    'ALLOWED', 'connected', 'local-canary', undefined, null,
+    'Error: arbitrary failure', 'Error: net::ERR_UNKNOWN',
+    'Error: net::ERR_SOCKET_NOT_CONNECTED_EXTRA',
+    'Error: net::ERR_CONNECTION_RESET_EXTRA',
+    'unrelated text containing ERR_CONNECTION_RESET',
+  ]) assert.equal(isExpectedProxyRefusal(result), false, String(result));
+});
 
 test('early guard rejects actual Node HTTP/TCP/UDP/DNS/fetch/child APIs with no destination hit', async () => {
   await assert.doesNotReject(access(guard), 'Public offline guard is not implemented');

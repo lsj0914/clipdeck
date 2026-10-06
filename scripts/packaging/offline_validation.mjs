@@ -13,6 +13,7 @@ import { createHash } from 'node:crypto';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { execFile } from 'node:child_process';
 import { promisify, parseArgs } from 'node:util';
+import { isExpectedProxyRefusal } from './offline-canary-errors.mjs';
 const here = path.dirname(fileURLToPath(import.meta.url));
 const { values } = parseArgs({ options: {
   app: { type: 'string' }, output: { type: 'string' }, help: { type: 'boolean' },
@@ -118,7 +119,7 @@ try {
   const chromium = await evaluate(main, `(async()=>{const {net,session}=process.mainModule.require('electron');const ses=session.fromPartition('offline-validation-canary');const results={};for(const [name,fn] of [['default net.fetch',()=>net.fetch(${JSON.stringify(url)})],['fresh session fetch',()=>ses.fetch(${JSON.stringify(url)})],['fresh session HTTPS',()=>ses.fetch('https://offline-canary.invalid')],['fresh session WebSocket',()=>new Promise((resolve,reject)=>{const ws=new net.WebSocket(${JSON.stringify(url.replace('http:', 'ws:'))});ws.onopen=()=>{ws.close();resolve('connected')};ws.onerror=()=>reject(new Error('WebSocket rejected'));setTimeout(()=>reject(new Error('WebSocket timeout')),1500)})]]){try{await fn();results[name]='ALLOWED'}catch(e){results[name]=String(e)}}return results})()`);
 
   assert.ok(Object.values(chromium).every(error => error !== 'ALLOWED'));
-  assert.match(chromium['fresh session fetch'], /ERR_(CONNECTION|PROXY|INTERNET)|net::ERR_EMPTY_RESPONSE\b/);
+  assert.ok(isExpectedProxyRefusal(chromium['fresh session fetch']), chromium['fresh session fetch']);
   const rendererAttempt = await evaluate(renderer, `(async()=>{try{await fetch(${JSON.stringify(url)});return 'ALLOWED'}catch(e){return String(e)}})()`);
   assert.notEqual(rendererAttempt, 'ALLOWED');
   const chromiumDNS = await evaluate(main, `(async()=>{try{await process.mainModule.require('electron').net.resolveHost('example.com',{source:'dns',cacheUsage:'disallowed'});return 'ALLOWED'}catch(e){return String(e)}})()`);
@@ -159,5 +160,12 @@ try {
   await writeFile(path.join(out, 'proof.json'), JSON.stringify(proof, null, 2) + '\n');
   console.log(JSON.stringify({ status: proof.status, out, nodeAttempts, chromium, canary: proof.canary, close: proof.close }));
   }
-} catch (error) { await writeFile(path.join(out, 'failure.json'), JSON.stringify({ error: String(error), stack: error?.stack }, null, 2) + '\n'); throw error; }
+} catch (error) {
+  await writeFile(path.join(out, 'failure.json'), JSON.stringify({
+    status: 'method_probe_failed', error: String(error), stack: error?.stack,
+    canary: { baseline, after: { hits, udpHits } }, rejectingProxyConnections: rejectedProxyConnections,
+    workflowAcceptance: false, wholeApplicationKernelDenial: false,
+  }, null, 2) + '\n');
+  throw error;
+}
 finally { clearTimeout(watchdog); if (child.exitCode === null) child.kill('SIGTERM'); main?.close(); renderer?.close(); canary.close(); udp.close(); if (rejectProxy.listening) rejectProxy.close(); await writeFile(path.join(out, 'stderr.log'), stderr); await writeFile(path.join(out, 'stdout.log'), stdout); }
