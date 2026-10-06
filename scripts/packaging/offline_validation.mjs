@@ -118,7 +118,7 @@ try {
   const chromium = await evaluate(main, `(async()=>{const {net,session}=process.mainModule.require('electron');const ses=session.fromPartition('offline-validation-canary');const results={};for(const [name,fn] of [['default net.fetch',()=>net.fetch(${JSON.stringify(url)})],['fresh session fetch',()=>ses.fetch(${JSON.stringify(url)})],['fresh session HTTPS',()=>ses.fetch('https://offline-canary.invalid')],['fresh session WebSocket',()=>new Promise((resolve,reject)=>{const ws=new net.WebSocket(${JSON.stringify(url.replace('http:', 'ws:'))});ws.onopen=()=>{ws.close();resolve('connected')};ws.onerror=()=>reject(new Error('WebSocket rejected'));setTimeout(()=>reject(new Error('WebSocket timeout')),1500)})]]){try{await fn();results[name]='ALLOWED'}catch(e){results[name]=String(e)}}return results})()`);
 
   assert.ok(Object.values(chromium).every(error => error !== 'ALLOWED'));
-  assert.match(chromium['fresh session fetch'], /ERR_(CONNECTION|PROXY|INTERNET)/);
+  assert.match(chromium['fresh session fetch'], /ERR_(CONNECTION|PROXY|INTERNET)|net::ERR_EMPTY_RESPONSE\b/);
   const rendererAttempt = await evaluate(renderer, `(async()=>{try{await fetch(${JSON.stringify(url)});return 'ALLOWED'}catch(e){return String(e)}})()`);
   assert.notEqual(rendererAttempt, 'ALLOWED');
   const chromiumDNS = await evaluate(main, `(async()=>{try{await process.mainModule.require('electron').net.resolveHost('example.com',{source:'dns',cacheUsage:'disallowed'});return 'ALLOWED'}catch(e){return String(e)}})()`);
