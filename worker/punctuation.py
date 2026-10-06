@@ -86,6 +86,15 @@ def apply_predictions(fragments, ends, labels):
     if len(ends) != len(labels) or any(label not in range(6) for label in labels):
         raise ValueError("Invalid punctuation predictions")
     original = "".join(fragments)
+    # ASR may give a punctuation token a positive-duration anchor of its own.
+    # Route its prediction to that owner; erasing it would create an invalid word.
+    punctuation_owners, punctuation_starts, position = {}, {}, 0
+    for fragment in fragments:
+        positions = [position + index for index, char in enumerate(fragment) if not char.isspace()]
+        if positions and all(replaceable(original, index) for index in positions):
+            punctuation_owners[positions[0]] = position
+            punctuation_starts[position] = positions[0]
+        position += len(fragment)
     additions = {}
     for offset, label in zip(ends, labels):
         if offset < 0 or offset >= len(original):
@@ -97,9 +106,21 @@ def apply_predictions(fragments, ends, labels):
         # has no such output class. Keep it instead of producing '？！'.
         if next_offset < len(original) and original[next_offset] in "!！:：":
             continue
-        additions[offset] = PUNCTUATION[label]
+        owner = next_offset if next_offset in punctuation_owners else offset
+        additions[owner] = PUNCTUATION[label]
     result, offset = [], 0
     for fragment in fragments:
+        if offset in punctuation_starts:
+            owner = punctuation_starts[offset]
+            mark = additions.get(owner, "")
+            if mark:
+                value = "".join(char if char.isspace() else mark if offset + index == owner else ""
+                                for index, char in enumerate(fragment))
+            else:
+                value = fragment.translate(str.maketrans({",": "，", ".": "。", "?": "？", ";": "；"}))
+            result.append(value)
+            offset += len(fragment)
+            continue
         value = ""
         for char in fragment:
             if not replaceable(original, offset):

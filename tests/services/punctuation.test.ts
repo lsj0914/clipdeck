@@ -18,6 +18,12 @@ it("rejects lexical rewriting, text moved between anchors, and missing words", (
     expect(() => applyPunctuation(words, fragments)).toThrow(/Punctuation/);
 });
 
+it("cannot erase a timed punctuation token even when the overall lexical content matches", () => {
+  const words = ["你好", ",", "今天"].map((text,index) => ({id:String(index),text,startMs:index*100,endMs:(index+1)*100}));
+  expect(applyPunctuation(words, ["你好", "，", "今天。"])).toHaveLength(3);
+  expect(() => applyPunctuation(words, ["你好，", "", "今天。"])).toThrow(/empty time anchor/);
+});
+
 it("protects decimal and thousands punctuation even when ASR splits an identifier", () => {
   const words = ["版本v1.", "2", "价值1", ",000元!"].map((text, index) => ({id:String(index),text,startMs:index*10,endMs:(index+1)*10}));
   expect(applyPunctuation(words, ["版本v1.", "2，", "价值1", ",000元!"])).toHaveLength(4);
@@ -25,13 +31,15 @@ it("protects decimal and thousands punctuation even when ASR splits an identifie
 });
 
 it.runIf(process.platform === "darwin" && !!process.env.CLIPDECK_PUNCTUATION_MODEL)("runs the real punctuation worker offline and preserves native anchors", async () => {
-  const words = ["大家好", "我是老师", "今天我们学习如何使用电脑", "你们准备好了吗"].map((text, index) => ({id:String(index),text,startMs:index*1000,endMs:(index+1)*1000}));
+  const words = ["大家好", ",", "我是老师", "今天我们学习如何使用电脑", "你们准备好了吗"].map((text, index) => ({id:String(index),text,startMs:index*1000,endMs:(index+1)*1000}));
   const result = await restorePunctuation({
     python: path.resolve(".runtime/worker/bin/python3.12"), worker: path.resolve("worker/transcribe.py"),
     directory: process.env.CLIPDECK_PUNCTUATION_MODEL!, words, signal: new AbortController().signal,
   });
   expect(result.map(({text, ...anchor}) => anchor)).toEqual(words.map(({text, ...anchor}) => anchor));
   expect(result.map(word => word.text).join("")).toContain("？");
+  expect(result[1]!.text).toBe("，");
+  expect(result.every(word => word.text.length > 0)).toBe(true);
 }, 30000);
 
 it.runIf(process.platform === "darwin" && !!process.env.CLIPDECK_PUNCTUATION_MODEL)("reports a missing local punctuation resource without a fallback or private path", async () => {

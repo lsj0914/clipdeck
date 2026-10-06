@@ -29,6 +29,8 @@ export function applyPunctuation(words: TimedWord[], fragments: string[]): Timed
   const stable = (value: string) => value.replace(/[，。？、,?.;；]/gu, "");
   return words.map((word, index) => {
     const restored = fragments[index]!;
+    if (!restored.length)
+      throw new Error("Punctuation returned an empty time anchor");
     if (stable(word.text) !== stable(restored))
       throw new Error("Punctuation moved recognized text between time anchors");
     return { ...word, text: restored };
