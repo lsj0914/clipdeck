@@ -2189,10 +2189,24 @@ describe("Task 7 first-run Open guard", () => {
   }
   it("opens the native project picker directly from an untouched new empty workspace", async () => {
     const b = bridge(untouchedWorkspace());
-    render(<App api={b.api} />);
-    fireEvent.click(
-      await screen.findByRole("button", { name: "Open project" }),
+    let resolveInitial!: (snapshot: WorkspaceSnapshot) => void;
+    vi.mocked(b.api.getSnapshot).mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveInitial = resolve;
+        }),
     );
+    render(<App api={b.api} />);
+    const open = (await screen.findByRole("button", {
+      name: "Open project",
+    })) as HTMLButtonElement;
+    expect(open.disabled).toBe(true);
+    fireEvent.click(open);
+    expect(b.api.openProject).not.toHaveBeenCalled();
+    expect(b.api.saveProject).not.toHaveBeenCalled();
+    await act(async () => resolveInitial(b.get()));
+    await waitFor(() => expect(open.disabled).toBe(false));
+    fireEvent.click(open);
     await waitFor(() => expect(b.api.openProject).toHaveBeenCalledTimes(1));
     expect(b.api.saveProject).not.toHaveBeenCalled();
   });
@@ -2218,9 +2232,11 @@ describe("Task 7 first-run Open guard", () => {
     if (kind === "undo history") state.canUndo = true;
     const b = bridge(state);
     render(<App api={b.api} />);
-    fireEvent.click(
-      await screen.findByRole("button", { name: "Open project" }),
-    );
+    const open = (await screen.findByRole("button", {
+      name: "Open project",
+    })) as HTMLButtonElement;
+    await waitFor(() => expect(open.disabled).toBe(false));
+    fireEvent.click(open);
     await waitFor(() => expect(b.api.saveProject).toHaveBeenCalledTimes(1));
     expect(b.api.openProject).not.toHaveBeenCalled();
     await screen.findByText(
