@@ -1,0 +1,129 @@
+{
+  "schema": 1,
+  "architecture": "arm64",
+  "minimum_macos_metadata": "14.0",
+  "model_bundled": false,
+  "assets": {
+    "worker": {
+      "file": "portable-worker-runtime-3.12.15-macos-arm64.tar.gz",
+      "sha256": "5d3804e9af533e959a310d59951c2d64f4c71a1d9cd16b1d55c8df6b0b62ef2b",
+      "bytes": 65402228
+    },
+    "media": {
+      "file": "clipdeck-media-runtime-9.0.2-macos-arm64.tar.gz",
+      "sha256": "a94fddf9b4d4c096bb6ea7c4a143ad712974207e414f424f01eb65cb8feae387",
+      "bytes": 8253537
+    },
+    "media_source": {
+      "file": "clipdeck-media-corresponding-source.tar.gz",
+      "sha256": "8faf8182eaef4f3ea35e5180c5ef78e3cb540ec60ea75081e0068fe1d4a628e5",
+      "bytes": 13244320
+    },
+    "decoder_source": {
+      "file": "clipdeck-maintained-decoder-corresponding-source.tar.gz",
+      "sha256": "7a4f003e4db417c260146a8f055f2549b9657af56f6f7f11af96671138d3ccca",
+      "bytes": 12265465
+    }
+  },
+  "electron": {
+    "file": "electron-v44.5.1-darwin-arm64.zip",
+    "url": "https://github.com/electron/electron/releases/download/v44.5.1/electron-v44.5.1-darwin-arm64.zip",
+    "sha256": "1d75703019bb16461ae65f3081d7e6f5c0b11e901d0ccb5c343bcf7bcdd6435c",
+    "bytes": 130259261,
+    "native_objects": 13,
+    "maximum_macos_minos": "13.0"
+  },
+  "worker_manifest": "worker-files.json",
+  "metadata": [
+    {
+      "file": "media-provenance.json",
+      "sha256": "28d1658076f2a5795760ce3c590d19e4d5ca696e1ee94b85cca6271a57eb7c2f",
+      "bytes": 2846
+    },
+    {
+      "file": "notices/electron/Electron-v44.5.1-DEPS",
+      "sha256": "c2b7667829993049e7a9ee9038b0f754fa5e7e50d250e35edefe8030a97e4068",
+      "bytes": 8472
+    },
+    {
+      "file": "notices/electron/Mantle-LICENSE.md",
+      "sha256": "285eede6f638adc9c352be7d66134611e5ea95044095a84de9867fb864e66eab",
+      "bytes": 2445
+    },
+    {
+      "file": "notices/electron/ReactiveObjC-LICENSE.md",
+      "sha256": "095fec1a3d6ad029fe0661fa6092a272d50af016b1771992e0bba9b2a73e7763",
+      "bytes": 1093
+    },
+    {
+      "file": "notices/electron/manifest.json",
+      "sha256": "9fbf2ad84d894d857de490e09052bb1898aa571b992dd9bbc6e9f04e03df7482",
+      "bytes": 889
+    },
+    {
+      "file": "notices/media/COPYING.GPLv3",
+      "sha256": "8ceb4b9ee5adedde47b31e975c1d90c73ad27b6b165a1dcd80c7c545eb65b903",
+      "bytes": 35147
+    },
+    {
+      "file": "notices/media/LICENSE.md",
+      "sha256": "2e1d16c72fd74e12063776371da757322f8b77589386532f4fd8634bde7de1af",
+      "bytes": 4346
+    },
+    {
+      "file": "notices/media/x264-COPYING",
+      "sha256": "32b1062f7da84967e7019d01ab805935caa7ab7321a7ced0e30ebe75e5df1670",
+      "bytes": 17992
+    },
+    {
+      "file": "notices/models/Silero-VAD-MIT.txt",
+      "sha256": "2e63e9a38b6e8fc0c7bc37ce174caca1862870856c6daf5697cfb785e925520b",
+      "bytes": 1075
+    },
+    {
+      "file": "notices/models/Whisper-MIT.txt",
+      "sha256": "b5d65a59060e68c4ff940e1eddfa6f94b2d68fdf58ed7f4dd57721c997e35e9d",
+      "bytes": 1063
+    },
+    {
+      "file": "notices/models/faster-whisper-large-v3-turbo-model-card.md",
+      "sha256": "b3068692728faed23580cce5cd569fc47ff76c690c032b2641ffd5554ea64d8f",
+      "bytes": 1445
+    },
+    {
+      "file": "notices/models/faster-whisper-small-model-card.md",
+      "sha256": "329373481008c7c38654aff8ecdcf0163c211557cc7ba8e2ef6f2f84b4f75ec8",
+      "bytes": 1998
+    },
+    {
+      "file": "notices/models/manifest.json",
+      "sha256": "820d61a9f9ead0fe7ee46cd58b96ebd8f049b102a3ece086c27003fb6dd0921e",
+      "bytes": 3670
+    },
+    {
+      "file": "resource-rebuild.json",
+      "sha256": "52bb26ce104e81be0230e6b6a4dde13b4491ef1c61855cfc662f7b2455754f91",
+      "bytes": 13964
+    },
+    {
+      "file": "worker-files.json",
+      "sha256": "d8ba18b73e19db844e17c67e50cb3bda9ec83699150719a1aac9615ec26e84a8",
+      "bytes": 834026
+    },
+    {
+      "file": "worker-license-inventory.json",
+      "sha256": "bc7b6e1ef7fe478133aee33cfed2df7f0e5beab01a8b1f13776eaaaa1b68f25a",
+      "bytes": 34966
+    },
+    {
+      "file": "worker-provenance.json",
+      "sha256": "f8dce6c2df90d21a64307480e2394e442e574f65d921e9071dce339bfc140b62",
+      "bytes": 4181
+    },
+    {
+      "file": "worker-wheel-inputs.json",
+      "sha256": "01ed79187e4f8619875c4764662186ff49161cf2e101d8c85acfc4ddaaafd4c9",
+      "bytes": 5641
+    }
+  ]
+}

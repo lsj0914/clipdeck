@@ -1,0 +1,77 @@
+{
+  "architecture": "arm64",
+  "deployment_target": "14.0",
+  "build_script": "build-media.sh",
+  "sources": [
+    {
+      "name": "FFmpeg",
+      "revision": "9.0.2",
+      "url": "https://ffmpeg.org/releases/ffmpeg-9.0.2.tar.xz",
+      "file": "ffmpeg-9.0.2.tar.xz",
+      "sha256": "8c3850283eb25fa026482078a04051e0be17347b09ef81a0849bec15a96e002e"
+    },
+    {
+      "name": "x264",
+      "revision": "b35605ace3ddf7c1a5d67a2eb553f034aef41d55",
+      "url": "https://code.videolan.org/videolan/x264/-/archive/b35605ace3ddf7c1a5d67a2eb553f034aef41d55/x264-b35605ace3ddf7c1a5d67a2eb553f034aef41d55.tar.bz2",
+      "file": "x264-b35605ace3ddf7c1a5d67a2eb553f034aef41d55.tar.bz2",
+      "sha256": "6eeb82934e69fd51e043bd8c5b0d152839638d1ce7aa4eea65a3fedcf83ff224"
+    },
+    {
+      "name": "pkgconf",
+      "revision": "2.5.1",
+      "url": "https://distfiles.ariadne.space/pkgconf/pkgconf-2.5.1.tar.xz",
+      "file": "pkgconf-2.5.1.tar.xz",
+      "sha256": "cd05c9589b9f86ecf044c10a2269822bc9eb001eced2582cfffd658b0a50c243"
+    }
+  ],
+  "source_modifications": "none",
+  "binary_modifications": "stripped symbols; ad-hoc signed; no install_name rewrites necessary",
+  "system_library_dependencies": [
+    {
+      "name": "ffmpeg",
+      "sha256": "58a1cf75f44a0a96e1e0de277bead1aea11ff68824ed82344636858d0bb15c12",
+      "bytes": 9664784,
+      "minos": [
+        "14.0"
+      ],
+      "dependencies": [
+        "/usr/lib/libSystem.B.dylib",
+        "/usr/lib/libz.1.dylib",
+        "/System/Library/Frameworks/CoreFoundation.framework/Versions/A/CoreFoundation",
+        "/System/Library/Frameworks/CoreVideo.framework/Versions/A/CoreVideo",
+        "/System/Library/Frameworks/CoreMedia.framework/Versions/A/CoreMedia"
+      ],
+      "architecture": "arm64"
+    },
+    {
+      "name": "ffprobe",
+      "sha256": "c13772d27feb819ef094d89ef0afdd208fcdee23fd9e9076a786ee1135f6b7ba",
+      "bytes": 9489984,
+      "minos": [
+        "14.0"
+      ],
+      "dependencies": [
+        "/usr/lib/libSystem.B.dylib",
+        "/usr/lib/libz.1.dylib",
+        "/System/Library/Frameworks/CoreFoundation.framework/Versions/A/CoreFoundation",
+        "/System/Library/Frameworks/CoreVideo.framework/Versions/A/CoreVideo",
+        "/System/Library/Frameworks/CoreMedia.framework/Versions/A/CoreMedia"
+      ],
+      "architecture": "arm64"
+    }
+  ],
+  "corresponding_source": {
+    "file": "clipdeck-media-corresponding-source.tar.gz",
+    "sha256": "8faf8182eaef4f3ea35e5180c5ef78e3cb540ec60ea75081e0068fe1d4a628e5",
+    "bytes": 13244320,
+    "rebuild_receipt": "resource-rebuild.json"
+  },
+  "build_path_policy": {
+    "configured_prefix": "/opt/clipdeck-runtime",
+    "staging": "DESTDIR under chosen build root",
+    "include_library_flags": "relative",
+    "compiler_source_debug_map": "/clipdeck-build",
+    "compiled_string_patching": false
+  }
+}

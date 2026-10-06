@@ -1,0 +1,357 @@
+{
+  "schema": 1,
+  "status": "Current neutral compiled resource assets 003; final app/workflow acceptance separate",
+  "assets": {
+    "worker": {
+      "file": "portable-worker-runtime-3.12.15-macos-arm64.tar.gz",
+      "sha256": "5d3804e9af533e959a310d59951c2d64f4c71a1d9cd16b1d55c8df6b0b62ef2b",
+      "bytes": 65402228
+    },
+    "media": {
+      "file": "clipdeck-media-runtime-9.0.2-macos-arm64.tar.gz",
+      "sha256": "a94fddf9b4d4c096bb6ea7c4a143ad712974207e414f424f01eb65cb8feae387",
+      "bytes": 8253537
+    },
+    "media_source": {
+      "file": "clipdeck-media-corresponding-source.tar.gz",
+      "sha256": "8faf8182eaef4f3ea35e5180c5ef78e3cb540ec60ea75081e0068fe1d4a628e5",
+      "bytes": 13244320
+    },
+    "decoder_source": {
+      "file": "clipdeck-maintained-decoder-corresponding-source.tar.gz",
+      "sha256": "7a4f003e4db417c260146a8f055f2549b9657af56f6f7f11af96671138d3ccca",
+      "bytes": 12265465
+    }
+  },
+  "build_path_policy": {
+    "configured_prefix": "/opt/clipdeck-runtime",
+    "staging": "DESTDIR under chosen build root",
+    "include_library_flags": "relative",
+    "compiler_source_debug_map": "/clipdeck-build",
+    "compiled_string_patching": false
+  },
+  "upstream_sources": [
+    {
+      "owner": "media",
+      "file": "ffmpeg-9.0.2.tar.xz",
+      "sha256": "8c3850283eb25fa026482078a04051e0be17347b09ef81a0849bec15a96e002e",
+      "bytes": 12040788,
+      "unchanged_upstream": true
+    },
+    {
+      "owner": "media",
+      "file": "pkgconf-2.5.1.tar.xz",
+      "sha256": "cd05c9589b9f86ecf044c10a2269822bc9eb001eced2582cfffd658b0a50c243",
+      "bytes": 328064,
+      "unchanged_upstream": true
+    },
+    {
+      "owner": "media",
+      "file": "x264-b35605ace3ddf7c1a5d67a2eb553f034aef41d55.tar.bz2",
+      "sha256": "6eeb82934e69fd51e043bd8c5b0d152839638d1ce7aa4eea65a3fedcf83ff224",
+      "bytes": 848719,
+      "unchanged_upstream": true
+    },
+    {
+      "owner": "decoder",
+      "file": "PyAV-7687256d87f22f78cb75bb4aba94dc6e504c9983.tar.gz",
+      "sha256": "e94aaf48e1a43c40cf02137f1a8d4a52b381790d568b2dbd163a5f83059124ba",
+      "bytes": 205790,
+      "unchanged_upstream": true
+    },
+    {
+      "owner": "decoder",
+      "file": "ffmpeg-8.1.2.tar.xz",
+      "sha256": "464beb5e7bf0c311e68b45ae2f04e9cc2af88851abb4082231742a74d97b524c",
+      "bytes": 11710924,
+      "unchanged_upstream": true
+    },
+    {
+      "owner": "decoder",
+      "file": "pkgconf-2.5.1.tar.xz",
+      "sha256": "cd05c9589b9f86ecf044c10a2269822bc9eb001eced2582cfffd658b0a50c243",
+      "bytes": 328064,
+      "unchanged_upstream": true
+    }
+  ],
+  "recipes": [
+    {
+      "role": "media_source",
+      "build_script": "clipdeck-media-corresponding-source/build-media.sh",
+      "build_script_sha256": "8d96e07a801e219bfc6b3fe7eae41ccddcb9747072ea897c7232a8969c21d8cb",
+      "source_inventory": [
+        {
+          "path": "clipdeck-media-corresponding-source/README.md",
+          "sha256": "e10ae804f5231685aa9932c4d43d3b4b304055e7a2f2c099bb51d49ae4a5b818",
+          "bytes": 934,
+          "mode": "0o644"
+        },
+        {
+          "path": "clipdeck-media-corresponding-source/build-media.sh",
+          "sha256": "8d96e07a801e219bfc6b3fe7eae41ccddcb9747072ea897c7232a8969c21d8cb",
+          "bytes": 3967,
+          "mode": "0o755"
+        },
+        {
+          "path": "clipdeck-media-corresponding-source/licenses/COPYING.GPLv3",
+          "sha256": "8ceb4b9ee5adedde47b31e975c1d90c73ad27b6b165a1dcd80c7c545eb65b903",
+          "bytes": 35147,
+          "mode": "0o644"
+        },
+        {
+          "path": "clipdeck-media-corresponding-source/licenses/LICENSE.md",
+          "sha256": "2e1d16c72fd74e12063776371da757322f8b77589386532f4fd8634bde7de1af",
+          "bytes": 4346,
+          "mode": "0o644"
+        },
+        {
+          "path": "clipdeck-media-corresponding-source/licenses/x264-COPYING",
+          "sha256": "32b1062f7da84967e7019d01ab805935caa7ab7321a7ced0e30ebe75e5df1670",
+          "bytes": 17992,
+          "mode": "0o644"
+        },
+        {
+          "path": "clipdeck-media-corresponding-source/source-manifest.json",
+          "sha256": "2ab7dca62ea78b7e30339b2956cddd5ffc95311ea516f571f8b5f8700119334d",
+          "bytes": 715,
+          "mode": "0o644"
+        },
+        {
+          "path": "clipdeck-media-corresponding-source/sources/ffmpeg-9.0.2.tar.xz",
+          "sha256": "8c3850283eb25fa026482078a04051e0be17347b09ef81a0849bec15a96e002e",
+          "bytes": 12040788,
+          "mode": "0o644"
+        },
+        {
+          "path": "clipdeck-media-corresponding-source/sources/pkgconf-2.5.1.tar.xz",
+          "sha256": "cd05c9589b9f86ecf044c10a2269822bc9eb001eced2582cfffd658b0a50c243",
+          "bytes": 328064,
+          "mode": "0o644"
+        },
+        {
+          "path": "clipdeck-media-corresponding-source/sources/x264-b35605ace3ddf7c1a5d67a2eb553f034aef41d55.tar.bz2",
+          "sha256": "6eeb82934e69fd51e043bd8c5b0d152839638d1ce7aa4eea65a3fedcf83ff224",
+          "bytes": 848719,
+          "mode": "0o644"
+        },
+        {
+          "path": "clipdeck-media-corresponding-source/tools/clang",
+          "sha256": "2b2e431eb14dde218cbb3e7f9b562a8cc5b221d898892041546d45de79ac1d7e",
+          "bytes": 196,
+          "mode": "0o755"
+        },
+        {
+          "path": "clipdeck-media-corresponding-source/tools/clang++",
+          "sha256": "6e2bb9d4c2095ed751c96f5b545fe1c880a953bf6e1d75c7f01a095122b15209",
+          "bytes": 198,
+          "mode": "0o755"
+        },
+        {
+          "path": "clipdeck-media-corresponding-source/tools/pkgconf",
+          "sha256": "eb1d434c8c9dd4fb4d81cf13bc936ee21c1ef95c01ee6967218ee2177b5869f0",
+          "bytes": 154,
+          "mode": "0o755"
+        }
+      ],
+      "neutral_prefix": "/opt/clipdeck-runtime",
+      "source_debug_prefix": "/clipdeck-build",
+      "network_disabled": true,
+      "protocols": [
+        "file",
+        "pipe"
+      ],
+      "license_configuration": "GPL-3.0-or-later with x264"
+    },
+    {
+      "role": "decoder_source",
+      "build_script": "clipdeck-maintained-decoder-corresponding-source/build-decoder.sh",
+      "build_script_sha256": "d58a296df7e997e2fd4ab795324fb575f34669a0e1b80f2842073d3e258bb6bc",
+      "source_inventory": [
+        {
+          "path": "clipdeck-maintained-decoder-corresponding-source/README.md",
+          "sha256": "e10ae804f5231685aa9932c4d43d3b4b304055e7a2f2c099bb51d49ae4a5b818",
+          "bytes": 934,
+          "mode": "0o644"
+        },
+        {
+          "path": "clipdeck-maintained-decoder-corresponding-source/build-decoder.sh",
+          "sha256": "d58a296df7e997e2fd4ab795324fb575f34669a0e1b80f2842073d3e258bb6bc",
+          "bytes": 3209,
+          "mode": "0o755"
+        },
+        {
+          "path": "clipdeck-maintained-decoder-corresponding-source/build-requirements.lock.txt",
+          "sha256": "4f58d00742b9e0ec52735e1e49f3e6803348b078d50dfb55910c65ec5fef73c7",
+          "bytes": 176,
+          "mode": "0o644"
+        },
+        {
+          "path": "clipdeck-maintained-decoder-corresponding-source/licenses/FFmpeg-COPYING.LGPLv2.1",
+          "sha256": "246041b6ecf9bc32d718a62c57877c78b5eb397b6467e74ed7ae2626ab189c30",
+          "bytes": 26517,
+          "mode": "0o644"
+        },
+        {
+          "path": "clipdeck-maintained-decoder-corresponding-source/licenses/FFmpeg-LICENSE.md",
+          "sha256": "2e1d16c72fd74e12063776371da757322f8b77589386532f4fd8634bde7de1af",
+          "bytes": 4346,
+          "mode": "0o644"
+        },
+        {
+          "path": "clipdeck-maintained-decoder-corresponding-source/licenses/PyAV-LICENSE.txt",
+          "sha256": "76af0461ffb92e19f1c14449e95557d83a2dfaa1baf202d49e5f1d8746c0da19",
+          "bytes": 1505,
+          "mode": "0o644"
+        },
+        {
+          "path": "clipdeck-maintained-decoder-corresponding-source/normalize_wheel.py",
+          "sha256": "39c5e50274344987c29e143373dcf3465f63e51ef499f1080214f4a20bd2a1e3",
+          "bytes": 1731,
+          "mode": "0o644"
+        },
+        {
+          "path": "clipdeck-maintained-decoder-corresponding-source/source-manifest.json",
+          "sha256": "454b7276d72b7571a39f125a04bf807ef4177bb25f6750c8bcf6f4a7fc100d17",
+          "bytes": 714,
+          "mode": "0o644"
+        },
+        {
+          "path": "clipdeck-maintained-decoder-corresponding-source/sources/PyAV-7687256d87f22f78cb75bb4aba94dc6e504c9983.tar.gz",
+          "sha256": "e94aaf48e1a43c40cf02137f1a8d4a52b381790d568b2dbd163a5f83059124ba",
+          "bytes": 205790,
+          "mode": "0o644"
+        },
+        {
+          "path": "clipdeck-maintained-decoder-corresponding-source/sources/ffmpeg-8.1.2.tar.xz",
+          "sha256": "464beb5e7bf0c311e68b45ae2f04e9cc2af88851abb4082231742a74d97b524c",
+          "bytes": 11710924,
+          "mode": "0o644"
+        },
+        {
+          "path": "clipdeck-maintained-decoder-corresponding-source/sources/pkgconf-2.5.1.tar.xz",
+          "sha256": "cd05c9589b9f86ecf044c10a2269822bc9eb001eced2582cfffd658b0a50c243",
+          "bytes": 328064,
+          "mode": "0o644"
+        },
+        {
+          "path": "clipdeck-maintained-decoder-corresponding-source/tools/clang",
+          "sha256": "2b2e431eb14dde218cbb3e7f9b562a8cc5b221d898892041546d45de79ac1d7e",
+          "bytes": 196,
+          "mode": "0o755"
+        },
+        {
+          "path": "clipdeck-maintained-decoder-corresponding-source/tools/clang++",
+          "sha256": "6e2bb9d4c2095ed751c96f5b545fe1c880a953bf6e1d75c7f01a095122b15209",
+          "bytes": 198,
+          "mode": "0o755"
+        },
+        {
+          "path": "clipdeck-maintained-decoder-corresponding-source/tools/pkgconf",
+          "sha256": "eb1d434c8c9dd4fb4d81cf13bc936ee21c1ef95c01ee6967218ee2177b5869f0",
+          "bytes": 154,
+          "mode": "0o755"
+        }
+      ],
+      "neutral_prefix": "/opt/clipdeck-runtime",
+      "source_debug_prefix": "/clipdeck-build",
+      "network_disabled": true,
+      "protocols": [
+        "file",
+        "pipe"
+      ],
+      "license_configuration": "BSD-3-Clause PyAV plus LGPL-2.1-or-later minimal PCM/WAV FFmpeg"
+    }
+  ],
+  "independent_archive_checks": [
+    {
+      "role": "worker",
+      "asset": {
+        "file": "portable-worker-runtime-3.12.15-macos-arm64.tar.gz",
+        "sha256": "5d3804e9af533e959a310d59951c2d64f4c71a1d9cd16b1d55c8df6b0b62ef2b",
+        "bytes": 65402228
+      },
+      "regular_members": 3916,
+      "symlinks": 6,
+      "metadata_fields_checked": 17740,
+      "raw_private_needle_hits": 0,
+      "all_regular_member_bytes_scanned": true
+    },
+    {
+      "role": "media",
+      "asset": {
+        "file": "clipdeck-media-runtime-9.0.2-macos-arm64.tar.gz",
+        "sha256": "a94fddf9b4d4c096bb6ea7c4a143ad712974207e414f424f01eb65cb8feae387",
+        "bytes": 8253537
+      },
+      "regular_members": 2,
+      "symlinks": 0,
+      "metadata_fields_checked": 8,
+      "raw_private_needle_hits": 0,
+      "all_regular_member_bytes_scanned": true
+    },
+    {
+      "role": "media_source",
+      "asset": {
+        "file": "clipdeck-media-corresponding-source.tar.gz",
+        "sha256": "8faf8182eaef4f3ea35e5180c5ef78e3cb540ec60ea75081e0068fe1d4a628e5",
+        "bytes": 13244320
+      },
+      "regular_members": 12,
+      "symlinks": 0,
+      "metadata_fields_checked": 64,
+      "raw_private_needle_hits": 0,
+      "all_regular_member_bytes_scanned": true
+    },
+    {
+      "role": "decoder_source",
+      "asset": {
+        "file": "clipdeck-maintained-decoder-corresponding-source.tar.gz",
+        "sha256": "7a4f003e4db417c260146a8f055f2549b9657af56f6f7f11af96671138d3ccca",
+        "bytes": 12265465
+      },
+      "regular_members": 14,
+      "symlinks": 0,
+      "metadata_fields_checked": 74,
+      "raw_private_needle_hits": 0,
+      "all_regular_member_bytes_scanned": true
+    }
+  ],
+  "independent_license_hash_rows": 120,
+  "worker_inventory_entries": 3922,
+  "native_file_bytes_scanned": 95,
+  "native_receipt_hashes_match_saved_payload": true,
+  "fresh_signature_execution": false,
+  "producer_prerequisite": {
+    "report_sha256": "1287d1bf832d555f9c8dd6cc607751bb02d87242c43b69ebe0afd19d28d0688e",
+    "verification_sha256": "f496e977defb15586dd1ac8ad2ab59e6c0ba6a52db816f75d964b90ed35d0cab",
+    "worker_script_sha256": "3da7ec7558e42a21df95b911b4964b2474136e678320ae8eacf233e5e8d217e5",
+    "native_worker_objects": 93,
+    "media_native_objects": 2,
+    "all_native_signatures_verified_by_producer": true,
+    "loader_closure_verified_by_producer": true,
+    "offline_english_words": 307,
+    "offline_chinese_words": 16,
+    "checks_not_repeated_by_packaging_owner": true,
+    "actual_host": "macOS27.0.1 ARM64",
+    "oldest_os_execution_verified": false
+  },
+  "scan_scope": "Raw bytes of every regular member plus tar metadata; named private maintainer home/research needles. Nested unchanged upstream source archives are not rewritten. Not a universal secret scan or final application-source scan.",
+  "historical_normalization_receipt": "source-normalization.json (superseded002, not a current resource input)",
+  "model_bundled": false,
+  "media_source_recipe_repair": {
+    "change": "One mkdir argument adds TASK_ROOT/logs before any redirection; both owned source-recipe copies updated.",
+    "previous_archive_sha256": "6cdd3ea806433769c1a31a12a0e9d0d476f951e8208ec92860aa1db18d079529",
+    "current_archive_sha256": "8faf8182eaef4f3ea35e5180c5ef78e3cb540ec60ea75081e0068fe1d4a628e5",
+    "recipe_sha256": "8d96e07a801e219bfc6b3fe7eae41ccddcb9747072ea897c7232a8969c21d8cb",
+    "only_changed_member": "clipdeck-media-corresponding-source/build-media.sh",
+    "all_other_source_members_bytes_modes_links_unchanged": true,
+    "producer_fresh_extraction_startup": {
+      "bash_syntax_passed": true,
+      "logs_absent_before_run": true,
+      "actual_supplied_script_created_logs": true,
+      "pkgconf_configure_started": true,
+      "bounded_stop_before_make": true
+    },
+    "full_rebuild_repeated": false
+  }
+}

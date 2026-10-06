@@ -1,0 +1,3020 @@
+{
+  "schemaVersion": 1,
+  "scope": "Verified native benchmark subset on an exact development candidate; not full R17/Task5/product/package/public delivery acceptance",
+  "sourceCommits": [
+    "990b84b30ca9c78e4fc640fa17ca3845e00883b8",
+    "990b84b30ca9c78e4fc640fa17ca3845e00883b8",
+    "990b84b30ca9c78e4fc640fa17ca3845e00883b8"
+  ],
+  "sourceHashes": {
+    "src/main/services/transcription.ts": "1e5f43d6f429ed68f7a0122bf321aaab1ed027a18320d86f0815beffac87b3c6",
+    "src/main/services/render.ts": "1be072d37106af9eee5eed63fde0fe5f51736f65e7cffbca10ac56fad753e780",
+    "src/main/services/render-engine.ts": "923ffb785415be1fc626212ecd7f329f52089599d0a15d1f0d950c8949fa5704",
+    "src/main/services/process.ts": "deabdb39d67ede8bdc26a759ec2d83821406462ed50e9436bb8f9692107713cd",
+    "src/main/services/models.ts": "92baff0511712dd8c8143dfd232bb854dff6f73dbad22e4ec8c6c8a808970c11",
+    "src/main/services/media.ts": "399cb82c2cbadf75502b9128fe9ed02e4a2740b9271a68f1b50703d85863aa01",
+    "src/main/services/jobs.ts": "e0588e6d8d62e3a187c7f85d99c07220abbd7689db1364689db1897aa1b987c5",
+    "src/domain/assembly.ts": "f80a9e5c79aafafa1800025a7d36ccf457cd8b5eccd28a4ac8475bc22889c71c",
+    "worker/transcribe.py": "588fe7a3188c74d26a990cf7f2bd594419ae2a00ef2f8d07de74d52e71ecb159",
+    "worker/requirements.txt": "2324e1abd50124e5e920993035685d63b267c827b4ec88e63abaf23b9b298737",
+    "scripts/workflow-benchmark.ts": "6b6deb424ced993c4eed81ebb7fac90eb0fdb767ad708eb0d1837a9482d2a1b3",
+    "scripts/benchmark-workflow.mjs": "555232b03c583c126a4ac3720c04dbfb5682d85d042ef8f44f6e0e3fa6325b21",
+    "scripts/benchmark-worker-timing.py": "5246305637c9fa2468c6243e1ccf3818cb7f219719fcf5ea440ac0a62f9de4db",
+    "scripts/workflow-benchmark-utils.mjs": "8e493a727010d00aa55625f467fc0d4570fcdb64f913fbcb97dcd3b3ff12b78c"
+  },
+  "frozenEntrySha256": "ddbce0022588030758a97d45b8aaa91e37500719f75f8e10dedd52a09fa99355",
+  "rawReceiptSha256": [
+    "4311667404457306c28cae05c197399f21889fbb30fe60c10ed5930150593616",
+    "90e0b4c200b6cf278f7a6db73cf5e41e1f6326829bb2e6ab40a512af851ab493",
+    "a16ebf139a3963d588df2501ddde4806cd5cc0b5fd10934bbc29176a1ec9696a"
+  ],
+  "runtimeHashes": {
+    "ffmpeg": "b0ff17235a0e98896b99e6aa8c6b08304473954ac87f7f1c13145d57bc8c575b",
+    "ffprobe": "dddea7c70f08c0df47dca6bd35d5a416df1506f4f1b61e6b09c018cf25405d9b",
+    "python": "fe5e57e7f0dc374654e314d4e8f20cf2a345bda8a4e03032046f407027628a32",
+    "worker": "588fe7a3188c74d26a990cf7f2bd594419ae2a00ef2f8d07de74d52e71ecb159"
+  },
+  "ffmpeg": "ffmpeg version 9.0.2 Copyright (c) 2000-2026 the FFmpeg developers",
+  "workerRuntimePins": "anyio==4.15.1\nav==16.0.1+clipdeck.ffmpeg8.1.2\ncertifi==2026.7.22\nclick==8.5.0\nctranslate2==4.8.2\nfaster-whisper==1.2.1\nfilelock==4.0.12\nflatbuffers==25.12.19\nfsspec==2026.9.0\nh11==0.16.0\nhf-xet==1.6.0\nhttpcore==1.0.9\nhttpx==0.28.1\nhuggingface_hub==1.33.0\nidna==3.20\nnumpy==2.5.3\nonnxruntime==1.30.0\npackaging==26.3\nprotobuf==7.36.2\nPyYAML==6.0.3\ntokenizers==0.23.2\ntqdm==4.70.1\ntyping_extensions==4.16.0\n",
+  "model": {
+    "id": "Systran/faster-whisper-small",
+    "revision": "536b0662742c02347bc0e980a01041f333bce120",
+    "digest": "ef292cd53a8710cc7b512537813ca61528bf6b35fb97bc86b38fe1bbde02e2fb",
+    "files": [
+      {
+        "name": "model.bin",
+        "bytes": 483546902,
+        "sha256": "3e305921506d8872816023e4c273e75d2419fb89b24da97b4fe7bce14170d671",
+        "url": "https://huggingface.co/Systran/faster-whisper-small/resolve/536b0662742c02347bc0e980a01041f333bce120/model.bin"
+      },
+      {
+        "name": "tokenizer.json",
+        "bytes": 2203239,
+        "sha256": "fb7b63191e9bb045082c79fd742a3106a12c99513ab30df4a0d47fa6cb6fd0ab",
+        "url": "https://huggingface.co/Systran/faster-whisper-small/resolve/536b0662742c02347bc0e980a01041f333bce120/tokenizer.json"
+      },
+      {
+        "name": "config.json",
+        "bytes": 2370,
+        "sha256": "b55496ac7940a7ae47d2c01eab40edfd8701feec1229d9cce3b40014383fb828",
+        "url": "https://huggingface.co/Systran/faster-whisper-small/resolve/536b0662742c02347bc0e980a01041f333bce120/config.json"
+      },
+      {
+        "name": "vocabulary.txt",
+        "bytes": 459861,
+        "sha256": "34ce3fe1c5041027b3f8d42912270993f986dbc4bb34cf27f951e34a1e453913",
+        "url": "https://huggingface.co/Systran/faster-whisper-small/resolve/536b0662742c02347bc0e980a01041f333bce120/vocabulary.txt"
+      }
+    ]
+  },
+  "hardware": {
+    "platform": "darwin",
+    "arch": "arm64",
+    "release": "27.0.0",
+    "cpu": "Apple M5 Pro",
+    "cores": 18,
+    "memoryBytes": 51539607552,
+    "loadAverage": [
+      3.27587890625,
+      3.095703125,
+      2.89208984375
+    ],
+    "hardware": "Mac17,8"
+  },
+  "initialLoadAverages": [
+    [
+      3.27587890625,
+      3.095703125,
+      2.89208984375
+    ],
+    [
+      10.75146484375,
+      5.923828125,
+      4.03759765625
+    ],
+    [
+      10.57275390625,
+      6.6328125,
+      4.455078125
+    ]
+  ],
+  "node": "24.19.0",
+  "inputs": [
+    {
+      "id": "recorded-en-a",
+      "sha256": "3df5018bde9e5909eb5fe1bb5afa5cc988ed9f01333b79ccf64e41e855243b5a",
+      "audioKind": "RECORDED ENGLISH AUDIO",
+      "visualKind": "generated marker",
+      "durationSeconds": 92.041667
+    },
+    {
+      "id": "recorded-en-b",
+      "sha256": "f772274a78d417227f2eeaee3d8591692c3fe36a4dd100fde6106711f5d101b1",
+      "audioKind": "RECORDED ENGLISH AUDIO",
+      "visualKind": "generated marker",
+      "durationSeconds": 93.2
+    },
+    {
+      "id": "recorded-en-c",
+      "sha256": "1cd69ec0b04223dac8d56e1645594492707c445409b7d628d45bcda61cdbe33a",
+      "audioKind": "RECORDED ENGLISH AUDIO",
+      "visualKind": "generated marker",
+      "durationSeconds": 122.64
+    },
+    {
+      "id": "story-part-1",
+      "sha256": "77562766f63221158d80c8f9a2f2810179d6cd6e4c6aea2eb99b4b65765cccb7",
+      "audioKind": "RECORDED ENGLISH AUDIO",
+      "visualKind": "generated marker",
+      "durationSeconds": 57.085
+    },
+    {
+      "id": "story-part-2",
+      "sha256": "e32ba0714bc0ac9faea0f7a3940a000e0589aa341b2db7b8f0a165e6f6a9c940",
+      "audioKind": "RECORDED ENGLISH AUDIO",
+      "visualKind": "generated marker",
+      "durationSeconds": 40.935
+    },
+    {
+      "id": "story-part-3",
+      "sha256": "18365dea477cd4a61a673c786a3e36bf7d26b54e490724c8aa48823c72ba7cb5",
+      "audioKind": "RECORDED ENGLISH AUDIO",
+      "visualKind": "generated marker",
+      "durationSeconds": 40.541667
+    },
+    {
+      "id": "synthetic-en",
+      "sha256": "c37ad9d36b31e124a715a2fea3a360661df8eb8b675a6462ea49042851f9b749",
+      "audioKind": "SYNTHETIC EN AUDIO",
+      "visualKind": "generated marker",
+      "durationSeconds": 8
+    },
+    {
+      "id": "synthetic-zh",
+      "sha256": "9154c514e4a72224744fbc5a0e8b41efa52348ce1b16752fd70c6881264d7ac5",
+      "audioKind": "SYNTHETIC ZH AUDIO",
+      "visualKind": "generated marker",
+      "durationSeconds": 11.366667
+    },
+    {
+      "id": "silent-marker",
+      "sha256": "9d95f741c8809a9aefc4674f41de18ef0012149680664aaa0cfe31ce1a9af3a6",
+      "audioKind": "NO AUDIO TRACK",
+      "visualKind": "generated marker",
+      "durationSeconds": 12
+    }
+  ],
+  "manifestSha256": "46384e3287efc72ba5ef1b185f10c8556b04edfeca7c9d22ecffbb912198aa8b",
+  "preservedOriginalHashes": {
+    "recorded-en-a": "3df5018bde9e5909eb5fe1bb5afa5cc988ed9f01333b79ccf64e41e855243b5a",
+    "recorded-en-b": "f772274a78d417227f2eeaee3d8591692c3fe36a4dd100fde6106711f5d101b1",
+    "recorded-en-c": "1cd69ec0b04223dac8d56e1645594492707c445409b7d628d45bcda61cdbe33a",
+    "story-part-1": "77562766f63221158d80c8f9a2f2810179d6cd6e4c6aea2eb99b4b65765cccb7",
+    "story-part-2": "e32ba0714bc0ac9faea0f7a3940a000e0589aa341b2db7b8f0a165e6f6a9c940",
+    "story-part-3": "18365dea477cd4a61a673c786a3e36bf7d26b54e490724c8aa48823c72ba7cb5",
+    "synthetic-en": "c37ad9d36b31e124a715a2fea3a360661df8eb8b675a6462ea49042851f9b749",
+    "synthetic-zh": "9154c514e4a72224744fbc5a0e8b41efa52348ce1b16752fd70c6881264d7ac5",
+    "silent-marker": "9d95f741c8809a9aefc4674f41de18ef0012149680664aaa0cfe31ce1a9af3a6"
+  },
+  "conditions": {
+    "first": "first measured operation of its kind in a fresh Node cohort; source probing/model registration/hash checks can warm filesystem; no OS cache purge or reboot",
+    "fsWarm": "one subsequent recompute in the same Node cohort with a new RenderService/cache or a new per-job ASR worker; not persistent-model warm",
+    "cacheHit": "same live native RenderService reuses a committed verified preview; no re-encoding",
+    "repeats": "exactly three fresh cohorts; one first and one FS-warm recompute each, no discarded tails",
+    "scope": "Native development services and worker; no picker, renderer/human listening, package installation or whole-app memory claim"
+  },
+  "reproduction": [
+    "node scripts/benchmark-workflow.mjs --mode=measure --inputs-dir=$INPUTS --output-dir=$OUTPUT --model-dir=$MODEL",
+    "node scripts/summarize-workflow-benchmark.mjs --receipt-dir=$RUN --renderer-report=$RENDERER_REPORT --output-file=docs/verification/workflow-performance.json"
+  ],
+  "story": {
+    "sourceFiles": 3,
+    "sourceMedia": [
+      {
+        "sourceId": "story-part-1",
+        "width": 640,
+        "height": 360,
+        "fps": 24,
+        "rotation": 0,
+        "sampleAspectRatio": 1,
+        "durationMs": 57085,
+        "hasAudio": true
+      },
+      {
+        "sourceId": "story-part-2",
+        "width": 640,
+        "height": 360,
+        "fps": 24,
+        "rotation": 0,
+        "sampleAspectRatio": 1,
+        "durationMs": 40935,
+        "hasAudio": true
+      },
+      {
+        "sourceId": "story-part-3",
+        "width": 640,
+        "height": 360,
+        "fps": 24,
+        "rotation": 0,
+        "sampleAspectRatio": 1,
+        "durationMs": 40542,
+        "hasAudio": true
+      }
+    ],
+    "recordedReaderIdentities": 1,
+    "selectedCompletePassages": 12,
+    "selectedSpeechSeconds": 96.7150625,
+    "integerSelectedMs": 96715,
+    "outputFrames": 2909,
+    "outputSamples": 4654400,
+    "outputDurationSeconds": 96.96666666666667,
+    "audioSampleRate": 48000,
+    "framesPerSecond": 30,
+    "manualCorpusBounds": true,
+    "rendererWordSelectionClaim": false
+  },
+  "nativeOperations": [
+    {
+      "cohort": 0,
+      "name": "model-registration",
+      "condition": "setup outside ASR throughput; official four-resource local verification warms filesystem",
+      "elapsedMs": 206.84566600000002,
+      "sampledPeakTreeRssKiB": 109248,
+      "sampledPeakNativeRssKiB": 0,
+      "memorySampleCount": 3,
+      "status": "completed"
+    },
+    {
+      "cohort": 0,
+      "name": "worker-preflight",
+      "condition": "separate model-free fresh Python process; real OS outbound-network denial",
+      "elapsedMs": 118.80425000000002,
+      "sampledPeakTreeRssKiB": 174624,
+      "sampledPeakNativeRssKiB": 64448,
+      "memorySampleCount": 2,
+      "status": "completed"
+    },
+    {
+      "cohort": 0,
+      "name": "transcription",
+      "condition": "first",
+      "sourceId": "story-part-1",
+      "elapsedMs": 7955.695874999999,
+      "audioDurationSeconds": 57.085,
+      "audioSamples": 913360,
+      "endToEndRtf": 0.13936578567049135,
+      "wordCount": 184,
+      "transcriptSha256": "7c8e0aa3ba2e78785a9b23ee449b7f3d54009d9358a4e95f9671d27885ffb2ee",
+      "serviceStageMs": {
+        "decodingAndPostDecodeSourceVerification": 14.933250000000044,
+        "workerStartupModelCheckPreflightPcmAndModelInit": 532.923667,
+        "transcribingThroughNativeValidationAndCommit": 7208.653083
+      },
+      "sampledPeakTreeRssKiB": 1320528,
+      "sampledPeakNativeRssKiB": 1143280,
+      "memorySampleCount": 79,
+      "status": "completed"
+    },
+    {
+      "cohort": 0,
+      "name": "transcription",
+      "condition": "fs-warm",
+      "sourceId": "story-part-1",
+      "elapsedMs": 7967.173999999999,
+      "audioDurationSeconds": 57.085,
+      "audioSamples": 913360,
+      "endToEndRtf": 0.13956685644214767,
+      "wordCount": 184,
+      "transcriptSha256": "7b1dfefa55606ffe8c82992de203920d587a30ad06b4f8ea0ef6deacc6df6a54",
+      "serviceStageMs": {
+        "decodingAndPostDecodeSourceVerification": 17.403542000000016,
+        "workerStartupModelCheckPreflightPcmAndModelInit": 584.8864580000009,
+        "transcribingThroughNativeValidationAndCommit": 7160.798667000001
+      },
+      "sampledPeakTreeRssKiB": 1406320,
+      "sampledPeakNativeRssKiB": 1206352,
+      "memorySampleCount": 79,
+      "status": "completed"
+    },
+    {
+      "cohort": 0,
+      "name": "transcription-phase-diagnostic",
+      "condition": "one profile-observed run; overhead included; excluded from throughput cohort",
+      "sourceId": "story-part-1",
+      "elapsedMs": 7984.544792000001,
+      "sampledPeakTreeRssKiB": 1402336,
+      "sampledPeakNativeRssKiB": 1159264,
+      "memorySampleCount": 80,
+      "status": "completed"
+    },
+    {
+      "cohort": 0,
+      "name": "transcription",
+      "condition": "first",
+      "sourceId": "synthetic-zh",
+      "elapsedMs": 2759.613291999998,
+      "audioDurationSeconds": 11.3656875,
+      "audioSamples": 181851,
+      "endToEndRtf": 0.24280214390902427,
+      "wordCount": 39,
+      "transcriptSha256": "4307de41d26588d0b04a980f0298f682550b8fd19b9e2c2b1bcc4908311f2136",
+      "serviceStageMs": {
+        "decodingAndPostDecodeSourceVerification": 7.976167000000714,
+        "workerStartupModelCheckPreflightPcmAndModelInit": 561.473833,
+        "transcribingThroughNativeValidationAndCommit": 1989.2860839999994
+      },
+      "sampledPeakTreeRssKiB": 1254816,
+      "sampledPeakNativeRssKiB": 997008,
+      "memorySampleCount": 28,
+      "status": "completed"
+    },
+    {
+      "cohort": 0,
+      "name": "transcription",
+      "condition": "fs-warm",
+      "sourceId": "synthetic-zh",
+      "elapsedMs": 2549.7964580000007,
+      "audioDurationSeconds": 11.3656875,
+      "audioSamples": 181851,
+      "endToEndRtf": 0.22434159464616643,
+      "wordCount": 39,
+      "transcriptSha256": "95df2a5fbb3e21f83bbcc16f5d01119356024f0d57f720c550968b3c11af1354",
+      "serviceStageMs": {
+        "decodingAndPostDecodeSourceVerification": 8.00120799999786,
+        "workerStartupModelCheckPreflightPcmAndModelInit": 557.2699580000008,
+        "transcribingThroughNativeValidationAndCommit": 1788.200499999999
+      },
+      "sampledPeakTreeRssKiB": 1265136,
+      "sampledPeakNativeRssKiB": 1001680,
+      "memorySampleCount": 26,
+      "status": "completed"
+    },
+    {
+      "cohort": 0,
+      "name": "transcription-phase-diagnostic",
+      "condition": "one profile-observed run; overhead included; excluded from throughput cohort",
+      "sourceId": "synthetic-zh",
+      "elapsedMs": 2414.8470419999976,
+      "sampledPeakTreeRssKiB": 1259632,
+      "sampledPeakNativeRssKiB": 990608,
+      "memorySampleCount": 24,
+      "status": "completed"
+    },
+    {
+      "cohort": 0,
+      "name": "source-proxy",
+      "condition": "first",
+      "sourceId": "story-part-1",
+      "elapsedMs": 916.9799169999969,
+      "sampledPeakTreeRssKiB": 387424,
+      "sampledPeakNativeRssKiB": 111520,
+      "memorySampleCount": 10,
+      "receipt": {
+        "frames": 1713,
+        "samples": 2740800,
+        "width": 640,
+        "height": 360,
+        "durationSeconds": 57.1,
+        "audioPresentationSamples": 2740800
+      },
+      "status": "completed"
+    },
+    {
+      "cohort": 0,
+      "name": "source-proxy-cache-hit",
+      "condition": "first",
+      "sourceId": "story-part-1",
+      "elapsedMs": 0.6642500000016298,
+      "sampledPeakTreeRssKiB": 277232,
+      "sampledPeakNativeRssKiB": 0,
+      "memorySampleCount": 1,
+      "status": "completed"
+    },
+    {
+      "cohort": 0,
+      "name": "source-proxy",
+      "condition": "first",
+      "sourceId": "story-part-2",
+      "elapsedMs": 734.424208000004,
+      "sampledPeakTreeRssKiB": 389664,
+      "sampledPeakNativeRssKiB": 111344,
+      "memorySampleCount": 8,
+      "receipt": {
+        "frames": 1229,
+        "samples": 1966400,
+        "width": 640,
+        "height": 360,
+        "durationSeconds": 40.966667,
+        "audioPresentationSamples": 1966400
+      },
+      "status": "completed"
+    },
+    {
+      "cohort": 0,
+      "name": "source-proxy-cache-hit",
+      "condition": "first",
+      "sourceId": "story-part-2",
+      "elapsedMs": 0.579874999995809,
+      "sampledPeakTreeRssKiB": 279424,
+      "sampledPeakNativeRssKiB": 0,
+      "memorySampleCount": 1,
+      "status": "completed"
+    },
+    {
+      "cohort": 0,
+      "name": "source-proxy",
+      "condition": "first",
+      "sourceId": "story-part-3",
+      "elapsedMs": 645.0240830000039,
+      "sampledPeakTreeRssKiB": 393168,
+      "sampledPeakNativeRssKiB": 111344,
+      "memorySampleCount": 7,
+      "receipt": {
+        "frames": 1217,
+        "samples": 1947200,
+        "width": 640,
+        "height": 360,
+        "durationSeconds": 40.566667,
+        "audioPresentationSamples": 1947200
+      },
+      "status": "completed"
+    },
+    {
+      "cohort": 0,
+      "name": "source-proxy-cache-hit",
+      "condition": "first",
+      "sourceId": "story-part-3",
+      "elapsedMs": 0.48695800000132294,
+      "sampledPeakTreeRssKiB": 288256,
+      "sampledPeakNativeRssKiB": 0,
+      "memorySampleCount": 1,
+      "status": "completed"
+    },
+    {
+      "cohort": 0,
+      "name": "assembly-preview",
+      "condition": "first",
+      "preset": "landscape",
+      "validationOnly": false,
+      "elapsedMs": 7384.544416000004,
+      "sampledPeakTreeRssKiB": 534496,
+      "sampledPeakNativeRssKiB": 213680,
+      "memorySampleCount": 74,
+      "receipt": {
+        "frames": 2909,
+        "samples": 4654400,
+        "width": 960,
+        "height": 540,
+        "durationSeconds": 96.966667,
+        "audioPresentationSamples": 4654400
+      },
+      "outputSha256": "eeca6d474ce36780085fc48fb9d9c9df035d6a85cb5bd451904b1fbd5acae4ca",
+      "outputBytes": 2792261,
+      "status": "completed"
+    },
+    {
+      "cohort": 0,
+      "name": "assembly-preview-cache-hit",
+      "condition": "first",
+      "preset": "landscape",
+      "validationOnly": false,
+      "elapsedMs": 0.7569999999977881,
+      "sampledPeakTreeRssKiB": 323536,
+      "sampledPeakNativeRssKiB": 0,
+      "memorySampleCount": 1,
+      "status": "completed"
+    },
+    {
+      "cohort": 0,
+      "name": "assembly-export",
+      "condition": "first",
+      "preset": "landscape",
+      "validationOnly": false,
+      "elapsedMs": 20764.717540999998,
+      "sampledPeakTreeRssKiB": 1241392,
+      "sampledPeakNativeRssKiB": 882640,
+      "memorySampleCount": 206,
+      "receipt": {
+        "frames": 2909,
+        "samples": 4654400,
+        "width": 1920,
+        "height": 1080,
+        "durationSeconds": 96.966667,
+        "audioPresentationSamples": 4654400
+      },
+      "outputSha256": "60d97467d2c85fa06ddd972ca48ac6a9360c14718330e0ca035b4ed0db4b5432",
+      "outputBytes": 3248104,
+      "status": "completed"
+    },
+    {
+      "cohort": 0,
+      "name": "assembly-preview",
+      "condition": "first",
+      "preset": "portrait",
+      "validationOnly": true,
+      "elapsedMs": 5588.632541999999,
+      "sampledPeakTreeRssKiB": 645312,
+      "sampledPeakNativeRssKiB": 267184,
+      "memorySampleCount": 56,
+      "receipt": {
+        "frames": 2909,
+        "samples": 4654400,
+        "width": 540,
+        "height": 960,
+        "durationSeconds": 96.966667,
+        "audioPresentationSamples": 4654400
+      },
+      "outputSha256": "434e7672c6c312f834a4338940b890eda9c78d62929f939752020df9577f6787",
+      "outputBytes": 2657351,
+      "status": "completed"
+    },
+    {
+      "cohort": 0,
+      "name": "assembly-preview-cache-hit",
+      "condition": "first",
+      "preset": "portrait",
+      "validationOnly": true,
+      "elapsedMs": 0.7554999999993015,
+      "sampledPeakTreeRssKiB": 380720,
+      "sampledPeakNativeRssKiB": 0,
+      "memorySampleCount": 1,
+      "status": "completed"
+    },
+    {
+      "cohort": 0,
+      "name": "assembly-export",
+      "condition": "first",
+      "preset": "portrait",
+      "validationOnly": true,
+      "elapsedMs": 14372.26449999999,
+      "sampledPeakTreeRssKiB": 1299632,
+      "sampledPeakNativeRssKiB": 884720,
+      "memorySampleCount": 143,
+      "receipt": {
+        "frames": 2909,
+        "samples": 4654400,
+        "width": 1080,
+        "height": 1920,
+        "durationSeconds": 96.966667,
+        "audioPresentationSamples": 4654400
+      },
+      "outputSha256": "82a080ed4a50208c9e40344c7ca08b75687ffb72f9d82b2eacf18ca475fbeb70",
+      "outputBytes": 2954018,
+      "status": "completed"
+    },
+    {
+      "cohort": 0,
+      "name": "assembly-preview",
+      "condition": "first",
+      "preset": "square",
+      "validationOnly": true,
+      "elapsedMs": 4405.231917000012,
+      "sampledPeakTreeRssKiB": 581024,
+      "sampledPeakNativeRssKiB": 135936,
+      "memorySampleCount": 44,
+      "receipt": {
+        "frames": 2909,
+        "samples": 4654400,
+        "width": 540,
+        "height": 540,
+        "durationSeconds": 96.966667,
+        "audioPresentationSamples": 4654400
+      },
+      "outputSha256": "c1cbd703b34378f88dab4bafaf1e1f2a49421bdf49326c11d647ceb0c1ae1964",
+      "outputBytes": 2642836,
+      "status": "completed"
+    },
+    {
+      "cohort": 0,
+      "name": "assembly-preview-cache-hit",
+      "condition": "first",
+      "preset": "square",
+      "validationOnly": true,
+      "elapsedMs": 0.6450420000037411,
+      "sampledPeakTreeRssKiB": 446880,
+      "sampledPeakNativeRssKiB": 0,
+      "memorySampleCount": 1,
+      "status": "completed"
+    },
+    {
+      "cohort": 0,
+      "name": "assembly-export",
+      "condition": "first",
+      "preset": "square",
+      "validationOnly": true,
+      "elapsedMs": 10287.331666999991,
+      "sampledPeakTreeRssKiB": 993712,
+      "sampledPeakNativeRssKiB": 529664,
+      "memorySampleCount": 102,
+      "receipt": {
+        "frames": 2909,
+        "samples": 4654400,
+        "width": 1080,
+        "height": 1080,
+        "durationSeconds": 96.966667,
+        "audioPresentationSamples": 4654400
+      },
+      "outputSha256": "42ade9aa317b699eeb645eb62ea474a71c5c297f6200742e13b12cb502dbc595",
+      "outputBytes": 2900052,
+      "status": "completed"
+    },
+    {
+      "cohort": 0,
+      "name": "source-proxy",
+      "condition": "fs-warm",
+      "sourceId": "story-part-1",
+      "elapsedMs": 893.2344580000063,
+      "sampledPeakTreeRssKiB": 581520,
+      "sampledPeakNativeRssKiB": 111488,
+      "memorySampleCount": 9,
+      "receipt": {
+        "frames": 1713,
+        "samples": 2740800,
+        "width": 640,
+        "height": 360,
+        "durationSeconds": 57.1,
+        "audioPresentationSamples": 2740800
+      },
+      "status": "completed"
+    },
+    {
+      "cohort": 0,
+      "name": "source-proxy-cache-hit",
+      "condition": "fs-warm",
+      "sourceId": "story-part-1",
+      "elapsedMs": 0.4794160000019474,
+      "sampledPeakTreeRssKiB": 470896,
+      "sampledPeakNativeRssKiB": 0,
+      "memorySampleCount": 1,
+      "status": "completed"
+    },
+    {
+      "cohort": 0,
+      "name": "source-proxy",
+      "condition": "fs-warm",
+      "sourceId": "story-part-2",
+      "elapsedMs": 671.9111250000133,
+      "sampledPeakTreeRssKiB": 582992,
+      "sampledPeakNativeRssKiB": 111248,
+      "memorySampleCount": 7,
+      "receipt": {
+        "frames": 1229,
+        "samples": 1966400,
+        "width": 640,
+        "height": 360,
+        "durationSeconds": 40.966667,
+        "audioPresentationSamples": 1966400
+      },
+      "status": "completed"
+    },
+    {
+      "cohort": 0,
+      "name": "source-proxy-cache-hit",
+      "condition": "fs-warm",
+      "sourceId": "story-part-2",
+      "elapsedMs": 0.4285830000007991,
+      "sampledPeakTreeRssKiB": 472592,
+      "sampledPeakNativeRssKiB": 0,
+      "memorySampleCount": 1,
+      "status": "completed"
+    },
+    {
+      "cohort": 0,
+      "name": "source-proxy",
+      "condition": "fs-warm",
+      "sourceId": "story-part-3",
+      "elapsedMs": 631.4825839999976,
+      "sampledPeakTreeRssKiB": 584720,
+      "sampledPeakNativeRssKiB": 111280,
+      "memorySampleCount": 7,
+      "receipt": {
+        "frames": 1217,
+        "samples": 1947200,
+        "width": 640,
+        "height": 360,
+        "durationSeconds": 40.566667,
+        "audioPresentationSamples": 1947200
+      },
+      "status": "completed"
+    },
+    {
+      "cohort": 0,
+      "name": "source-proxy-cache-hit",
+      "condition": "fs-warm",
+      "sourceId": "story-part-3",
+      "elapsedMs": 0.43533300000126474,
+      "sampledPeakTreeRssKiB": 474304,
+      "sampledPeakNativeRssKiB": 0,
+      "memorySampleCount": 1,
+      "status": "completed"
+    },
+    {
+      "cohort": 0,
+      "name": "assembly-preview",
+      "condition": "fs-warm",
+      "preset": "landscape",
+      "validationOnly": false,
+      "elapsedMs": 7044.286959000005,
+      "sampledPeakTreeRssKiB": 700560,
+      "sampledPeakNativeRssKiB": 213680,
+      "memorySampleCount": 70,
+      "receipt": {
+        "frames": 2909,
+        "samples": 4654400,
+        "width": 960,
+        "height": 540,
+        "durationSeconds": 96.966667,
+        "audioPresentationSamples": 4654400
+      },
+      "outputSha256": "eeca6d474ce36780085fc48fb9d9c9df035d6a85cb5bd451904b1fbd5acae4ca",
+      "outputBytes": 2792261,
+      "status": "completed"
+    },
+    {
+      "cohort": 0,
+      "name": "assembly-preview-cache-hit",
+      "condition": "fs-warm",
+      "preset": "landscape",
+      "validationOnly": false,
+      "elapsedMs": 0.644417000003159,
+      "sampledPeakTreeRssKiB": 489552,
+      "sampledPeakNativeRssKiB": 0,
+      "memorySampleCount": 1,
+      "status": "completed"
+    },
+    {
+      "cohort": 0,
+      "name": "assembly-export",
+      "condition": "fs-warm",
+      "preset": "landscape",
+      "validationOnly": false,
+      "elapsedMs": 19824.896582999994,
+      "sampledPeakTreeRssKiB": 1404976,
+      "sampledPeakNativeRssKiB": 882512,
+      "memorySampleCount": 197,
+      "receipt": {
+        "frames": 2909,
+        "samples": 4654400,
+        "width": 1920,
+        "height": 1080,
+        "durationSeconds": 96.966667,
+        "audioPresentationSamples": 4654400
+      },
+      "outputSha256": "60d97467d2c85fa06ddd972ca48ac6a9360c14718330e0ca035b4ed0db4b5432",
+      "outputBytes": 3248104,
+      "status": "completed"
+    },
+    {
+      "cohort": 1,
+      "name": "model-registration",
+      "condition": "setup outside ASR throughput; official four-resource local verification warms filesystem",
+      "elapsedMs": 205.40087499999998,
+      "sampledPeakTreeRssKiB": 104048,
+      "sampledPeakNativeRssKiB": 0,
+      "memorySampleCount": 3,
+      "status": "completed"
+    },
+    {
+      "cohort": 1,
+      "name": "worker-preflight",
+      "condition": "separate model-free fresh Python process; real OS outbound-network denial",
+      "elapsedMs": 149.047416,
+      "sampledPeakTreeRssKiB": 161280,
+      "sampledPeakNativeRssKiB": 56144,
+      "memorySampleCount": 2,
+      "status": "completed"
+    },
+    {
+      "cohort": 1,
+      "name": "transcription",
+      "condition": "first",
+      "sourceId": "story-part-1",
+      "elapsedMs": 8337.619583,
+      "audioDurationSeconds": 57.085,
+      "audioSamples": 913360,
+      "endToEndRtf": 0.1460562246299378,
+      "wordCount": 184,
+      "transcriptSha256": "d0e60fc1aa59307499f5e35a019b467c5fe9b3c58810fa64e1b6e62a40d6fc8a",
+      "serviceStageMs": {
+        "decodingAndPostDecodeSourceVerification": 15.524499999999989,
+        "workerStartupModelCheckPreflightPcmAndModelInit": 549.5438340000001,
+        "transcribingThroughNativeValidationAndCommit": 7567.895083
+      },
+      "sampledPeakTreeRssKiB": 1389136,
+      "sampledPeakNativeRssKiB": 1219184,
+      "memorySampleCount": 83,
+      "status": "completed"
+    },
+    {
+      "cohort": 1,
+      "name": "transcription",
+      "condition": "fs-warm",
+      "sourceId": "story-part-1",
+      "elapsedMs": 8645.606500000002,
+      "audioDurationSeconds": 57.085,
+      "audioSamples": 913360,
+      "endToEndRtf": 0.151451458351581,
+      "wordCount": 184,
+      "transcriptSha256": "02f73f8bf63768350449be16e9c45fa75dc0075600022307182dcdb70445e51c",
+      "serviceStageMs": {
+        "decodingAndPostDecodeSourceVerification": 20.297749999999724,
+        "workerStartupModelCheckPreflightPcmAndModelInit": 557.7530000000006,
+        "transcribingThroughNativeValidationAndCommit": 7838.4557909999985
+      },
+      "sampledPeakTreeRssKiB": 1438560,
+      "sampledPeakNativeRssKiB": 1227008,
+      "memorySampleCount": 86,
+      "status": "completed"
+    },
+    {
+      "cohort": 1,
+      "name": "transcription",
+      "condition": "first",
+      "sourceId": "synthetic-zh",
+      "elapsedMs": 2802.5351249999985,
+      "audioDurationSeconds": 11.3656875,
+      "audioSamples": 181851,
+      "endToEndRtf": 0.24657858356566628,
+      "wordCount": 39,
+      "transcriptSha256": "4eb03cfbf786aceeeb375ff91282919dc0d6a49377b0ab994b0fef38b39f4fb0",
+      "serviceStageMs": {
+        "decodingAndPostDecodeSourceVerification": 9.116458999997121,
+        "workerStartupModelCheckPreflightPcmAndModelInit": 585.3470830000006,
+        "transcribingThroughNativeValidationAndCommit": 1990.4809170000008
+      },
+      "sampledPeakTreeRssKiB": 1242096,
+      "sampledPeakNativeRssKiB": 992448,
+      "memorySampleCount": 28,
+      "status": "completed"
+    },
+    {
+      "cohort": 1,
+      "name": "transcription",
+      "condition": "fs-warm",
+      "sourceId": "synthetic-zh",
+      "elapsedMs": 2754.5986660000017,
+      "audioDurationSeconds": 11.3656875,
+      "audioSamples": 181851,
+      "endToEndRtf": 0.24236093645896928,
+      "wordCount": 39,
+      "transcriptSha256": "f3915c1a70a206aeff0ea97fd382a56ed2f677a1325b540f0b85df643418e5bc",
+      "serviceStageMs": {
+        "decodingAndPostDecodeSourceVerification": 8.77049999999872,
+        "workerStartupModelCheckPreflightPcmAndModelInit": 578.5034159999996,
+        "transcribingThroughNativeValidationAndCommit": 1947.4826250000006
+      },
+      "sampledPeakTreeRssKiB": 1249888,
+      "sampledPeakNativeRssKiB": 994000,
+      "memorySampleCount": 28,
+      "status": "completed"
+    },
+    {
+      "cohort": 1,
+      "name": "source-proxy",
+      "condition": "first",
+      "sourceId": "story-part-1",
+      "elapsedMs": 954.3763749999998,
+      "sampledPeakTreeRssKiB": 368992,
+      "sampledPeakNativeRssKiB": 111472,
+      "memorySampleCount": 10,
+      "receipt": {
+        "frames": 1713,
+        "samples": 2740800,
+        "width": 640,
+        "height": 360,
+        "durationSeconds": 57.1,
+        "audioPresentationSamples": 2740800
+      },
+      "status": "completed"
+    },
+    {
+      "cohort": 1,
+      "name": "source-proxy-cache-hit",
+      "condition": "first",
+      "sourceId": "story-part-1",
+      "elapsedMs": 0.6473330000007991,
+      "sampledPeakTreeRssKiB": 258848,
+      "sampledPeakNativeRssKiB": 0,
+      "memorySampleCount": 1,
+      "status": "completed"
+    },
+    {
+      "cohort": 1,
+      "name": "source-proxy",
+      "condition": "first",
+      "sourceId": "story-part-2",
+      "elapsedMs": 696.0745409999981,
+      "sampledPeakTreeRssKiB": 370976,
+      "sampledPeakNativeRssKiB": 111200,
+      "memorySampleCount": 7,
+      "receipt": {
+        "frames": 1229,
+        "samples": 1966400,
+        "width": 640,
+        "height": 360,
+        "durationSeconds": 40.966667,
+        "audioPresentationSamples": 1966400
+      },
+      "status": "completed"
+    },
+    {
+      "cohort": 1,
+      "name": "source-proxy-cache-hit",
+      "condition": "first",
+      "sourceId": "story-part-2",
+      "elapsedMs": 0.7495000000017171,
+      "sampledPeakTreeRssKiB": 260976,
+      "sampledPeakNativeRssKiB": 0,
+      "memorySampleCount": 1,
+      "status": "completed"
+    },
+    {
+      "cohort": 1,
+      "name": "source-proxy",
+      "condition": "first",
+      "sourceId": "story-part-3",
+      "elapsedMs": 689.5508750000008,
+      "sampledPeakTreeRssKiB": 373024,
+      "sampledPeakNativeRssKiB": 111120,
+      "memorySampleCount": 7,
+      "receipt": {
+        "frames": 1217,
+        "samples": 1947200,
+        "width": 640,
+        "height": 360,
+        "durationSeconds": 40.566667,
+        "audioPresentationSamples": 1947200
+      },
+      "status": "completed"
+    },
+    {
+      "cohort": 1,
+      "name": "source-proxy-cache-hit",
+      "condition": "first",
+      "sourceId": "story-part-3",
+      "elapsedMs": 0.5557919999992009,
+      "sampledPeakTreeRssKiB": 262768,
+      "sampledPeakNativeRssKiB": 0,
+      "memorySampleCount": 1,
+      "status": "completed"
+    },
+    {
+      "cohort": 1,
+      "name": "assembly-preview",
+      "condition": "first",
+      "preset": "landscape",
+      "validationOnly": false,
+      "elapsedMs": 7369.025292000002,
+      "sampledPeakTreeRssKiB": 490816,
+      "sampledPeakNativeRssKiB": 214288,
+      "memorySampleCount": 74,
+      "receipt": {
+        "frames": 2909,
+        "samples": 4654400,
+        "width": 960,
+        "height": 540,
+        "durationSeconds": 96.966667,
+        "audioPresentationSamples": 4654400
+      },
+      "outputSha256": "eeca6d474ce36780085fc48fb9d9c9df035d6a85cb5bd451904b1fbd5acae4ca",
+      "outputBytes": 2792261,
+      "status": "completed"
+    },
+    {
+      "cohort": 1,
+      "name": "assembly-preview-cache-hit",
+      "condition": "first",
+      "preset": "landscape",
+      "validationOnly": false,
+      "elapsedMs": 0.7678749999977299,
+      "sampledPeakTreeRssKiB": 287040,
+      "sampledPeakNativeRssKiB": 0,
+      "memorySampleCount": 1,
+      "status": "completed"
+    },
+    {
+      "cohort": 1,
+      "name": "assembly-export",
+      "condition": "first",
+      "preset": "landscape",
+      "validationOnly": false,
+      "elapsedMs": 20702.336584000004,
+      "sampledPeakTreeRssKiB": 1230944,
+      "sampledPeakNativeRssKiB": 882944,
+      "memorySampleCount": 206,
+      "receipt": {
+        "frames": 2909,
+        "samples": 4654400,
+        "width": 1920,
+        "height": 1080,
+        "durationSeconds": 96.966667,
+        "audioPresentationSamples": 4654400
+      },
+      "outputSha256": "60d97467d2c85fa06ddd972ca48ac6a9360c14718330e0ca035b4ed0db4b5432",
+      "outputBytes": 3248104,
+      "status": "completed"
+    },
+    {
+      "cohort": 1,
+      "name": "source-proxy",
+      "condition": "fs-warm",
+      "sourceId": "story-part-1",
+      "elapsedMs": 1114.5144579999978,
+      "sampledPeakTreeRssKiB": 470832,
+      "sampledPeakNativeRssKiB": 111600,
+      "memorySampleCount": 12,
+      "receipt": {
+        "frames": 1713,
+        "samples": 2740800,
+        "width": 640,
+        "height": 360,
+        "durationSeconds": 57.1,
+        "audioPresentationSamples": 2740800
+      },
+      "status": "completed"
+    },
+    {
+      "cohort": 1,
+      "name": "source-proxy-cache-hit",
+      "condition": "fs-warm",
+      "sourceId": "story-part-1",
+      "elapsedMs": 0.6195829999996931,
+      "sampledPeakTreeRssKiB": 361056,
+      "sampledPeakNativeRssKiB": 0,
+      "memorySampleCount": 1,
+      "status": "completed"
+    },
+    {
+      "cohort": 1,
+      "name": "source-proxy",
+      "condition": "fs-warm",
+      "sourceId": "story-part-2",
+      "elapsedMs": 695.7037080000009,
+      "sampledPeakTreeRssKiB": 473072,
+      "sampledPeakNativeRssKiB": 111168,
+      "memorySampleCount": 7,
+      "receipt": {
+        "frames": 1229,
+        "samples": 1966400,
+        "width": 640,
+        "height": 360,
+        "durationSeconds": 40.966667,
+        "audioPresentationSamples": 1966400
+      },
+      "status": "completed"
+    },
+    {
+      "cohort": 1,
+      "name": "source-proxy-cache-hit",
+      "condition": "fs-warm",
+      "sourceId": "story-part-2",
+      "elapsedMs": 0.5721669999984442,
+      "sampledPeakTreeRssKiB": 362976,
+      "sampledPeakNativeRssKiB": 0,
+      "memorySampleCount": 1,
+      "status": "completed"
+    },
+    {
+      "cohort": 1,
+      "name": "source-proxy",
+      "condition": "fs-warm",
+      "sourceId": "story-part-3",
+      "elapsedMs": 658.9932499999995,
+      "sampledPeakTreeRssKiB": 475104,
+      "sampledPeakNativeRssKiB": 111216,
+      "memorySampleCount": 7,
+      "receipt": {
+        "frames": 1217,
+        "samples": 1947200,
+        "width": 640,
+        "height": 360,
+        "durationSeconds": 40.566667,
+        "audioPresentationSamples": 1947200
+      },
+      "status": "completed"
+    },
+    {
+      "cohort": 1,
+      "name": "source-proxy-cache-hit",
+      "condition": "fs-warm",
+      "sourceId": "story-part-3",
+      "elapsedMs": 0.5823749999981374,
+      "sampledPeakTreeRssKiB": 364768,
+      "sampledPeakNativeRssKiB": 0,
+      "memorySampleCount": 1,
+      "status": "completed"
+    },
+    {
+      "cohort": 1,
+      "name": "assembly-preview",
+      "condition": "fs-warm",
+      "preset": "landscape",
+      "validationOnly": false,
+      "elapsedMs": 7217.832291999999,
+      "sampledPeakTreeRssKiB": 591680,
+      "sampledPeakNativeRssKiB": 213616,
+      "memorySampleCount": 72,
+      "receipt": {
+        "frames": 2909,
+        "samples": 4654400,
+        "width": 960,
+        "height": 540,
+        "durationSeconds": 96.966667,
+        "audioPresentationSamples": 4654400
+      },
+      "outputSha256": "eeca6d474ce36780085fc48fb9d9c9df035d6a85cb5bd451904b1fbd5acae4ca",
+      "outputBytes": 2792261,
+      "status": "completed"
+    },
+    {
+      "cohort": 1,
+      "name": "assembly-preview-cache-hit",
+      "condition": "fs-warm",
+      "preset": "landscape",
+      "validationOnly": false,
+      "elapsedMs": 0.7536659999968833,
+      "sampledPeakTreeRssKiB": 380672,
+      "sampledPeakNativeRssKiB": 0,
+      "memorySampleCount": 1,
+      "status": "completed"
+    },
+    {
+      "cohort": 1,
+      "name": "assembly-export",
+      "condition": "fs-warm",
+      "preset": "landscape",
+      "validationOnly": false,
+      "elapsedMs": 20926.034166999998,
+      "sampledPeakTreeRssKiB": 1298976,
+      "sampledPeakNativeRssKiB": 882656,
+      "memorySampleCount": 208,
+      "receipt": {
+        "frames": 2909,
+        "samples": 4654400,
+        "width": 1920,
+        "height": 1080,
+        "durationSeconds": 96.966667,
+        "audioPresentationSamples": 4654400
+      },
+      "outputSha256": "60d97467d2c85fa06ddd972ca48ac6a9360c14718330e0ca035b4ed0db4b5432",
+      "outputBytes": 3248104,
+      "status": "completed"
+    },
+    {
+      "cohort": 2,
+      "name": "model-registration",
+      "condition": "setup outside ASR throughput; official four-resource local verification warms filesystem",
+      "elapsedMs": 216.99508300000002,
+      "sampledPeakTreeRssKiB": 112192,
+      "sampledPeakNativeRssKiB": 0,
+      "memorySampleCount": 3,
+      "status": "completed"
+    },
+    {
+      "cohort": 2,
+      "name": "worker-preflight",
+      "condition": "separate model-free fresh Python process; real OS outbound-network denial",
+      "elapsedMs": 153.48254199999997,
+      "sampledPeakTreeRssKiB": 170416,
+      "sampledPeakNativeRssKiB": 55392,
+      "memorySampleCount": 2,
+      "status": "completed"
+    },
+    {
+      "cohort": 2,
+      "name": "transcription",
+      "condition": "first",
+      "sourceId": "story-part-1",
+      "elapsedMs": 8282.306959,
+      "audioDurationSeconds": 57.085,
+      "audioSamples": 913360,
+      "endToEndRtf": 0.14508727264605412,
+      "wordCount": 184,
+      "transcriptSha256": "40b8c3d29c855d424a350b7aec2fa4df79fd47db260aa791bce10487e02ecc54",
+      "serviceStageMs": {
+        "decodingAndPostDecodeSourceVerification": 16.381708000000003,
+        "workerStartupModelCheckPreflightPcmAndModelInit": 584.4642499999998,
+        "transcribingThroughNativeValidationAndCommit": 7484.662958000002
+      },
+      "sampledPeakTreeRssKiB": 1391680,
+      "sampledPeakNativeRssKiB": 1220464,
+      "memorySampleCount": 83,
+      "status": "completed"
+    },
+    {
+      "cohort": 2,
+      "name": "transcription",
+      "condition": "fs-warm",
+      "sourceId": "story-part-1",
+      "elapsedMs": 8189.165417,
+      "audioDurationSeconds": 57.085,
+      "audioSamples": 913360,
+      "endToEndRtf": 0.14345564363668215,
+      "wordCount": 184,
+      "transcriptSha256": "e14be955c37ad868931726695c143c7217119e933eeb9ca35aa18e35dbf44520",
+      "serviceStageMs": {
+        "decodingAndPostDecodeSourceVerification": 16.120042000000467,
+        "workerStartupModelCheckPreflightPcmAndModelInit": 578.775040999999,
+        "transcribingThroughNativeValidationAndCommit": 7391.497750000002
+      },
+      "sampledPeakTreeRssKiB": 1349568,
+      "sampledPeakNativeRssKiB": 1143584,
+      "memorySampleCount": 82,
+      "status": "completed"
+    },
+    {
+      "cohort": 2,
+      "name": "transcription",
+      "condition": "first",
+      "sourceId": "synthetic-zh",
+      "elapsedMs": 2651.542125,
+      "audioDurationSeconds": 11.3656875,
+      "audioSamples": 181851,
+      "endToEndRtf": 0.2332935975056502,
+      "wordCount": 39,
+      "transcriptSha256": "312a6d54557ea3305cc4a14a111ff0e0f2f1661e497825d9f74d9a350723d488",
+      "serviceStageMs": {
+        "decodingAndPostDecodeSourceVerification": 8.489874999999302,
+        "workerStartupModelCheckPreflightPcmAndModelInit": 585.9879169999986,
+        "transcribingThroughNativeValidationAndCommit": 1860.7883330000004
+      },
+      "sampledPeakTreeRssKiB": 1227600,
+      "sampledPeakNativeRssKiB": 993584,
+      "memorySampleCount": 27,
+      "status": "completed"
+    },
+    {
+      "cohort": 2,
+      "name": "transcription",
+      "condition": "fs-warm",
+      "sourceId": "synthetic-zh",
+      "elapsedMs": 2647.915166999999,
+      "audioDurationSeconds": 11.3656875,
+      "audioSamples": 181851,
+      "endToEndRtf": 0.2329744828018542,
+      "wordCount": 39,
+      "transcriptSha256": "0cb553cff061d699dddc3e108c591d212260eaa68d2a7c18bac3a006dc8d9622",
+      "serviceStageMs": {
+        "decodingAndPostDecodeSourceVerification": 9.046082999997452,
+        "workerStartupModelCheckPreflightPcmAndModelInit": 583.468917000002,
+        "transcribingThroughNativeValidationAndCommit": 1857.4885409999988
+      },
+      "sampledPeakTreeRssKiB": 1235104,
+      "sampledPeakNativeRssKiB": 995088,
+      "memorySampleCount": 27,
+      "status": "completed"
+    },
+    {
+      "cohort": 2,
+      "name": "source-proxy",
+      "condition": "first",
+      "sourceId": "story-part-1",
+      "elapsedMs": 930.0227500000001,
+      "sampledPeakTreeRssKiB": 353184,
+      "sampledPeakNativeRssKiB": 111536,
+      "memorySampleCount": 10,
+      "receipt": {
+        "frames": 1713,
+        "samples": 2740800,
+        "width": 640,
+        "height": 360,
+        "durationSeconds": 57.1,
+        "audioPresentationSamples": 2740800
+      },
+      "status": "completed"
+    },
+    {
+      "cohort": 2,
+      "name": "source-proxy-cache-hit",
+      "condition": "first",
+      "sourceId": "story-part-1",
+      "elapsedMs": 0.7496250000003783,
+      "sampledPeakTreeRssKiB": 243088,
+      "sampledPeakNativeRssKiB": 0,
+      "memorySampleCount": 1,
+      "status": "completed"
+    },
+    {
+      "cohort": 2,
+      "name": "source-proxy",
+      "condition": "first",
+      "sourceId": "story-part-2",
+      "elapsedMs": 693.6446660000001,
+      "sampledPeakTreeRssKiB": 355376,
+      "sampledPeakNativeRssKiB": 111424,
+      "memorySampleCount": 7,
+      "receipt": {
+        "frames": 1229,
+        "samples": 1966400,
+        "width": 640,
+        "height": 360,
+        "durationSeconds": 40.966667,
+        "audioPresentationSamples": 1966400
+      },
+      "status": "completed"
+    },
+    {
+      "cohort": 2,
+      "name": "source-proxy-cache-hit",
+      "condition": "first",
+      "sourceId": "story-part-2",
+      "elapsedMs": 0.5906250000007276,
+      "sampledPeakTreeRssKiB": 245072,
+      "sampledPeakNativeRssKiB": 0,
+      "memorySampleCount": 1,
+      "status": "completed"
+    },
+    {
+      "cohort": 2,
+      "name": "source-proxy",
+      "condition": "first",
+      "sourceId": "story-part-3",
+      "elapsedMs": 672.734042,
+      "sampledPeakTreeRssKiB": 357520,
+      "sampledPeakNativeRssKiB": 111344,
+      "memorySampleCount": 7,
+      "receipt": {
+        "frames": 1217,
+        "samples": 1947200,
+        "width": 640,
+        "height": 360,
+        "durationSeconds": 40.566667,
+        "audioPresentationSamples": 1947200
+      },
+      "status": "completed"
+    },
+    {
+      "cohort": 2,
+      "name": "source-proxy-cache-hit",
+      "condition": "first",
+      "sourceId": "story-part-3",
+      "elapsedMs": 0.5613330000014685,
+      "sampledPeakTreeRssKiB": 247040,
+      "sampledPeakNativeRssKiB": 0,
+      "memorySampleCount": 1,
+      "status": "completed"
+    },
+    {
+      "cohort": 2,
+      "name": "assembly-preview",
+      "condition": "first",
+      "preset": "landscape",
+      "validationOnly": false,
+      "elapsedMs": 7471.897667000001,
+      "sampledPeakTreeRssKiB": 486736,
+      "sampledPeakNativeRssKiB": 213696,
+      "memorySampleCount": 75,
+      "receipt": {
+        "frames": 2909,
+        "samples": 4654400,
+        "width": 960,
+        "height": 540,
+        "durationSeconds": 96.966667,
+        "audioPresentationSamples": 4654400
+      },
+      "outputSha256": "eeca6d474ce36780085fc48fb9d9c9df035d6a85cb5bd451904b1fbd5acae4ca",
+      "outputBytes": 2792261,
+      "status": "completed"
+    },
+    {
+      "cohort": 2,
+      "name": "assembly-preview-cache-hit",
+      "condition": "first",
+      "preset": "landscape",
+      "validationOnly": false,
+      "elapsedMs": 0.8419170000015583,
+      "sampledPeakTreeRssKiB": 290512,
+      "sampledPeakNativeRssKiB": 0,
+      "memorySampleCount": 1,
+      "status": "completed"
+    },
+    {
+      "cohort": 2,
+      "name": "assembly-export",
+      "condition": "first",
+      "preset": "landscape",
+      "validationOnly": false,
+      "elapsedMs": 20368.319666000003,
+      "sampledPeakTreeRssKiB": 1224672,
+      "sampledPeakNativeRssKiB": 882560,
+      "memorySampleCount": 202,
+      "receipt": {
+        "frames": 2909,
+        "samples": 4654400,
+        "width": 1920,
+        "height": 1080,
+        "durationSeconds": 96.966667,
+        "audioPresentationSamples": 4654400
+      },
+      "outputSha256": "60d97467d2c85fa06ddd972ca48ac6a9360c14718330e0ca035b4ed0db4b5432",
+      "outputBytes": 3248104,
+      "status": "completed"
+    },
+    {
+      "cohort": 2,
+      "name": "source-proxy",
+      "condition": "fs-warm",
+      "sourceId": "story-part-1",
+      "elapsedMs": 893.6192910000027,
+      "sampledPeakTreeRssKiB": 464192,
+      "sampledPeakNativeRssKiB": 111776,
+      "memorySampleCount": 9,
+      "receipt": {
+        "frames": 1713,
+        "samples": 2740800,
+        "width": 640,
+        "height": 360,
+        "durationSeconds": 57.1,
+        "audioPresentationSamples": 2740800
+      },
+      "status": "completed"
+    },
+    {
+      "cohort": 2,
+      "name": "source-proxy-cache-hit",
+      "condition": "fs-warm",
+      "sourceId": "story-part-1",
+      "elapsedMs": 0.4925839999996242,
+      "sampledPeakTreeRssKiB": 353296,
+      "sampledPeakNativeRssKiB": 0,
+      "memorySampleCount": 1,
+      "status": "completed"
+    },
+    {
+      "cohort": 2,
+      "name": "source-proxy",
+      "condition": "fs-warm",
+      "sourceId": "story-part-2",
+      "elapsedMs": 672.3862079999963,
+      "sampledPeakTreeRssKiB": 465472,
+      "sampledPeakNativeRssKiB": 111328,
+      "memorySampleCount": 7,
+      "receipt": {
+        "frames": 1229,
+        "samples": 1966400,
+        "width": 640,
+        "height": 360,
+        "durationSeconds": 40.966667,
+        "audioPresentationSamples": 1966400
+      },
+      "status": "completed"
+    },
+    {
+      "cohort": 2,
+      "name": "source-proxy-cache-hit",
+      "condition": "fs-warm",
+      "sourceId": "story-part-2",
+      "elapsedMs": 0.5128330000006827,
+      "sampledPeakTreeRssKiB": 354992,
+      "sampledPeakNativeRssKiB": 0,
+      "memorySampleCount": 1,
+      "status": "completed"
+    },
+    {
+      "cohort": 2,
+      "name": "source-proxy",
+      "condition": "fs-warm",
+      "sourceId": "story-part-3",
+      "elapsedMs": 632.4278750000012,
+      "sampledPeakTreeRssKiB": 467024,
+      "sampledPeakNativeRssKiB": 111184,
+      "memorySampleCount": 7,
+      "receipt": {
+        "frames": 1217,
+        "samples": 1947200,
+        "width": 640,
+        "height": 360,
+        "durationSeconds": 40.566667,
+        "audioPresentationSamples": 1947200
+      },
+      "status": "completed"
+    },
+    {
+      "cohort": 2,
+      "name": "source-proxy-cache-hit",
+      "condition": "fs-warm",
+      "sourceId": "story-part-3",
+      "elapsedMs": 0.4920829999973648,
+      "sampledPeakTreeRssKiB": 356896,
+      "sampledPeakNativeRssKiB": 0,
+      "memorySampleCount": 1,
+      "status": "completed"
+    },
+    {
+      "cohort": 2,
+      "name": "assembly-preview",
+      "condition": "fs-warm",
+      "preset": "landscape",
+      "validationOnly": false,
+      "elapsedMs": 7643.775915999999,
+      "sampledPeakTreeRssKiB": 584464,
+      "sampledPeakNativeRssKiB": 213584,
+      "memorySampleCount": 76,
+      "receipt": {
+        "frames": 2909,
+        "samples": 4654400,
+        "width": 960,
+        "height": 540,
+        "durationSeconds": 96.966667,
+        "audioPresentationSamples": 4654400
+      },
+      "outputSha256": "eeca6d474ce36780085fc48fb9d9c9df035d6a85cb5bd451904b1fbd5acae4ca",
+      "outputBytes": 2792261,
+      "status": "completed"
+    },
+    {
+      "cohort": 2,
+      "name": "assembly-preview-cache-hit",
+      "condition": "fs-warm",
+      "preset": "landscape",
+      "validationOnly": false,
+      "elapsedMs": 1.0176250000004075,
+      "sampledPeakTreeRssKiB": 373760,
+      "sampledPeakNativeRssKiB": 0,
+      "memorySampleCount": 1,
+      "status": "completed"
+    },
+    {
+      "cohort": 2,
+      "name": "assembly-export",
+      "condition": "fs-warm",
+      "preset": "landscape",
+      "validationOnly": false,
+      "elapsedMs": 25342.861166000002,
+      "sampledPeakTreeRssKiB": 1314480,
+      "sampledPeakNativeRssKiB": 881712,
+      "memorySampleCount": 251,
+      "receipt": {
+        "frames": 2909,
+        "samples": 4654400,
+        "width": 1920,
+        "height": 1080,
+        "durationSeconds": 96.966667,
+        "audioPresentationSamples": 4654400
+      },
+      "outputSha256": "60d97467d2c85fa06ddd972ca48ac6a9360c14718330e0ca035b4ed0db4b5432",
+      "outputBytes": 3248104,
+      "status": "completed"
+    }
+  ],
+  "diagnostics": [
+    {
+      "sourceId": "story-part-1",
+      "method": "sys.setprofile observation only; unchanged worker/model/runtime/requests; instrumentation overhead included",
+      "authoritativeThroughput": false,
+      "audio": {
+        "sampleRate": 16000,
+        "samples": 913360,
+        "channels": 1,
+        "durationSeconds": 57.085
+      },
+      "versions": {
+        "faster-whisper": "1.2.1",
+        "numpy": "2.5.3",
+        "ctranslate2": "4.8.2",
+        "av": "16.0.1+clipdeck.ffmpeg8.1.2",
+        "onnxruntime": "1.30.0",
+        "tokenizers": "0.23.2"
+      },
+      "pythonVersion": "3.12.15",
+      "telemetryDisabled": true,
+      "vadDigest": "4cbf549b8326f60f80f2536d9eefeb450a9abe83365a098031c89719f1be17d2",
+      "phases": {
+        "modelCheckMs": 167.048583,
+        "preflightMs": 177.20583299999998,
+        "pcmLoadAndInputValidationMs": 1.069500000000005,
+        "modelInitMs": 267.68845899999997,
+        "inferenceAndEventDeliveryMs": 7306.593917,
+        "inferenceAndEventDeliveryRtf": 0.12799498847332924
+      }
+    },
+    {
+      "sourceId": "synthetic-zh",
+      "method": "sys.setprofile observation only; unchanged worker/model/runtime/requests; instrumentation overhead included",
+      "authoritativeThroughput": false,
+      "audio": {
+        "sampleRate": 16000,
+        "samples": 181851,
+        "channels": 1,
+        "durationSeconds": 11.3656875
+      },
+      "versions": {
+        "faster-whisper": "1.2.1",
+        "numpy": "2.5.3",
+        "ctranslate2": "4.8.2",
+        "av": "16.0.1+clipdeck.ffmpeg8.1.2",
+        "onnxruntime": "1.30.0",
+        "tokenizers": "0.23.2"
+      },
+      "pythonVersion": "3.12.15",
+      "telemetryDisabled": true,
+      "vadDigest": "4cbf549b8326f60f80f2536d9eefeb450a9abe83365a098031c89719f1be17d2",
+      "phases": {
+        "modelCheckMs": 165.921875,
+        "preflightMs": 167.07245799999998,
+        "pcmLoadAndInputValidationMs": 0.2220829999999978,
+        "modelInitMs": 272.79212500000006,
+        "inferenceAndEventDeliveryMs": 1748.3048330000001,
+        "inferenceAndEventDeliveryRtf": 0.1538230602416264
+      }
+    }
+  ],
+  "renderer": {
+    "sourceCommit": "e35b0975f721d17284f03489bd742a7f1129010c",
+    "reportSha256": "34ea7200774d88484dd6ace5062da395ba024b531d5a673e71c117c08644501e",
+    "freshProcesses": 3,
+    "firstCohorts": 3,
+    "warmCohorts": 9,
+    "operationSamples": 12,
+    "totalInteractionSamples": 108,
+    "thresholdMs": 200,
+    "fullSelectionP95Ms": 173.2,
+    "pooledInteractionP95Ms": 164.4,
+    "projectOpenP95Ms": 254.2,
+    "retainedBaselineSelectionP95Ms": 434.9,
+    "sourceDurationMs": 25000000,
+    "sourceSha256": "7f23f3769896d7c614888b5377ec15cd90d1331283b1d505f5880311cc84f795",
+    "actualSourcePreviewRejectedBySixHourLimit": true,
+    "individualRendererPeakMiB": [
+      586.5,
+      588.4,
+      590.7
+    ],
+    "individualMainPeakMiB": [
+      338.3,
+      338.1,
+      337.4
+    ],
+    "memoryScope": "Individual high-water marks; not simultaneous app sum",
+    "operationP95Ms": {
+      "selectWord": 25.8,
+      "selectAcrossUnmounted": 25.2,
+      "addFullSelection": 173.2,
+      "undoAdd": 140.5,
+      "editCut": 140.3,
+      "reorderCut": 148.3,
+      "undoReorder": 154.8,
+      "findTranscript": 24.3,
+      "findNext": 21.5
+    }
+  },
+  "retainedMarkerEvidence": "docs/verification/render-acceptance.json; 60 distinct markers × 3 runs already verified; not rerun",
+  "limitations": [
+    "Native automation does not prove desktop picker/human viewing/listening/relink/install",
+    "Manual corpus passage bounds are independent of ASR word selection correctness",
+    "Portrait/square are one correctness preview+export each, not three-repeat performance cohorts",
+    "ASR model reloads in each worker job; FS-warm is not persistent-model warm",
+    "No 60-marker rerun; existing render-acceptance.json remains separate evidence"
+  ],
+  "observedConditionEvents": [
+    {
+      "type": "desktop-unlock",
+      "recordedAtUtc": "2026-10-06 09:51:50 UTC",
+      "cohort": 0,
+      "condition": "The user manually unlocked the Mac during the first Node24 cohort. This is the report-receipt time, not a claimed exact unlock timestamp.",
+      "evidence": "Root reported the manual unlock while holding model selection/import/media/ASR/UI interaction until the quiet window ended; one cheap empty-app screenshot/accessibility observation was permitted.",
+      "limits": "Normal desktop processes remained active. The root did not change global or OS settings. This is not an uninterrupted laboratory or locked-screen benchmark. No extra repeat was added for this condition change."
+    }
+  ],
+  "conditionEventsSha256": "348a7bf3081ec8744977aa49c34f17e6d2b77dcad16c30ac3c3c9e21c8d12604",
+  "supersededRuntimeCohort": {
+    "reason": "Self-review found shell node was 23.11.0 rather than the plan's Node24; retained all original results, added a fail-closed Node24 guard, and repeated the identical finite cohort under explicit bundled Node24.19.0. No inputs, thresholds, model, worker, media runtime or native source changed.",
+    "node": "23.11.0",
+    "sourceCommits": [
+      "990b84b30ca9c78e4fc640fa17ca3845e00883b8",
+      "990b84b30ca9c78e4fc640fa17ca3845e00883b8",
+      "990b84b30ca9c78e4fc640fa17ca3845e00883b8"
+    ],
+    "frozenEntrySha256": "f7f06731b6b9e8e188b1b2d9934d7ba412014494c8660c768c422484a5479639",
+    "rawReceiptSha256": [
+      "3d76c38abea334aaa598be6a87c775c5049fb7eb2f0ac2ffd7a87ee4a097fd16",
+      "7904114eab5a5e46312241082595a399422d7be9739748d832e000b41af4aae0",
+      "9381a41704ad8d0d300959830d5fc666832bf42d4188bc5859360027b69693ec"
+    ],
+    "nativeOperations": [
+      {
+        "cohort": 0,
+        "name": "model-registration",
+        "condition": "setup outside ASR throughput; official four-resource local verification warms filesystem",
+        "elapsedMs": 200.990917,
+        "sampledPeakTreeRssKiB": 110560,
+        "sampledPeakNativeRssKiB": 0,
+        "memorySampleCount": 3,
+        "status": "completed"
+      },
+      {
+        "cohort": 0,
+        "name": "worker-preflight",
+        "condition": "separate model-free fresh Python process; real OS outbound-network denial",
+        "elapsedMs": 114.13770800000003,
+        "sampledPeakTreeRssKiB": 177216,
+        "sampledPeakNativeRssKiB": 66000,
+        "memorySampleCount": 2,
+        "status": "completed"
+      },
+      {
+        "cohort": 0,
+        "name": "transcription",
+        "condition": "first",
+        "sourceId": "story-part-1",
+        "elapsedMs": 7397.853167,
+        "audioDurationSeconds": 57.085,
+        "audioSamples": 913360,
+        "endToEndRtf": 0.12959364398703688,
+        "wordCount": 184,
+        "transcriptSha256": "301499633faa485c8580bc5d2acab792f40af7a2dae52ffd6fcd97a050a1f3ae",
+        "serviceStageMs": {
+          "decodingAndPostDecodeSourceVerification": 14.760499999999865,
+          "workerStartupModelCheckPreflightPcmAndModelInit": 522.700542,
+          "transcribingThroughNativeValidationAndCommit": 6667.853458
+        },
+        "sampledPeakTreeRssKiB": 1238464,
+        "sampledPeakNativeRssKiB": 1104656,
+        "memorySampleCount": 73,
+        "status": "completed"
+      },
+      {
+        "cohort": 0,
+        "name": "transcription",
+        "condition": "fs-warm",
+        "sourceId": "story-part-1",
+        "elapsedMs": 7384.877667,
+        "audioDurationSeconds": 57.085,
+        "audioSamples": 913360,
+        "endToEndRtf": 0.1293663425943768,
+        "wordCount": 184,
+        "transcriptSha256": "ab029d912b12799efc9211fed63b054ceb5fffe6dbe967bd750643f3748ab623",
+        "serviceStageMs": {
+          "decodingAndPostDecodeSourceVerification": 14.606917000000067,
+          "workerStartupModelCheckPreflightPcmAndModelInit": 523.7222500000007,
+          "transcribingThroughNativeValidationAndCommit": 6641.718041
+        },
+        "sampledPeakTreeRssKiB": 1334400,
+        "sampledPeakNativeRssKiB": 1162560,
+        "memorySampleCount": 73,
+        "status": "completed"
+      },
+      {
+        "cohort": 0,
+        "name": "transcription-phase-diagnostic",
+        "condition": "one profile-observed run; overhead included; excluded from throughput cohort",
+        "sourceId": "story-part-1",
+        "elapsedMs": 7209.031958,
+        "sampledPeakTreeRssKiB": 1336640,
+        "sampledPeakNativeRssKiB": 1148720,
+        "memorySampleCount": 71,
+        "status": "completed"
+      },
+      {
+        "cohort": 0,
+        "name": "transcription",
+        "condition": "first",
+        "sourceId": "synthetic-zh",
+        "elapsedMs": 2432.3136250000025,
+        "audioDurationSeconds": 11.3656875,
+        "audioSamples": 181851,
+        "endToEndRtf": 0.21400497110271618,
+        "wordCount": 39,
+        "transcriptSha256": "d2c1df196a67381690d18444bac11805f6a40706f8fd828cd803de39e4204c17",
+        "serviceStageMs": {
+          "decodingAndPostDecodeSourceVerification": 7.359333000000333,
+          "workerStartupModelCheckPreflightPcmAndModelInit": 496.9885839999988,
+          "transcribingThroughNativeValidationAndCommit": 1724.6535000000003
+        },
+        "sampledPeakTreeRssKiB": 1182656,
+        "sampledPeakNativeRssKiB": 984832,
+        "memorySampleCount": 24,
+        "status": "completed"
+      },
+      {
+        "cohort": 0,
+        "name": "transcription",
+        "condition": "fs-warm",
+        "sourceId": "synthetic-zh",
+        "elapsedMs": 2420.8377089999994,
+        "audioDurationSeconds": 11.3656875,
+        "audioSamples": 181851,
+        "endToEndRtf": 0.21299527274526942,
+        "wordCount": 39,
+        "transcriptSha256": "33c58fca525cb4e6c89f37075b0446802d00e72642895cf35cae52e2ba8f492e",
+        "serviceStageMs": {
+          "decodingAndPostDecodeSourceVerification": 7.313792000000831,
+          "workerStartupModelCheckPreflightPcmAndModelInit": 504.8685829999995,
+          "transcribingThroughNativeValidationAndCommit": 1705.5037919999995
+        },
+        "sampledPeakTreeRssKiB": 1187712,
+        "sampledPeakNativeRssKiB": 984624,
+        "memorySampleCount": 24,
+        "status": "completed"
+      },
+      {
+        "cohort": 0,
+        "name": "transcription-phase-diagnostic",
+        "condition": "one profile-observed run; overhead included; excluded from throughput cohort",
+        "sourceId": "synthetic-zh",
+        "elapsedMs": 2318.8711250000015,
+        "sampledPeakTreeRssKiB": 1198272,
+        "sampledPeakNativeRssKiB": 987200,
+        "memorySampleCount": 23,
+        "status": "completed"
+      },
+      {
+        "cohort": 0,
+        "name": "source-proxy",
+        "condition": "first",
+        "sourceId": "story-part-1",
+        "elapsedMs": 871.3827920000003,
+        "sampledPeakTreeRssKiB": 322224,
+        "sampledPeakNativeRssKiB": 111600,
+        "memorySampleCount": 9,
+        "receipt": {
+          "frames": 1713,
+          "samples": 2740800,
+          "width": 640,
+          "height": 360,
+          "durationSeconds": 57.1,
+          "audioPresentationSamples": 2740800
+        },
+        "status": "completed"
+      },
+      {
+        "cohort": 0,
+        "name": "source-proxy-cache-hit",
+        "condition": "first",
+        "sourceId": "story-part-1",
+        "elapsedMs": 0.4507080000003043,
+        "sampledPeakTreeRssKiB": 209312,
+        "sampledPeakNativeRssKiB": 0,
+        "memorySampleCount": 1,
+        "status": "completed"
+      },
+      {
+        "cohort": 0,
+        "name": "source-proxy",
+        "condition": "first",
+        "sourceId": "story-part-2",
+        "elapsedMs": 677.7530420000003,
+        "sampledPeakTreeRssKiB": 324288,
+        "sampledPeakNativeRssKiB": 111408,
+        "memorySampleCount": 7,
+        "receipt": {
+          "frames": 1229,
+          "samples": 1966400,
+          "width": 640,
+          "height": 360,
+          "durationSeconds": 40.966667,
+          "audioPresentationSamples": 1966400
+        },
+        "status": "completed"
+      },
+      {
+        "cohort": 0,
+        "name": "source-proxy-cache-hit",
+        "condition": "first",
+        "sourceId": "story-part-2",
+        "elapsedMs": 0.49883300000146846,
+        "sampledPeakTreeRssKiB": 211776,
+        "sampledPeakNativeRssKiB": 0,
+        "memorySampleCount": 1,
+        "status": "completed"
+      },
+      {
+        "cohort": 0,
+        "name": "source-proxy",
+        "condition": "first",
+        "sourceId": "story-part-3",
+        "elapsedMs": 626.5507910000015,
+        "sampledPeakTreeRssKiB": 326528,
+        "sampledPeakNativeRssKiB": 111184,
+        "memorySampleCount": 7,
+        "receipt": {
+          "frames": 1217,
+          "samples": 1947200,
+          "width": 640,
+          "height": 360,
+          "durationSeconds": 40.566667,
+          "audioPresentationSamples": 1947200
+        },
+        "status": "completed"
+      },
+      {
+        "cohort": 0,
+        "name": "source-proxy-cache-hit",
+        "condition": "first",
+        "sourceId": "story-part-3",
+        "elapsedMs": 0.48616600000241306,
+        "sampledPeakTreeRssKiB": 213792,
+        "sampledPeakNativeRssKiB": 0,
+        "memorySampleCount": 1,
+        "status": "completed"
+      },
+      {
+        "cohort": 0,
+        "name": "assembly-preview",
+        "condition": "first",
+        "preset": "landscape",
+        "validationOnly": false,
+        "elapsedMs": 6823.408792000002,
+        "sampledPeakTreeRssKiB": 440976,
+        "sampledPeakNativeRssKiB": 213760,
+        "memorySampleCount": 68,
+        "receipt": {
+          "frames": 2909,
+          "samples": 4654400,
+          "width": 960,
+          "height": 540,
+          "durationSeconds": 96.966667,
+          "audioPresentationSamples": 4654400
+        },
+        "outputSha256": "eeca6d474ce36780085fc48fb9d9c9df035d6a85cb5bd451904b1fbd5acae4ca",
+        "outputBytes": 2792261,
+        "status": "completed"
+      },
+      {
+        "cohort": 0,
+        "name": "assembly-preview-cache-hit",
+        "condition": "first",
+        "preset": "landscape",
+        "validationOnly": false,
+        "elapsedMs": 0.7102089999971213,
+        "sampledPeakTreeRssKiB": 227376,
+        "sampledPeakNativeRssKiB": 0,
+        "memorySampleCount": 1,
+        "status": "completed"
+      },
+      {
+        "cohort": 0,
+        "name": "assembly-export",
+        "condition": "first",
+        "preset": "landscape",
+        "validationOnly": false,
+        "elapsedMs": 18572.207916,
+        "sampledPeakTreeRssKiB": 1145984,
+        "sampledPeakNativeRssKiB": 883232,
+        "memorySampleCount": 183,
+        "receipt": {
+          "frames": 2909,
+          "samples": 4654400,
+          "width": 1920,
+          "height": 1080,
+          "durationSeconds": 96.966667,
+          "audioPresentationSamples": 4654400
+        },
+        "outputSha256": "60d97467d2c85fa06ddd972ca48ac6a9360c14718330e0ca035b4ed0db4b5432",
+        "outputBytes": 3248104,
+        "status": "completed"
+      },
+      {
+        "cohort": 0,
+        "name": "assembly-preview",
+        "condition": "first",
+        "preset": "portrait",
+        "validationOnly": true,
+        "elapsedMs": 4952.318416000002,
+        "sampledPeakTreeRssKiB": 545840,
+        "sampledPeakNativeRssKiB": 267200,
+        "memorySampleCount": 49,
+        "receipt": {
+          "frames": 2909,
+          "samples": 4654400,
+          "width": 540,
+          "height": 960,
+          "durationSeconds": 96.966667,
+          "audioPresentationSamples": 4654400
+        },
+        "outputSha256": "434e7672c6c312f834a4338940b890eda9c78d62929f939752020df9577f6787",
+        "outputBytes": 2657351,
+        "status": "completed"
+      },
+      {
+        "cohort": 0,
+        "name": "assembly-preview-cache-hit",
+        "condition": "first",
+        "preset": "portrait",
+        "validationOnly": true,
+        "elapsedMs": 0.571457999998529,
+        "sampledPeakTreeRssKiB": 281376,
+        "sampledPeakNativeRssKiB": 0,
+        "memorySampleCount": 1,
+        "status": "completed"
+      },
+      {
+        "cohort": 0,
+        "name": "assembly-export",
+        "condition": "first",
+        "preset": "portrait",
+        "validationOnly": true,
+        "elapsedMs": 12955.246583,
+        "sampledPeakTreeRssKiB": 1186176,
+        "sampledPeakNativeRssKiB": 884608,
+        "memorySampleCount": 128,
+        "receipt": {
+          "frames": 2909,
+          "samples": 4654400,
+          "width": 1080,
+          "height": 1920,
+          "durationSeconds": 96.966667,
+          "audioPresentationSamples": 4654400
+        },
+        "outputSha256": "82a080ed4a50208c9e40344c7ca08b75687ffb72f9d82b2eacf18ca475fbeb70",
+        "outputBytes": 2954018,
+        "status": "completed"
+      },
+      {
+        "cohort": 0,
+        "name": "assembly-preview",
+        "condition": "first",
+        "preset": "square",
+        "validationOnly": true,
+        "elapsedMs": 4125.499333999993,
+        "sampledPeakTreeRssKiB": 453184,
+        "sampledPeakNativeRssKiB": 136096,
+        "memorySampleCount": 41,
+        "receipt": {
+          "frames": 2909,
+          "samples": 4654400,
+          "width": 540,
+          "height": 540,
+          "durationSeconds": 96.966667,
+          "audioPresentationSamples": 4654400
+        },
+        "outputSha256": "c1cbd703b34378f88dab4bafaf1e1f2a49421bdf49326c11d647ceb0c1ae1964",
+        "outputBytes": 2642836,
+        "status": "completed"
+      },
+      {
+        "cohort": 0,
+        "name": "assembly-preview-cache-hit",
+        "condition": "first",
+        "preset": "square",
+        "validationOnly": true,
+        "elapsedMs": 0.5536250000004657,
+        "sampledPeakTreeRssKiB": 314672,
+        "sampledPeakNativeRssKiB": 0,
+        "memorySampleCount": 1,
+        "status": "completed"
+      },
+      {
+        "cohort": 0,
+        "name": "assembly-export",
+        "condition": "first",
+        "preset": "square",
+        "validationOnly": true,
+        "elapsedMs": 9801.579290999987,
+        "sampledPeakTreeRssKiB": 865584,
+        "sampledPeakNativeRssKiB": 530608,
+        "memorySampleCount": 97,
+        "receipt": {
+          "frames": 2909,
+          "samples": 4654400,
+          "width": 1080,
+          "height": 1080,
+          "durationSeconds": 96.966667,
+          "audioPresentationSamples": 4654400
+        },
+        "outputSha256": "42ade9aa317b699eeb645eb62ea474a71c5c297f6200742e13b12cb502dbc595",
+        "outputBytes": 2900052,
+        "status": "completed"
+      },
+      {
+        "cohort": 0,
+        "name": "source-proxy",
+        "condition": "fs-warm",
+        "sourceId": "story-part-1",
+        "elapsedMs": 875.7559170000022,
+        "sampledPeakTreeRssKiB": 425184,
+        "sampledPeakNativeRssKiB": 111392,
+        "memorySampleCount": 9,
+        "receipt": {
+          "frames": 1713,
+          "samples": 2740800,
+          "width": 640,
+          "height": 360,
+          "durationSeconds": 57.1,
+          "audioPresentationSamples": 2740800
+        },
+        "status": "completed"
+      },
+      {
+        "cohort": 0,
+        "name": "source-proxy-cache-hit",
+        "condition": "fs-warm",
+        "sourceId": "story-part-1",
+        "elapsedMs": 0.4511669999919832,
+        "sampledPeakTreeRssKiB": 314880,
+        "sampledPeakNativeRssKiB": 0,
+        "memorySampleCount": 1,
+        "status": "completed"
+      },
+      {
+        "cohort": 0,
+        "name": "source-proxy",
+        "condition": "fs-warm",
+        "sourceId": "story-part-2",
+        "elapsedMs": 648.4432499999966,
+        "sampledPeakTreeRssKiB": 427344,
+        "sampledPeakNativeRssKiB": 111328,
+        "memorySampleCount": 7,
+        "receipt": {
+          "frames": 1229,
+          "samples": 1966400,
+          "width": 640,
+          "height": 360,
+          "durationSeconds": 40.966667,
+          "audioPresentationSamples": 1966400
+        },
+        "status": "completed"
+      },
+      {
+        "cohort": 0,
+        "name": "source-proxy-cache-hit",
+        "condition": "fs-warm",
+        "sourceId": "story-part-2",
+        "elapsedMs": 0.46749999999883585,
+        "sampledPeakTreeRssKiB": 317216,
+        "sampledPeakNativeRssKiB": 0,
+        "memorySampleCount": 1,
+        "status": "completed"
+      },
+      {
+        "cohort": 0,
+        "name": "source-proxy",
+        "condition": "fs-warm",
+        "sourceId": "story-part-3",
+        "elapsedMs": 613.1490000000049,
+        "sampledPeakTreeRssKiB": 432880,
+        "sampledPeakNativeRssKiB": 111232,
+        "memorySampleCount": 7,
+        "receipt": {
+          "frames": 1217,
+          "samples": 1947200,
+          "width": 640,
+          "height": 360,
+          "durationSeconds": 40.566667,
+          "audioPresentationSamples": 1947200
+        },
+        "status": "completed"
+      },
+      {
+        "cohort": 0,
+        "name": "source-proxy-cache-hit",
+        "condition": "fs-warm",
+        "sourceId": "story-part-3",
+        "elapsedMs": 0.4731670000037411,
+        "sampledPeakTreeRssKiB": 325664,
+        "sampledPeakNativeRssKiB": 0,
+        "memorySampleCount": 1,
+        "status": "completed"
+      },
+      {
+        "cohort": 0,
+        "name": "assembly-preview",
+        "condition": "fs-warm",
+        "preset": "landscape",
+        "validationOnly": false,
+        "elapsedMs": 6920.831000000006,
+        "sampledPeakTreeRssKiB": 570816,
+        "sampledPeakNativeRssKiB": 213232,
+        "memorySampleCount": 68,
+        "receipt": {
+          "frames": 2909,
+          "samples": 4654400,
+          "width": 960,
+          "height": 540,
+          "durationSeconds": 96.966667,
+          "audioPresentationSamples": 4654400
+        },
+        "outputSha256": "eeca6d474ce36780085fc48fb9d9c9df035d6a85cb5bd451904b1fbd5acae4ca",
+        "outputBytes": 2792261,
+        "status": "completed"
+      },
+      {
+        "cohort": 0,
+        "name": "assembly-preview-cache-hit",
+        "condition": "fs-warm",
+        "preset": "landscape",
+        "validationOnly": false,
+        "elapsedMs": 0.5645409999997355,
+        "sampledPeakTreeRssKiB": 358160,
+        "sampledPeakNativeRssKiB": 0,
+        "memorySampleCount": 1,
+        "status": "completed"
+      },
+      {
+        "cohort": 0,
+        "name": "assembly-export",
+        "condition": "fs-warm",
+        "preset": "landscape",
+        "validationOnly": false,
+        "elapsedMs": 18768.929166999995,
+        "sampledPeakTreeRssKiB": 1257152,
+        "sampledPeakNativeRssKiB": 882912,
+        "memorySampleCount": 185,
+        "receipt": {
+          "frames": 2909,
+          "samples": 4654400,
+          "width": 1920,
+          "height": 1080,
+          "durationSeconds": 96.966667,
+          "audioPresentationSamples": 4654400
+        },
+        "outputSha256": "60d97467d2c85fa06ddd972ca48ac6a9360c14718330e0ca035b4ed0db4b5432",
+        "outputBytes": 3248104,
+        "status": "completed"
+      },
+      {
+        "cohort": 1,
+        "name": "model-registration",
+        "condition": "setup outside ASR throughput; official four-resource local verification warms filesystem",
+        "elapsedMs": 201.916625,
+        "sampledPeakTreeRssKiB": 96592,
+        "sampledPeakNativeRssKiB": 0,
+        "memorySampleCount": 3,
+        "status": "completed"
+      },
+      {
+        "cohort": 1,
+        "name": "worker-preflight",
+        "condition": "separate model-free fresh Python process; real OS outbound-network denial",
+        "elapsedMs": 136.400708,
+        "sampledPeakTreeRssKiB": 156128,
+        "sampledPeakNativeRssKiB": 58976,
+        "memorySampleCount": 2,
+        "status": "completed"
+      },
+      {
+        "cohort": 1,
+        "name": "transcription",
+        "condition": "first",
+        "sourceId": "story-part-1",
+        "elapsedMs": 7542.859583,
+        "audioDurationSeconds": 57.085,
+        "audioSamples": 913360,
+        "endToEndRtf": 0.1321338282035561,
+        "wordCount": 184,
+        "transcriptSha256": "27065fb3cf673a6e67a0c86e755d4fd73ba7a138f4851b3253cff4e070d6871d",
+        "serviceStageMs": {
+          "decodingAndPostDecodeSourceVerification": 16.943624999999997,
+          "workerStartupModelCheckPreflightPcmAndModelInit": 555.025375,
+          "transcribingThroughNativeValidationAndCommit": 6783.668041
+        },
+        "sampledPeakTreeRssKiB": 1262320,
+        "sampledPeakNativeRssKiB": 1119824,
+        "memorySampleCount": 74,
+        "status": "completed"
+      },
+      {
+        "cohort": 1,
+        "name": "transcription",
+        "condition": "fs-warm",
+        "sourceId": "story-part-1",
+        "elapsedMs": 7594.0100840000005,
+        "audioDurationSeconds": 57.085,
+        "audioSamples": 913360,
+        "endToEndRtf": 0.13302986921257776,
+        "wordCount": 184,
+        "transcriptSha256": "393be1f9599f4d2c9f441cc006f70640f1d4f68cdee281b9c9bd6dbab58dde67",
+        "serviceStageMs": {
+          "decodingAndPostDecodeSourceVerification": 14.597208000001046,
+          "workerStartupModelCheckPreflightPcmAndModelInit": 532.2947089999998,
+          "transcribingThroughNativeValidationAndCommit": 6845.95275
+        },
+        "sampledPeakTreeRssKiB": 1263296,
+        "sampledPeakNativeRssKiB": 1097312,
+        "memorySampleCount": 75,
+        "status": "completed"
+      },
+      {
+        "cohort": 1,
+        "name": "transcription",
+        "condition": "first",
+        "sourceId": "synthetic-zh",
+        "elapsedMs": 2501.019416000001,
+        "audioDurationSeconds": 11.3656875,
+        "audioSamples": 181851,
+        "endToEndRtf": 0.22004998958488,
+        "wordCount": 39,
+        "transcriptSha256": "cd1f9d1d0135482399b8e98406bcb56f728ff912435d7e745d09cc0bf46887be",
+        "serviceStageMs": {
+          "decodingAndPostDecodeSourceVerification": 7.3434589999997115,
+          "workerStartupModelCheckPreflightPcmAndModelInit": 521.9650829999991,
+          "transcribingThroughNativeValidationAndCommit": 1767.2234580000004
+        },
+        "sampledPeakTreeRssKiB": 1164112,
+        "sampledPeakNativeRssKiB": 986304,
+        "memorySampleCount": 25,
+        "status": "completed"
+      },
+      {
+        "cohort": 1,
+        "name": "transcription",
+        "condition": "fs-warm",
+        "sourceId": "synthetic-zh",
+        "elapsedMs": 2492.3117500000008,
+        "audioDurationSeconds": 11.3656875,
+        "audioSamples": 181851,
+        "endToEndRtf": 0.21928385326448582,
+        "wordCount": 39,
+        "transcriptSha256": "ee2ababe1a785f6e526dda5ef0cf10115dcca0f1d9c9e0708edd4a8daff850fa",
+        "serviceStageMs": {
+          "decodingAndPostDecodeSourceVerification": 7.371749999998428,
+          "workerStartupModelCheckPreflightPcmAndModelInit": 516.721708000001,
+          "transcribingThroughNativeValidationAndCommit": 1765.3424169999998
+        },
+        "sampledPeakTreeRssKiB": 1169152,
+        "sampledPeakNativeRssKiB": 985872,
+        "memorySampleCount": 25,
+        "status": "completed"
+      },
+      {
+        "cohort": 1,
+        "name": "source-proxy",
+        "condition": "first",
+        "sourceId": "story-part-1",
+        "elapsedMs": 876.4357499999969,
+        "sampledPeakTreeRssKiB": 297312,
+        "sampledPeakNativeRssKiB": 111584,
+        "memorySampleCount": 9,
+        "receipt": {
+          "frames": 1713,
+          "samples": 2740800,
+          "width": 640,
+          "height": 360,
+          "durationSeconds": 57.1,
+          "audioPresentationSamples": 2740800
+        },
+        "status": "completed"
+      },
+      {
+        "cohort": 1,
+        "name": "source-proxy-cache-hit",
+        "condition": "first",
+        "sourceId": "story-part-1",
+        "elapsedMs": 0.46908299999995506,
+        "sampledPeakTreeRssKiB": 187296,
+        "sampledPeakNativeRssKiB": 0,
+        "memorySampleCount": 1,
+        "status": "completed"
+      },
+      {
+        "cohort": 1,
+        "name": "source-proxy",
+        "condition": "first",
+        "sourceId": "story-part-2",
+        "elapsedMs": 647.1556659999987,
+        "sampledPeakTreeRssKiB": 297296,
+        "sampledPeakNativeRssKiB": 111376,
+        "memorySampleCount": 7,
+        "receipt": {
+          "frames": 1229,
+          "samples": 1966400,
+          "width": 640,
+          "height": 360,
+          "durationSeconds": 40.966667,
+          "audioPresentationSamples": 1966400
+        },
+        "status": "completed"
+      },
+      {
+        "cohort": 1,
+        "name": "source-proxy-cache-hit",
+        "condition": "first",
+        "sourceId": "story-part-2",
+        "elapsedMs": 0.4429160000036063,
+        "sampledPeakTreeRssKiB": 186816,
+        "sampledPeakNativeRssKiB": 0,
+        "memorySampleCount": 1,
+        "status": "completed"
+      },
+      {
+        "cohort": 1,
+        "name": "source-proxy",
+        "condition": "first",
+        "sourceId": "story-part-3",
+        "elapsedMs": 618.1832500000019,
+        "sampledPeakTreeRssKiB": 301872,
+        "sampledPeakNativeRssKiB": 111520,
+        "memorySampleCount": 7,
+        "receipt": {
+          "frames": 1217,
+          "samples": 1947200,
+          "width": 640,
+          "height": 360,
+          "durationSeconds": 40.566667,
+          "audioPresentationSamples": 1947200
+        },
+        "status": "completed"
+      },
+      {
+        "cohort": 1,
+        "name": "source-proxy-cache-hit",
+        "condition": "first",
+        "sourceId": "story-part-3",
+        "elapsedMs": 0.45262499999807915,
+        "sampledPeakTreeRssKiB": 189200,
+        "sampledPeakNativeRssKiB": 0,
+        "memorySampleCount": 1,
+        "status": "completed"
+      },
+      {
+        "cohort": 1,
+        "name": "assembly-preview",
+        "condition": "first",
+        "preset": "landscape",
+        "validationOnly": false,
+        "elapsedMs": 6950.844042000001,
+        "sampledPeakTreeRssKiB": 417712,
+        "sampledPeakNativeRssKiB": 213856,
+        "memorySampleCount": 69,
+        "receipt": {
+          "frames": 2909,
+          "samples": 4654400,
+          "width": 960,
+          "height": 540,
+          "durationSeconds": 96.966667,
+          "audioPresentationSamples": 4654400
+        },
+        "outputSha256": "eeca6d474ce36780085fc48fb9d9c9df035d6a85cb5bd451904b1fbd5acae4ca",
+        "outputBytes": 2792261,
+        "status": "completed"
+      },
+      {
+        "cohort": 1,
+        "name": "assembly-preview-cache-hit",
+        "condition": "first",
+        "preset": "landscape",
+        "validationOnly": false,
+        "elapsedMs": 0.691000000002532,
+        "sampledPeakTreeRssKiB": 202400,
+        "sampledPeakNativeRssKiB": 0,
+        "memorySampleCount": 1,
+        "status": "completed"
+      },
+      {
+        "cohort": 1,
+        "name": "assembly-export",
+        "condition": "first",
+        "preset": "landscape",
+        "validationOnly": false,
+        "elapsedMs": 18814.226209,
+        "sampledPeakTreeRssKiB": 1120272,
+        "sampledPeakNativeRssKiB": 883168,
+        "memorySampleCount": 186,
+        "receipt": {
+          "frames": 2909,
+          "samples": 4654400,
+          "width": 1920,
+          "height": 1080,
+          "durationSeconds": 96.966667,
+          "audioPresentationSamples": 4654400
+        },
+        "outputSha256": "60d97467d2c85fa06ddd972ca48ac6a9360c14718330e0ca035b4ed0db4b5432",
+        "outputBytes": 3248104,
+        "status": "completed"
+      },
+      {
+        "cohort": 1,
+        "name": "source-proxy",
+        "condition": "fs-warm",
+        "sourceId": "story-part-1",
+        "elapsedMs": 868.2957919999972,
+        "sampledPeakTreeRssKiB": 359568,
+        "sampledPeakNativeRssKiB": 111568,
+        "memorySampleCount": 9,
+        "receipt": {
+          "frames": 1713,
+          "samples": 2740800,
+          "width": 640,
+          "height": 360,
+          "durationSeconds": 57.1,
+          "audioPresentationSamples": 2740800
+        },
+        "status": "completed"
+      },
+      {
+        "cohort": 1,
+        "name": "source-proxy-cache-hit",
+        "condition": "fs-warm",
+        "sourceId": "story-part-1",
+        "elapsedMs": 0.42633399999613175,
+        "sampledPeakTreeRssKiB": 247040,
+        "sampledPeakNativeRssKiB": 0,
+        "memorySampleCount": 1,
+        "status": "completed"
+      },
+      {
+        "cohort": 1,
+        "name": "source-proxy",
+        "condition": "fs-warm",
+        "sourceId": "story-part-2",
+        "elapsedMs": 653.2020000000048,
+        "sampledPeakTreeRssKiB": 359104,
+        "sampledPeakNativeRssKiB": 111120,
+        "memorySampleCount": 7,
+        "receipt": {
+          "frames": 1229,
+          "samples": 1966400,
+          "width": 640,
+          "height": 360,
+          "durationSeconds": 40.966667,
+          "audioPresentationSamples": 1966400
+        },
+        "status": "completed"
+      },
+      {
+        "cohort": 1,
+        "name": "source-proxy-cache-hit",
+        "condition": "fs-warm",
+        "sourceId": "story-part-2",
+        "elapsedMs": 0.4495000000024447,
+        "sampledPeakTreeRssKiB": 250080,
+        "sampledPeakNativeRssKiB": 0,
+        "memorySampleCount": 1,
+        "status": "completed"
+      },
+      {
+        "cohort": 1,
+        "name": "source-proxy",
+        "condition": "fs-warm",
+        "sourceId": "story-part-3",
+        "elapsedMs": 618.3846249999988,
+        "sampledPeakTreeRssKiB": 359680,
+        "sampledPeakNativeRssKiB": 111296,
+        "memorySampleCount": 7,
+        "receipt": {
+          "frames": 1217,
+          "samples": 1947200,
+          "width": 640,
+          "height": 360,
+          "durationSeconds": 40.566667,
+          "audioPresentationSamples": 1947200
+        },
+        "status": "completed"
+      },
+      {
+        "cohort": 1,
+        "name": "source-proxy-cache-hit",
+        "condition": "fs-warm",
+        "sourceId": "story-part-3",
+        "elapsedMs": 0.4993340000000899,
+        "sampledPeakTreeRssKiB": 251904,
+        "sampledPeakNativeRssKiB": 0,
+        "memorySampleCount": 1,
+        "status": "completed"
+      },
+      {
+        "cohort": 1,
+        "name": "assembly-preview",
+        "condition": "fs-warm",
+        "preset": "landscape",
+        "validationOnly": false,
+        "elapsedMs": 6925.996124999998,
+        "sampledPeakTreeRssKiB": 477152,
+        "sampledPeakNativeRssKiB": 213728,
+        "memorySampleCount": 69,
+        "receipt": {
+          "frames": 2909,
+          "samples": 4654400,
+          "width": 960,
+          "height": 540,
+          "durationSeconds": 96.966667,
+          "audioPresentationSamples": 4654400
+        },
+        "outputSha256": "eeca6d474ce36780085fc48fb9d9c9df035d6a85cb5bd451904b1fbd5acae4ca",
+        "outputBytes": 2792261,
+        "status": "completed"
+      },
+      {
+        "cohort": 1,
+        "name": "assembly-preview-cache-hit",
+        "condition": "fs-warm",
+        "preset": "landscape",
+        "validationOnly": false,
+        "elapsedMs": 1.2052919999987353,
+        "sampledPeakTreeRssKiB": 263024,
+        "sampledPeakNativeRssKiB": 0,
+        "memorySampleCount": 1,
+        "status": "completed"
+      },
+      {
+        "cohort": 1,
+        "name": "assembly-export",
+        "condition": "fs-warm",
+        "preset": "landscape",
+        "validationOnly": false,
+        "elapsedMs": 18807.455834000008,
+        "sampledPeakTreeRssKiB": 1181920,
+        "sampledPeakNativeRssKiB": 883328,
+        "memorySampleCount": 185,
+        "receipt": {
+          "frames": 2909,
+          "samples": 4654400,
+          "width": 1920,
+          "height": 1080,
+          "durationSeconds": 96.966667,
+          "audioPresentationSamples": 4654400
+        },
+        "outputSha256": "60d97467d2c85fa06ddd972ca48ac6a9360c14718330e0ca035b4ed0db4b5432",
+        "outputBytes": 3248104,
+        "status": "completed"
+      },
+      {
+        "cohort": 2,
+        "name": "model-registration",
+        "condition": "setup outside ASR throughput; official four-resource local verification warms filesystem",
+        "elapsedMs": 204.606333,
+        "sampledPeakTreeRssKiB": 96688,
+        "sampledPeakNativeRssKiB": 0,
+        "memorySampleCount": 3,
+        "status": "completed"
+      },
+      {
+        "cohort": 2,
+        "name": "worker-preflight",
+        "condition": "separate model-free fresh Python process; real OS outbound-network denial",
+        "elapsedMs": 119.03125,
+        "sampledPeakTreeRssKiB": 161872,
+        "sampledPeakNativeRssKiB": 64624,
+        "memorySampleCount": 2,
+        "status": "completed"
+      },
+      {
+        "cohort": 2,
+        "name": "transcription",
+        "condition": "first",
+        "sourceId": "story-part-1",
+        "elapsedMs": 7669.58175,
+        "audioDurationSeconds": 57.085,
+        "audioSamples": 913360,
+        "endToEndRtf": 0.13435371376018218,
+        "wordCount": 184,
+        "transcriptSha256": "f7063cceffc3cba8fa367edf37bc86fa68d6efba179880a7b59173d9a1996dca",
+        "serviceStageMs": {
+          "decodingAndPostDecodeSourceVerification": 14.591000000000008,
+          "workerStartupModelCheckPreflightPcmAndModelInit": 520.920959,
+          "transcribingThroughNativeValidationAndCommit": 6943.689833
+        },
+        "sampledPeakTreeRssKiB": 1250752,
+        "sampledPeakNativeRssKiB": 1128976,
+        "memorySampleCount": 76,
+        "status": "completed"
+      },
+      {
+        "cohort": 2,
+        "name": "transcription",
+        "condition": "fs-warm",
+        "sourceId": "story-part-1",
+        "elapsedMs": 7579.767792,
+        "audioDurationSeconds": 57.085,
+        "audioSamples": 913360,
+        "endToEndRtf": 0.1327803764911973,
+        "wordCount": 184,
+        "transcriptSha256": "33a6f86b4eebf9ba1f4bf351624b64ff87d754fcd28a810232e70b68d319ee27",
+        "serviceStageMs": {
+          "decodingAndPostDecodeSourceVerification": 15.072040999999444,
+          "workerStartupModelCheckPreflightPcmAndModelInit": 529.2603750000017,
+          "transcribingThroughNativeValidationAndCommit": 6821.972958999999
+        },
+        "sampledPeakTreeRssKiB": 1306480,
+        "sampledPeakNativeRssKiB": 1146976,
+        "memorySampleCount": 75,
+        "status": "completed"
+      },
+      {
+        "cohort": 2,
+        "name": "transcription",
+        "condition": "first",
+        "sourceId": "synthetic-zh",
+        "elapsedMs": 2521.079583999999,
+        "audioDurationSeconds": 11.3656875,
+        "audioSamples": 181851,
+        "endToEndRtf": 0.22181496579067472,
+        "wordCount": 39,
+        "transcriptSha256": "db62761bfbd4559f1b3f889e11a91efa5b6259e9ceb63d42b4f3a880df30abdd",
+        "serviceStageMs": {
+          "decodingAndPostDecodeSourceVerification": 7.733916999999565,
+          "workerStartupModelCheckPreflightPcmAndModelInit": 524.5497910000013,
+          "transcribingThroughNativeValidationAndCommit": 1783.6784170000028
+        },
+        "sampledPeakTreeRssKiB": 1156288,
+        "sampledPeakNativeRssKiB": 985168,
+        "memorySampleCount": 25,
+        "status": "completed"
+      },
+      {
+        "cohort": 2,
+        "name": "transcription",
+        "condition": "fs-warm",
+        "sourceId": "synthetic-zh",
+        "elapsedMs": 2521.049291000003,
+        "audioDurationSeconds": 11.3656875,
+        "audioSamples": 181851,
+        "endToEndRtf": 0.2218123004877622,
+        "wordCount": 39,
+        "transcriptSha256": "37f6f77ea33adc98a1c64c1160511287705d9c792949295b39120981592402ad",
+        "serviceStageMs": {
+          "decodingAndPostDecodeSourceVerification": 7.4253329999992275,
+          "workerStartupModelCheckPreflightPcmAndModelInit": 522.773541999999,
+          "transcribingThroughNativeValidationAndCommit": 1782.623040999999
+        },
+        "sampledPeakTreeRssKiB": 1160992,
+        "sampledPeakNativeRssKiB": 984416,
+        "memorySampleCount": 25,
+        "status": "completed"
+      },
+      {
+        "cohort": 2,
+        "name": "source-proxy",
+        "condition": "first",
+        "sourceId": "story-part-1",
+        "elapsedMs": 886.3931249999987,
+        "sampledPeakTreeRssKiB": 290592,
+        "sampledPeakNativeRssKiB": 111584,
+        "memorySampleCount": 9,
+        "receipt": {
+          "frames": 1713,
+          "samples": 2740800,
+          "width": 640,
+          "height": 360,
+          "durationSeconds": 57.1,
+          "audioPresentationSamples": 2740800
+        },
+        "status": "completed"
+      },
+      {
+        "cohort": 2,
+        "name": "source-proxy-cache-hit",
+        "condition": "first",
+        "sourceId": "story-part-1",
+        "elapsedMs": 0.46287500000107684,
+        "sampledPeakTreeRssKiB": 180512,
+        "sampledPeakNativeRssKiB": 0,
+        "memorySampleCount": 1,
+        "status": "completed"
+      },
+      {
+        "cohort": 2,
+        "name": "source-proxy",
+        "condition": "first",
+        "sourceId": "story-part-2",
+        "elapsedMs": 658.8856250000026,
+        "sampledPeakTreeRssKiB": 290160,
+        "sampledPeakNativeRssKiB": 111296,
+        "memorySampleCount": 7,
+        "receipt": {
+          "frames": 1229,
+          "samples": 1966400,
+          "width": 640,
+          "height": 360,
+          "durationSeconds": 40.966667,
+          "audioPresentationSamples": 1966400
+        },
+        "status": "completed"
+      },
+      {
+        "cohort": 2,
+        "name": "source-proxy-cache-hit",
+        "condition": "first",
+        "sourceId": "story-part-2",
+        "elapsedMs": 0.42779199999858974,
+        "sampledPeakTreeRssKiB": 182384,
+        "sampledPeakNativeRssKiB": 0,
+        "memorySampleCount": 1,
+        "status": "completed"
+      },
+      {
+        "cohort": 2,
+        "name": "source-proxy",
+        "condition": "first",
+        "sourceId": "story-part-3",
+        "elapsedMs": 617.3642919999984,
+        "sampledPeakTreeRssKiB": 292496,
+        "sampledPeakNativeRssKiB": 111296,
+        "memorySampleCount": 7,
+        "receipt": {
+          "frames": 1217,
+          "samples": 1947200,
+          "width": 640,
+          "height": 360,
+          "durationSeconds": 40.566667,
+          "audioPresentationSamples": 1947200
+        },
+        "status": "completed"
+      },
+      {
+        "cohort": 2,
+        "name": "source-proxy-cache-hit",
+        "condition": "first",
+        "sourceId": "story-part-3",
+        "elapsedMs": 0.4585000000006403,
+        "sampledPeakTreeRssKiB": 179392,
+        "sampledPeakNativeRssKiB": 0,
+        "memorySampleCount": 1,
+        "status": "completed"
+      },
+      {
+        "cohort": 2,
+        "name": "assembly-preview",
+        "condition": "first",
+        "preset": "landscape",
+        "validationOnly": false,
+        "elapsedMs": 6953.926040999999,
+        "sampledPeakTreeRssKiB": 409520,
+        "sampledPeakNativeRssKiB": 213632,
+        "memorySampleCount": 69,
+        "receipt": {
+          "frames": 2909,
+          "samples": 4654400,
+          "width": 960,
+          "height": 540,
+          "durationSeconds": 96.966667,
+          "audioPresentationSamples": 4654400
+        },
+        "outputSha256": "eeca6d474ce36780085fc48fb9d9c9df035d6a85cb5bd451904b1fbd5acae4ca",
+        "outputBytes": 2792261,
+        "status": "completed"
+      },
+      {
+        "cohort": 2,
+        "name": "assembly-preview-cache-hit",
+        "condition": "first",
+        "preset": "landscape",
+        "validationOnly": false,
+        "elapsedMs": 0.6414159999985714,
+        "sampledPeakTreeRssKiB": 195968,
+        "sampledPeakNativeRssKiB": 0,
+        "memorySampleCount": 1,
+        "status": "completed"
+      },
+      {
+        "cohort": 2,
+        "name": "assembly-export",
+        "condition": "first",
+        "preset": "landscape",
+        "validationOnly": false,
+        "elapsedMs": 18924.566625,
+        "sampledPeakTreeRssKiB": 1115248,
+        "sampledPeakNativeRssKiB": 883616,
+        "memorySampleCount": 187,
+        "receipt": {
+          "frames": 2909,
+          "samples": 4654400,
+          "width": 1920,
+          "height": 1080,
+          "durationSeconds": 96.966667,
+          "audioPresentationSamples": 4654400
+        },
+        "outputSha256": "60d97467d2c85fa06ddd972ca48ac6a9360c14718330e0ca035b4ed0db4b5432",
+        "outputBytes": 3248104,
+        "status": "completed"
+      },
+      {
+        "cohort": 2,
+        "name": "source-proxy",
+        "condition": "fs-warm",
+        "sourceId": "story-part-1",
+        "elapsedMs": 877.6776249999966,
+        "sampledPeakTreeRssKiB": 349456,
+        "sampledPeakNativeRssKiB": 111440,
+        "memorySampleCount": 9,
+        "receipt": {
+          "frames": 1713,
+          "samples": 2740800,
+          "width": 640,
+          "height": 360,
+          "durationSeconds": 57.1,
+          "audioPresentationSamples": 2740800
+        },
+        "status": "completed"
+      },
+      {
+        "cohort": 2,
+        "name": "source-proxy-cache-hit",
+        "condition": "fs-warm",
+        "sourceId": "story-part-1",
+        "elapsedMs": 0.4322919999976875,
+        "sampledPeakTreeRssKiB": 237744,
+        "sampledPeakNativeRssKiB": 0,
+        "memorySampleCount": 1,
+        "status": "completed"
+      },
+      {
+        "cohort": 2,
+        "name": "source-proxy",
+        "condition": "fs-warm",
+        "sourceId": "story-part-2",
+        "elapsedMs": 659.9620829999985,
+        "sampledPeakTreeRssKiB": 352624,
+        "sampledPeakNativeRssKiB": 111360,
+        "memorySampleCount": 7,
+        "receipt": {
+          "frames": 1229,
+          "samples": 1966400,
+          "width": 640,
+          "height": 360,
+          "durationSeconds": 40.966667,
+          "audioPresentationSamples": 1966400
+        },
+        "status": "completed"
+      },
+      {
+        "cohort": 2,
+        "name": "source-proxy-cache-hit",
+        "condition": "fs-warm",
+        "sourceId": "story-part-2",
+        "elapsedMs": 0.4820419999959995,
+        "sampledPeakTreeRssKiB": 239520,
+        "sampledPeakNativeRssKiB": 0,
+        "memorySampleCount": 1,
+        "status": "completed"
+      },
+      {
+        "cohort": 2,
+        "name": "source-proxy",
+        "condition": "fs-warm",
+        "sourceId": "story-part-3",
+        "elapsedMs": 631.0098330000037,
+        "sampledPeakTreeRssKiB": 354240,
+        "sampledPeakNativeRssKiB": 111184,
+        "memorySampleCount": 7,
+        "receipt": {
+          "frames": 1217,
+          "samples": 1947200,
+          "width": 640,
+          "height": 360,
+          "durationSeconds": 40.566667,
+          "audioPresentationSamples": 1947200
+        },
+        "status": "completed"
+      },
+      {
+        "cohort": 2,
+        "name": "source-proxy-cache-hit",
+        "condition": "fs-warm",
+        "sourceId": "story-part-3",
+        "elapsedMs": 0.47245899999688845,
+        "sampledPeakTreeRssKiB": 241232,
+        "sampledPeakNativeRssKiB": 0,
+        "memorySampleCount": 1,
+        "status": "completed"
+      },
+      {
+        "cohort": 2,
+        "name": "assembly-preview",
+        "condition": "fs-warm",
+        "preset": "landscape",
+        "validationOnly": false,
+        "elapsedMs": 6930.404707999995,
+        "sampledPeakTreeRssKiB": 470336,
+        "sampledPeakNativeRssKiB": 213232,
+        "memorySampleCount": 69,
+        "receipt": {
+          "frames": 2909,
+          "samples": 4654400,
+          "width": 960,
+          "height": 540,
+          "durationSeconds": 96.966667,
+          "audioPresentationSamples": 4654400
+        },
+        "outputSha256": "eeca6d474ce36780085fc48fb9d9c9df035d6a85cb5bd451904b1fbd5acae4ca",
+        "outputBytes": 2792261,
+        "status": "completed"
+      },
+      {
+        "cohort": 2,
+        "name": "assembly-preview-cache-hit",
+        "condition": "fs-warm",
+        "preset": "landscape",
+        "validationOnly": false,
+        "elapsedMs": 0.5271670000001905,
+        "sampledPeakTreeRssKiB": 257072,
+        "sampledPeakNativeRssKiB": 0,
+        "memorySampleCount": 1,
+        "status": "completed"
+      },
+      {
+        "cohort": 2,
+        "name": "assembly-export",
+        "condition": "fs-warm",
+        "preset": "landscape",
+        "validationOnly": false,
+        "elapsedMs": 18797.066166000004,
+        "sampledPeakTreeRssKiB": 1173824,
+        "sampledPeakNativeRssKiB": 882704,
+        "memorySampleCount": 185,
+        "receipt": {
+          "frames": 2909,
+          "samples": 4654400,
+          "width": 1920,
+          "height": 1080,
+          "durationSeconds": 96.966667,
+          "audioPresentationSamples": 4654400
+        },
+        "outputSha256": "60d97467d2c85fa06ddd972ca48ac6a9360c14718330e0ca035b4ed0db4b5432",
+        "outputBytes": 3248104,
+        "status": "completed"
+      }
+    ],
+    "excludedFromAuthoritativeNode24Comparison": true
+  }
+}

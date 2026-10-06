@@ -1,0 +1,102 @@
+{
+  "files": [
+    {
+      "path": "Whisper-MIT.txt",
+      "url": "https://raw.githubusercontent.com/openai/whisper/v20250625/LICENSE",
+      "sha256": "b5d65a59060e68c4ff940e1eddfa6f94b2d68fdf58ed7f4dd57721c997e35e9d",
+      "bytes": 1063
+    },
+    {
+      "path": "Silero-VAD-MIT.txt",
+      "url": "https://raw.githubusercontent.com/snakers4/silero-vad/v6.0/LICENSE",
+      "sha256": "2e63e9a38b6e8fc0c7bc37ce174caca1862870856c6daf5697cfb785e925520b",
+      "bytes": 1075
+    },
+    {
+      "path": "faster-whisper-small-model-card.md",
+      "url": "https://huggingface.co/Systran/faster-whisper-small/raw/536b0662742c02347bc0e980a01041f333bce120/README.md",
+      "sha256": "329373481008c7c38654aff8ecdcf0163c211557cc7ba8e2ef6f2f84b4f75ec8",
+      "bytes": 1998
+    },
+    {
+      "path": "faster-whisper-large-v3-turbo-model-card.md",
+      "url": "https://huggingface.co/dropbox-dash/faster-whisper-large-v3-turbo/resolve/0a363e9161cbc7ed1431c9597a8ceaf0c4f78fcf/README.md",
+      "sha256": "b3068692728faed23580cce5cd569fc47ff76c690c032b2641ffd5554ea64d8f",
+      "bytes": 1445
+    }
+  ],
+  "schema": 1,
+  "models": [
+    {
+      "id": "Systran/faster-whisper-small",
+      "revision": "536b0662742c02347bc0e980a01041f333bce120",
+      "license": "MIT",
+      "model_bundled": false,
+      "model_card": "faster-whisper-small-model-card.md",
+      "license_notice": "Whisper-MIT.txt",
+      "manifest_source": "src/main/services/models.ts:MODEL_MANIFEST",
+      "manifest_digest": "ef292cd53a8710cc7b512537813ca61528bf6b35fb97bc86b38fe1bbde02e2fb",
+      "bytes": 486212372,
+      "files": [
+        {
+          "name": "model.bin",
+          "bytes": 483546902,
+          "sha256": "3e305921506d8872816023e4c273e75d2419fb89b24da97b4fe7bce14170d671"
+        },
+        {
+          "name": "tokenizer.json",
+          "bytes": 2203239,
+          "sha256": "fb7b63191e9bb045082c79fd742a3106a12c99513ab30df4a0d47fa6cb6fd0ab"
+        },
+        {
+          "name": "config.json",
+          "bytes": 2370,
+          "sha256": "b55496ac7940a7ae47d2c01eab40edfd8701feec1229d9cce3b40014383fb828"
+        },
+        {
+          "name": "vocabulary.txt",
+          "bytes": 459861,
+          "sha256": "34ce3fe1c5041027b3f8d42912270993f986dbc4bb34cf27f951e34a1e453913"
+        }
+      ]
+    },
+    {
+      "id": "dropbox-dash/faster-whisper-large-v3-turbo",
+      "revision": "0a363e9161cbc7ed1431c9597a8ceaf0c4f78fcf",
+      "license": "MIT",
+      "model_bundled": false,
+      "model_card": "faster-whisper-large-v3-turbo-model-card.md",
+      "license_notice": "Whisper-MIT.txt",
+      "manifest_source": "src/main/services/models.ts:TURBO_MANIFEST",
+      "manifest_digest": "b2fe53c59e5a45436dd8fc80f06d99ae72f933203c869e19fca432759077e7a0",
+      "bytes": 1621665983,
+      "files": [
+        {
+          "name": "config.json",
+          "bytes": 2263,
+          "sha256": "b0253ea6c0d3bea6b1e19e91a02acfd3b53f4467362efcb5a3e6b16c9b3a9b7e"
+        },
+        {
+          "name": "preprocessor_config.json",
+          "bytes": 340,
+          "sha256": "7ccc62c6f2765af1f3b46c00c9b5894426835a05021c8b9c01eecb6dfb542711"
+        },
+        {
+          "name": "tokenizer.json",
+          "bytes": 2710337,
+          "sha256": "297b13372ac43916285644fb9687add3cc62ee2a1adb60da3dc25cc94c1871fd"
+        },
+        {
+          "name": "vocabulary.json",
+          "bytes": 1068114,
+          "sha256": "c69260f2ab26d659b7c398f9a2b2b48ed0df16c3b47d7326782fd9cba71690c1"
+        },
+        {
+          "name": "model.bin",
+          "bytes": 1617884929,
+          "sha256": "e76620f83d5f5b69efd3d87e3dc180c1bd21df9fbebacfd4335e5e1efcc018da"
+        }
+      ]
+    }
+  ]
+}

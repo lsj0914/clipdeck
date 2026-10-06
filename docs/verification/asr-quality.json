@@ -1,0 +1,189 @@
+{
+  "date": "2026-10-06",
+  "scope": "Task 7 native ASR, model selection and anchored text correction candidate",
+  "environment": {
+    "python": "3.12.15",
+    "fasterWhisper": "1.2.1",
+    "ctranslate2": "4.8.2",
+    "numpy": "2.5.3",
+    "av": "16.0.1+clipdeck.ffmpeg8.1.2",
+    "onnxruntime": "1.30.0",
+    "tokenizers": "0.23.2",
+    "ffmpeg": "9.0.2",
+    "device": "cpu",
+    "computeType": "int8",
+    "cpuThreads": 4,
+    "beamSize": 5,
+    "vad": true,
+    "workerNetwork": "OS deny network-outbound",
+    "telemetryDisabled": true,
+    "conditionOnPreviousText": false
+  },
+  "models": [
+    {
+      "choice": "small",
+      "id": "Systran/faster-whisper-small",
+      "revision": "536b0662742c02347bc0e980a01041f333bce120",
+      "digest": "ef292cd53a8710cc7b512537813ca61528bf6b35fb97bc86b38fe1bbde02e2fb"
+    },
+    {
+      "choice": "turbo",
+      "id": "dropbox-dash/faster-whisper-large-v3-turbo",
+      "revision": "0a363e9161cbc7ed1431c9597a8ceaf0c4f78fcf",
+      "digest": "b2fe53c59e5a45436dd8fc80f06d99ae72f933203c869e19fca432759077e7a0"
+    }
+  ],
+  "recordedCohort": [
+    {
+      "fixture": "generated/recorded-en-a.wav",
+      "source": "LibriSpeech public recording",
+      "sha256": "0ad6a736d410177ab72685c8e7d309bbceca469ffbd2a695745995eab633e8bd",
+      "language": "en",
+      "vocabulary": "",
+      "simplifiedChinese": false,
+      "choicesPassed": [
+        "small",
+        "turbo"
+      ],
+      "anchorAlternatives": [
+        "reader",
+        "country",
+        "sheep"
+      ]
+    },
+    {
+      "fixture": "paddlespeech-zh.wav",
+      "source": "Public PaddleSpeech recording",
+      "sha256": "cd21424477cca51cfbe964bd42354948786f8f3c65a47403dc15d7f7ff96f2a9",
+      "language": "zh",
+      "vocabulary": "跑步，健康",
+      "simplifiedChinese": true,
+      "choicesPassed": [
+        "small",
+        "turbo"
+      ],
+      "anchorAlternatives": [
+        "跑步",
+        "健康"
+      ],
+      "hintBiased": true
+    }
+  ],
+  "recordedAssertions": [
+    "Real source MP4 wrapping, probing and FFmpeg PCM preprocessing",
+    "Complete selected manifest checked in main and worker; completion provenance checked by adapter",
+    "Completed job with persisted selected identity, digest, ASR origin and requested parameters",
+    "More than ten timed words per cohort member; positive intervals bounded by probed source duration",
+    "Expected public speech anchor present"
+  ],
+  "runs": [
+    {
+      "files": [
+        "tests/services/transcription.test.ts",
+        "tests/services/worker.test.ts"
+      ],
+      "passed": 16,
+      "durationSeconds": 55.62,
+      "note": "One measured full test-file run; includes four recorded cohort cases plus other worker/service checks; no individual inference timings",
+      "decodePolicy": "Historical run before independent-windows policy; upstream previous-text default"
+    },
+    {
+      "files": [
+        "tests/services/workspace.test.ts",
+        "tests/domain/corrections.test.ts",
+        "tests/services/ipc.test.ts"
+      ],
+      "passed": 19,
+      "durationSeconds": 6.06,
+      "note": "Actual second ASR, stale cuts, anchored correction, save and reopen; one measured test-file run",
+      "decodePolicy": "Historical run before independent-windows policy; upstream previous-text default"
+    },
+    {
+      "files": [
+        "tests/domain/project.test.ts",
+        "tests/services/transcription.test.ts",
+        "tests/services/worker.test.ts"
+      ],
+      "passed": 38,
+      "durationSeconds": 51.14,
+      "conditionOnPreviousText": false,
+      "note": "Focused current-policy run includes four real recorded EN/ZH/model-choice cohort cases, protocol identity rejection, legacy serialization and worker checks; no comparative throughput claim."
+    }
+  ],
+  "limitations": [
+    "No reference transcript, CER or WER was computed",
+    "Vocabulary anchor checks are hint biased and do not establish general recognition accuracy",
+    "Simplified Chinese prompt is a preference, not enforced conversion",
+    "Aggregate test-file elapsed times do not establish comparative model throughput",
+    "Fresh scoped independent review and restricted desktop UI acceptance are pending at candidate handoff",
+    "Additional bounded authorized private diagnosis was read-only; no private content/path/fingerprint is included here"
+  ],
+  "independentWindows": {
+    "setting": "condition_on_previous_text=False",
+    "upstreamSource": "https://github.com/SYSTRAN/faster-whisper/blob/v1.2.1/faster_whisper/transcribe.py",
+    "policy": "Do not reuse generated recognition as later-window prompt; preserve explicit prompt and vocabulary, generated text and source timestamp normalization.",
+    "provenance": "New transcripts persist optional parameters.conditionOnPreviousText=false; legacy omission remains omitted; adapter rejects completion with missing/true identity.",
+    "privateDiagnostic": {
+      "scope": "Two authorized bounded identical-PCM paired comparisons; recordings/text/location/fingerprints retained externally only",
+      "exactReportedCharacterLoopReproduced": false,
+      "shortCrop": {
+        "defaultRawWords": 250,
+        "independentRawWords": 252,
+        "bothNonempty": true
+      },
+      "prefix": {
+        "defaultRawWords": 455,
+        "independentRawWords": 395,
+        "defaultNormalizedWords": 405,
+        "independentNormalizedWords": 393,
+        "defaultZeroDurationWords": 50,
+        "independentZeroDurationWords": 2,
+        "defaultDensestNormalizedWordCharacters": 19,
+        "defaultDensestNormalizedWordIntervalMs": 20,
+        "independentDensestNormalizedWordCharacters": 1,
+        "independentDensestNormalizedWordIntervalMs": 20,
+        "speechSpanPreserved": true,
+        "bothTimingsBoundedMonotonic": true
+      },
+      "limitations": [
+        "No human reference transcript/CER/WER or accuracy percentage",
+        "Exact reported repeated-character loop was not reproduced in bounded pairs",
+        "Whole-recording acceptance remains separate; no general speed claim",
+        "Independent windows can reduce text consistency across windows"
+      ]
+    },
+    "regression": {
+      "status": "passed",
+      "focusedFiles": [
+        "tests/domain/project.test.ts",
+        "tests/services/transcription.test.ts",
+        "tests/services/worker.test.ts"
+      ],
+      "focusedTestsPassed": 38,
+      "focusedRunSeconds": 51.14,
+      "workerUnitTestsPassed": 6,
+      "workerUnitTestsSkipped": 1,
+      "workerUnitSkipReason": "Existing stronger-manifest unit requires an explicit model environment variable; all four real native EN/ZH/model-choice cohort runs verified selected manifests.",
+      "typecheck": "passed",
+      "nativeRecordedCohortChoices": [
+        "small/en",
+        "small/zh",
+        "turbo/en",
+        "turbo/zh"
+      ],
+      "legacyOmissionPreserved": true,
+      "completionIdentityMissingOrTrueRejected": true,
+      "actualBoundedPrivateWorker": {
+        "completed": true,
+        "conditionOnPreviousText": false,
+        "normalizedWords": 393,
+        "segments": 41,
+        "untimedWords": 2,
+        "timestampsPositiveMonotonicBounded": true,
+        "stderrEmpty": true,
+        "networkOutboundDenied": true
+      },
+      "workerSourceSha256": "6ced4acba60536d593d119093f1b619f532ac883600e44b5899eab23521ded03"
+    }
+  }
+}

@@ -1,0 +1,27 @@
+name: Bug report
+description: A reproducible failure in editing, processing or project recovery
+body:
+  - type: textarea
+    id: behavior
+    attributes:
+      label: What happened, and what should have happened?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Include a licensed minimal fixture if needed. Do not upload private recordings or credentials.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Commit or release, macOS version and architecture
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Sanitized evidence
+      description: Remove personal paths, speech and account information from screenshots and logs.

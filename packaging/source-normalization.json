@@ -1,0 +1,301 @@
+{
+  "schema": 1,
+  "scope": "ClipDeck-owned corresponding-source diagnostics and neutral outer headers only; all upstream inputs, licenses, patches, flags and rebuild/relink recipes retained",
+  "runtime_archives_changed": false,
+  "companions": [
+    {
+      "schema": 1,
+      "role": "media",
+      "original": {
+        "file": "clipdeck-media-corresponding-source.tar.gz",
+        "sha256": "01d934a450828cae733f9c17d62f534525e4405fbf4ee81f998cf586b13c2105",
+        "bytes": 13245555
+      },
+      "changed_members": [
+        {
+          "path": "source-manifest.json",
+          "original_sha256": "19fe4467c13683e65cdbfd27e2a1cace7856ff27623ef59ed3b6c8ebe7f057b2",
+          "public_sha256": "dff72fc54b2ab3417ed31f1fa27f581c951e5fe328ae343a2b87a4f840e2fdaf",
+          "transformations": [
+            "architecture capture becomes architecture value arm64; all other JSON values preserved"
+          ]
+        },
+        {
+          "path": "logs/ffmpeg-config.mak",
+          "original_sha256": "5fcca40c8f7565f110ea95af06127023bc749e8be4d5cba5f5fd64d328f19929",
+          "public_sha256": "ea41ae3420bf02f0bf871780589ddecad0bd3726e1b9b27816c66bec3015bdab",
+          "transformations": [
+            "owned configure/include/link prefix becomes ${CLIPDECK_MEDIA_PREFIX}; all flags preserved"
+          ]
+        },
+        {
+          "path": "logs/runtime-version.txt",
+          "original_sha256": "e2da48c716a9220b54a4ebdfed8fb47321f6f2c60cf098fc31a6bda974583fa0",
+          "public_sha256": "562d12f43f0ed8c35fae66d3acadb8321ac9fb72cc42f1f656e21e236425c84e",
+          "transformations": [
+            "owned configure/include/link prefix becomes ${CLIPDECK_MEDIA_PREFIX}; all flags preserved"
+          ]
+        }
+      ],
+      "preserved_members": [
+        {
+          "path": "build-media.sh",
+          "type": "file",
+          "mode": "0o644",
+          "sha256": "e797ddeb4c1ca570a5a78acc2985946bfa9d6a13923c040fb47e02e4fbcd3b51",
+          "bytes": 3820
+        },
+        {
+          "path": "verify-media.py",
+          "type": "file",
+          "mode": "0o644",
+          "sha256": "4eb7f6a6ec04899998fca18644776e3754f699a0267ed5881605a8c577c58c3b",
+          "bytes": 6828
+        },
+        {
+          "path": "sources/ffmpeg-9.0.2.tar.xz",
+          "type": "file",
+          "mode": "0o644",
+          "sha256": "8c3850283eb25fa026482078a04051e0be17347b09ef81a0849bec15a96e002e",
+          "bytes": 12040788
+        },
+        {
+          "path": "sources/x264-b35605ace3ddf7c1a5d67a2eb553f034aef41d55.tar.bz2",
+          "type": "file",
+          "mode": "0o644",
+          "sha256": "6eeb82934e69fd51e043bd8c5b0d152839638d1ce7aa4eea65a3fedcf83ff224",
+          "bytes": 848719
+        },
+        {
+          "path": "sources/pkgconf-2.5.1.tar.xz",
+          "type": "file",
+          "mode": "0o644",
+          "sha256": "cd05c9589b9f86ecf044c10a2269822bc9eb001eced2582cfffd658b0a50c243",
+          "bytes": 328064
+        }
+      ],
+      "upstream_sources": [
+        {
+          "path": "sources/ffmpeg-9.0.2.tar.xz",
+          "sha256": "8c3850283eb25fa026482078a04051e0be17347b09ef81a0849bec15a96e002e",
+          "bytes": 12040788,
+          "unchanged": true
+        },
+        {
+          "path": "sources/x264-b35605ace3ddf7c1a5d67a2eb553f034aef41d55.tar.bz2",
+          "sha256": "6eeb82934e69fd51e043bd8c5b0d152839638d1ce7aa4eea65a3fedcf83ff224",
+          "bytes": 848719,
+          "unchanged": true
+        },
+        {
+          "path": "sources/pkgconf-2.5.1.tar.xz",
+          "sha256": "cd05c9589b9f86ecf044c10a2269822bc9eb001eced2582cfffd658b0a50c243",
+          "bytes": 328064,
+          "unchanged": true
+        }
+      ],
+      "owned_private_path_scan_passed": true,
+      "outer_metadata_private_path_scan_passed": true,
+      "outer_header_normalization": "uid/gid=0; uname/gname empty; timestamps=0; original names/types/modes/relative link targets retained",
+      "runtime_binaries_changed": false,
+      "public": {
+        "file": "clipdeck-media-corresponding-source.tar.gz",
+        "sha256": "34a37cfd57d80bf4b56f44acf8d9340fbcac3ef7447d36cefc8c73db2b7312c9",
+        "bytes": 13247245
+      }
+    },
+    {
+      "schema": 1,
+      "role": "decoder",
+      "original": {
+        "file": "clipdeck-maintained-decoder-corresponding-source.tar.gz",
+        "sha256": "742497d05084b1b97c1a113dd9fd0282ad2bce4e6188c4f45df22b1d90755001",
+        "bytes": 12361367
+      },
+      "changed_members": [
+        {
+          "path": "clipdeck-maintained-decoder-source/actual-build-config/config.h",
+          "original_sha256": "f637fac9a89479552efe69a29065b5488420e7a225e0d8c334c8456f3ac82ad6",
+          "public_sha256": "a7fb7e1a9448cec3ab838951417f25b6d39a75e920fcb71386bccaf73fdd431e",
+          "transformations": [
+            "owned prefix/root/verification installation becomes parameterized token; no flag, library digest, loader edge or source change"
+          ]
+        },
+        {
+          "path": "clipdeck-maintained-decoder-source/actual-build-config/config.mak",
+          "original_sha256": "14bc77178e65a859b2a3b1598af6ff681c0b680fbf8662535f1b98286e6e67f6",
+          "public_sha256": "36faa0ccb3a74fe7efddededc2c4da985d065dc73131333d0c562e59d3d52326",
+          "transformations": [
+            "owned prefix/root/verification installation becomes parameterized token; no flag, library digest, loader edge or source change"
+          ]
+        },
+        {
+          "path": "clipdeck-maintained-decoder-source/decoder-provenance.json",
+          "original_sha256": "8a12c068ce93d25f919e0298cfa2fb6490bd4ab2509fb6af3f04f0e92fa32ac0",
+          "public_sha256": "059c532171002b0dadba5fc0412c15776390a0da552e81c67dda2f2c19f97d19",
+          "transformations": [
+            "owned prefix/root/verification installation becomes parameterized token; no flag, library digest, loader edge or source change"
+          ]
+        },
+        {
+          "path": "clipdeck-maintained-decoder-source/source-manifest.json",
+          "original_sha256": "6f1f79991d34c4559e4f2e93b425efd5d22e24005f636fff78da415da69cb00f",
+          "public_sha256": "87632fefbf175061f3c5452acfc4c10c6b8a1ba2edc3a18ff183a57084e35383",
+          "transformations": [
+            "wheel.path becomes relative to owned decoder root; all source inputs/other JSON values preserved"
+          ]
+        }
+      ],
+      "preserved_members": [
+        {
+          "path": "clipdeck-maintained-decoder-source",
+          "type": "directory",
+          "mode": "0o755"
+        },
+        {
+          "path": "clipdeck-maintained-decoder-source/BUILD-README.md",
+          "type": "file",
+          "mode": "0o644",
+          "sha256": "ee74579c578b14789d756efd64737c50d77a8f3c1c67f627fe473c76678de51f",
+          "bytes": 3624
+        },
+        {
+          "path": "clipdeck-maintained-decoder-source/actual-build-config",
+          "type": "directory",
+          "mode": "0o755"
+        },
+        {
+          "path": "clipdeck-maintained-decoder-source/actual-build-config/config_components.h",
+          "type": "file",
+          "mode": "0o644",
+          "sha256": "edd2b509451e4cd6ddb878305d97c856fadfaf93f827bf0a2b41f8526dd69ee4",
+          "bytes": 75831
+        },
+        {
+          "path": "clipdeck-maintained-decoder-source/build-decoder.sh",
+          "type": "file",
+          "mode": "0o644",
+          "sha256": "f7a0fc546d9f608fac564be563fe062a6cabf5afeee02ecf4d34209a13b60da4",
+          "bytes": 3119
+        },
+        {
+          "path": "clipdeck-maintained-decoder-source/build-requirements.lock.txt",
+          "type": "file",
+          "mode": "0o644",
+          "sha256": "4f58d00742b9e0ec52735e1e49f3e6803348b078d50dfb55910c65ec5fef73c7",
+          "bytes": 176
+        },
+        {
+          "path": "clipdeck-maintained-decoder-source/licenses",
+          "type": "directory",
+          "mode": "0o755"
+        },
+        {
+          "path": "clipdeck-maintained-decoder-source/licenses/FFmpeg-LGPL-2.1.txt",
+          "type": "file",
+          "mode": "0o644",
+          "sha256": "246041b6ecf9bc32d718a62c57877c78b5eb397b6467e74ed7ae2626ab189c30",
+          "bytes": 26517
+        },
+        {
+          "path": "clipdeck-maintained-decoder-source/licenses/FFmpeg-LICENSE.md",
+          "type": "file",
+          "mode": "0o644",
+          "sha256": "2e1d16c72fd74e12063776371da757322f8b77589386532f4fd8634bde7de1af",
+          "bytes": 4346
+        },
+        {
+          "path": "clipdeck-maintained-decoder-source/licenses/PyAV-BSD.txt",
+          "type": "file",
+          "mode": "0o644",
+          "sha256": "76af0461ffb92e19f1c14449e95557d83a2dfaa1baf202d49e5f1d8746c0da19",
+          "bytes": 1505
+        },
+        {
+          "path": "clipdeck-maintained-decoder-source/licenses/pkgconf-COPYING",
+          "type": "file",
+          "mode": "0o644",
+          "sha256": "07ee94b50a41ee3fc4e13a9b9c60b26fc28488494c465639f7e5f07a3952ec04",
+          "bytes": 509
+        },
+        {
+          "path": "clipdeck-maintained-decoder-source/normalize_wheel.py",
+          "type": "file",
+          "mode": "0o644",
+          "sha256": "39c5e50274344987c29e143373dcf3465f63e51ef499f1080214f4a20bd2a1e3",
+          "bytes": 1731
+        },
+        {
+          "path": "clipdeck-maintained-decoder-source/requirements.lock.txt",
+          "type": "file",
+          "mode": "0o644",
+          "sha256": "d2f5fcc5010a6118c9d0d4de77de4f330c321e28820afa3be24adde9a3912f55",
+          "bytes": 404
+        },
+        {
+          "path": "clipdeck-maintained-decoder-source/sources",
+          "type": "directory",
+          "mode": "0o755"
+        },
+        {
+          "path": "clipdeck-maintained-decoder-source/sources/PyAV-7687256d87f22f78cb75bb4aba94dc6e504c9983.tar.gz",
+          "type": "file",
+          "mode": "0o644",
+          "sha256": "e94aaf48e1a43c40cf02137f1a8d4a52b381790d568b2dbd163a5f83059124ba",
+          "bytes": 205790
+        },
+        {
+          "path": "clipdeck-maintained-decoder-source/sources/ffmpeg-8.1.2.tar.xz",
+          "type": "file",
+          "mode": "0o644",
+          "sha256": "464beb5e7bf0c311e68b45ae2f04e9cc2af88851abb4082231742a74d97b524c",
+          "bytes": 11710924
+        },
+        {
+          "path": "clipdeck-maintained-decoder-source/sources/ffmpeg-security-2026-10-06.html",
+          "type": "file",
+          "mode": "0o644",
+          "sha256": "382bddbb0454a8945a36a082ae14c35afe12426103e2c9b60cd582bf6b18d496",
+          "bytes": 178709
+        },
+        {
+          "path": "clipdeck-maintained-decoder-source/sources/pkgconf-2.5.1.tar.xz",
+          "type": "file",
+          "mode": "0o644",
+          "sha256": "cd05c9589b9f86ecf044c10a2269822bc9eb001eced2582cfffd658b0a50c243",
+          "bytes": 328064
+        }
+      ],
+      "upstream_sources": [
+        {
+          "path": "clipdeck-maintained-decoder-source/sources/ffmpeg-8.1.2.tar.xz",
+          "sha256": "464beb5e7bf0c311e68b45ae2f04e9cc2af88851abb4082231742a74d97b524c",
+          "bytes": 11710924,
+          "unchanged": true
+        },
+        {
+          "path": "clipdeck-maintained-decoder-source/sources/PyAV-7687256d87f22f78cb75bb4aba94dc6e504c9983.tar.gz",
+          "sha256": "e94aaf48e1a43c40cf02137f1a8d4a52b381790d568b2dbd163a5f83059124ba",
+          "bytes": 205790,
+          "unchanged": true
+        },
+        {
+          "path": "clipdeck-maintained-decoder-source/sources/pkgconf-2.5.1.tar.xz",
+          "sha256": "cd05c9589b9f86ecf044c10a2269822bc9eb001eced2582cfffd658b0a50c243",
+          "bytes": 328064,
+          "unchanged": true
+        }
+      ],
+      "owned_private_path_scan_passed": true,
+      "outer_metadata_private_path_scan_passed": true,
+      "outer_header_normalization": "uid/gid=0; uname/gname empty; timestamps=0; original names/types/modes/relative link targets retained",
+      "runtime_binaries_changed": false,
+      "public": {
+        "file": "clipdeck-maintained-decoder-corresponding-source.tar.gz",
+        "sha256": "79b86c43e3f9ce83d6eb912a2ededcf117d1c4ecc8afe3b0bc9b6c0253676c80",
+        "bytes": 12362867
+      }
+    }
+  ],
+  "status": "Historical superseded002 diagnostics-only normalization; current003 assets use neutral compiled rebuilds"
+}

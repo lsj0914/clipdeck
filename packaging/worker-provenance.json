@@ -1,0 +1,109 @@
+{
+  "schema": 1,
+  "status": "pinned portable prerequisite; final workflow acceptance separate",
+  "python": {
+    "version": "3.12.15",
+    "release_source": "https://www.python.org/downloads/release/python-31215/",
+    "source_archive": "sources/Python-3.12.15.tar.xz",
+    "source_sha256": "c2c4321961fab0fb999d66e0cecf521c2ab3994c7992873ea99e306c1094fd5a",
+    "license": [
+      "Python-2.0",
+      "CNRI-Python"
+    ],
+    "base_distribution": "astral-sh/python-build-standalone",
+    "base_release": "20261003",
+    "build_source_commit": "5e46737f6480fc315ebfea83866910cbfcc772f0",
+    "build_source_archive_sha256": "2c4bc5e43a0276046f080f40f0bd9586b10f2a6aa1714c592557f57ef0821e0c",
+    "build_framework_license": "MPL-2.0",
+    "base_archive": {
+      "url": "https://github.com/astral-sh/python-build-standalone/releases/download/20261003/cpython-3.12.15%2B20261003-aarch64-apple-darwin-install_only_stripped.tar.gz",
+      "sha256": "ad8d0c637c0a36b967b310e2c07254f4d2ca8cabaa7699e55ed6290aceb481a2",
+      "bytes": 25013243
+    },
+    "license_metadata_archive": {
+      "url": "https://github.com/astral-sh/python-build-standalone/releases/download/20261003/cpython-3.12.15%2B20261003-aarch64-apple-darwin-pgo%2Blto-full.tar.zst",
+      "sha256": "a23a0baff73a5f10c820841cc1889a5b7fc12048fe8c0622f6a481ab82ea367b"
+    }
+  },
+  "dependencies": {
+    "anyio": "4.15.1",
+    "av": "16.0.1+clipdeck.ffmpeg8.1.2",
+    "certifi": "2026.7.22",
+    "click": "8.5.0",
+    "ctranslate2": "4.8.2",
+    "faster-whisper": "1.2.1",
+    "filelock": "4.0.12",
+    "flatbuffers": "25.12.19",
+    "fsspec": "2026.9.0",
+    "h11": "0.16.0",
+    "hf-xet": "1.6.0",
+    "httpcore": "1.0.9",
+    "httpx": "0.28.1",
+    "huggingface_hub": "1.33.0",
+    "idna": "3.20",
+    "numpy": "2.5.3",
+    "onnxruntime": "1.30.0",
+    "packaging": "26.3",
+    "protobuf": "7.36.2",
+    "PyYAML": "6.0.3",
+    "tokenizers": "0.23.2",
+    "tqdm": "4.70.1",
+    "typing_extensions": "4.16.0"
+  },
+  "base_pip": "26.2.1",
+  "payload": {
+    "root": "runtime/worker",
+    "python": "runtime/worker/bin/python3.12",
+    "archive": "portable-worker-runtime-3.12.15-macos-arm64.tar.gz",
+    "sha256": "5d3804e9af533e959a310d59951c2d64f4c71a1d9cd16b1d55c8df6b0b62ef2b",
+    "bytes": 65402228,
+    "standalone_not_venv": true,
+    "model_bundled": false,
+    "native_objects": 93,
+    "architectures": [
+      "arm64"
+    ],
+    "maximum_macos_minos": "14.0",
+    "normalization": "non-system dylib IDs/runpaths changed to relative bundled paths; all native objects ad-hoc signed; modes/relative symlinks retained",
+    "manifest": "worker-files.json",
+    "license_inventory": "worker-license-inventory.json",
+    "vad_path": "lib/python3.12/site-packages/faster_whisper/assets/silero_vad_v6.onnx",
+    "vad_sha256": "4cbf549b8326f60f80f2536d9eefeb450a9abe83365a098031c89719f1be17d2",
+    "rebuild_receipt": "resource-rebuild.json",
+    "wheel_inputs": "worker-wheel-inputs.json",
+    "build_path_policy": {
+      "configured_prefix": "/opt/clipdeck-runtime",
+      "staging": "DESTDIR under chosen build root",
+      "include_library_flags": "relative",
+      "compiler_source_debug_map": "/clipdeck-build",
+      "compiled_string_patching": false
+    }
+  },
+  "maintained_decoder": {
+    "pyav": "16.0.1+clipdeck.ffmpeg8.1.2",
+    "ffmpeg": "8.1.2",
+    "license": [
+      "BSD-3-Clause",
+      "LGPL-2.1-or-later"
+    ],
+    "source_companion": "clipdeck-maintained-decoder-corresponding-source.tar.gz",
+    "public_source_asset": {
+      "file": "clipdeck-maintained-decoder-corresponding-source.tar.gz",
+      "sha256": "7a4f003e4db417c260146a8f055f2549b9657af56f6f7f11af96671138d3ccca",
+      "bytes": 12265465,
+      "rebuild_receipt": "resource-rebuild.json"
+    },
+    "wheel": {
+      "name": "av",
+      "version": "16.0.1+clipdeck.ffmpeg8.1.2",
+      "file": "av-16.0.1+clipdeck.ffmpeg8.1.2-cp312-cp312-macosx_14_0_arm64.whl",
+      "sha256": "47a4dfe9adb6f250801a1c3a7937f3a24c8f8e823cc7281fa66568eb17016838",
+      "bytes": 3255990
+    }
+  },
+  "support": {
+    "binary_floor_metadata": "macOS14 ARM64",
+    "actual_execution": "macOS27.0.1 ARM64",
+    "macos14_execution_verified": false
+  }
+}

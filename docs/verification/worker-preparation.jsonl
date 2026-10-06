@@ -1,0 +1,1 @@
+{"type": "ready", "pythonVersion": "3.12.15", "telemetryDisabled": true, "engine": {"name": "faster-whisper", "version": "1.2.1"}, "versions": {"faster-whisper": "1.2.1", "numpy": "2.5.3", "ctranslate2": "4.8.2", "av": "16.0.1+clipdeck.ffmpeg8.1.2", "onnxruntime": "1.30.0", "tokenizers": "0.23.2"}, "vadDigest": "4cbf549b8326f60f80f2536d9eefeb450a9abe83365a098031c89719f1be17d2"}

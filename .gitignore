@@ -1,0 +1,11 @@
+node_modules/
+dist/
+.electron-download-cache/
+coverage/
+*.log
+.runtime/
+.venv/
+.impeccable/review/
+.impeccable/mocks/
+__pycache__/
+*.pyc

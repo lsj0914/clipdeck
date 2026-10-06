@@ -1,0 +1,37 @@
+{
+  "verifiedAt": "2026-10-06T08:32:53.256578+00:00",
+  "scope": "Task 2 real services and project-local portable worker; packaged app and guarded media serving pending",
+  "platform": "macOS ARM64",
+  "nativeFFmpeg": "9.0.2",
+  "sourceFixtures": [
+    {
+      "kind": "synthetic intelligible English/Chinese speech muxed to actual MP4",
+      "suppliedVia": "CLIPDECK_ACCEPTANCE_ROOT",
+      "test": "tests/services/transcription.test.ts",
+      "redistribution": "Not bundled; acceptance only"
+    },
+    {
+      "kind": "recorded Chinese PaddleSpeech sample",
+      "transcript": "我認為跑步最重要的就是給我帶來了身體健康",
+      "words": 16,
+      "sourceFingerprint": "sha256:cd21424477cca51cfbe964bd42354948786f8f3c65a47403dc15d7f7ff96f2a9",
+      "receipt": "transcription-recorded-zh.jsonl",
+      "redistribution": "Unverified; audio not bundled"
+    }
+  ],
+  "worker": {
+    "productionPython": "3.12.15",
+    "verifiedDevelopmentPython": "3.12.15",
+    "fasterWhisper": "1.2.1",
+    "numpy": "2.5.3",
+    "ctranslate2": "4.8.2",
+    "av": "16.0.1+clipdeck.ffmpeg8.1.2",
+    "avWheelSHA256": "b58b8d62b42d44f7b8bb2fcfdc543be51a5df8d73bf4c7951d138624e0b852a9",
+    "onnxruntime": "1.30.0",
+    "tokenizers": "0.23.2",
+    "modelRevision": "536b0662742c02347bc0e980a01041f333bce120",
+    "networkPolicy": "sandbox-exec deny network-outbound; offline environment; local_files_only; full local model/tokenizer/VAD hash preflight",
+    "telemetry": "ORT_DISABLE_TELEMETRY=1 before ONNX/FW import plus disable_telemetry_events before sessions",
+    "runtimeManifestSHA256": "298b8f006e05917c887a055d3d021899135669b2a0771b95d257e2492208df07"
+  }
+}

@@ -1,0 +1,2390 @@
+import { useLocale, LocaleProvider } from "./locale";
+import { TranscriptionPanel } from "./TranscriptionPanel";
+import { AssemblyScript } from "./AssemblyScript";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import type {
+  ClipDeckAPI,
+  Cut,
+  EditCommand,
+  Job,
+  OutputPreset,
+  WorkspaceSnapshot,
+} from "../shared/contracts";
+import { selectionToCut } from "../domain/selection";
+import { TranscriptView, type WordSelection } from "./TranscriptView";
+import {
+  CutInspector,
+  JobList,
+  RangeEditor,
+  cutDraft,
+  type CutDraft,
+} from "./Panels";
+import { Icon } from "./Icon";
+import { useSourcePreview } from "./useSourcePreview";
+import {
+  range,
+  assemblyDuration,
+  assemblyPosition,
+  excerpt,
+  message,
+  time,
+} from "./format";
+
+type Failure = { message: string; retry: (() => void) | null };
+type ExportReview = {
+  projectId: string;
+  revision: number;
+  cutCount: number;
+  durationMs: number;
+  width: number;
+  height: number;
+};
+const isSnapshot = (value: unknown): value is WorkspaceSnapshot =>
+  typeof value === "object" &&
+  value !== null &&
+  "project" in value &&
+  "save" in value;
+const isWorking = (job: Job) =>
+  ["queued", "running", "cancelling"].includes(job.status);
+export function App(props: { api?: ClipDeckAPI }) {
+  return (
+    <LocaleProvider>
+      <Workbench {...props} />
+    </LocaleProvider>
+  );
+}
+function Workbench({ api = window.clipdeck }: { api?: ClipDeckAPI }) {
+  const { t, locale, setLocale } = useLocale();
+  const [snapshot, setSnapshot] = useState<WorkspaceSnapshot | null>(null),
+    [failure, setFailure] = useState<Failure | null>(null),
+    [busy, setBusy] = useState(false),
+    [sourceId, setSourceId] = useState(""),
+    [selection, setSelection] = useState<WordSelection | null>(null),
+    [cutId, setCutId] = useState(""),
+    [view, setView] = useState<"source" | "assembly">("source"),
+    [panel, setPanel] = useState<"video" | "inspector">("video"),
+    [rangeMode, setRangeMode] = useState(false),
+    [sourcesOpen, setSourcesOpen] = useState(false),
+    [queueOpen, setQueueOpen] = useState(false),
+    [helpOpen, setHelpOpen] = useState(false),
+    [dropActive, setDropActive] = useState(false),
+    [currentMs, setCurrentMs] = useState(0),
+    [playing, setPlaying] = useState(false),
+    [loopingCutId, setLoopingCutId] = useState(""),
+    [decodedSource, setDecodedSource] = useState(""),
+    [decodeFailure, setDecodeFailure] = useState<{
+      key: string;
+      message: string;
+    } | null>(null),
+    [sourceReload, setSourceReload] = useState(0),
+    [pendingAudition, setPendingAudition] = useState<{
+      cut: Cut;
+      repeat: boolean;
+      projectId: string;
+    } | null>(null),
+    [announcement, setAnnouncement] = useState(""),
+    [readingMode, setReadingMode] = useState<"source" | "script">("source"),
+    [drafts, setDraftsState] = useState<Record<string, CutDraft>>({}),
+    [exportReview, setExportReview] = useState<ExportReview | null>(null),
+    [completedExport, setCompletedExport] = useState<Job | null>(null),
+    [settingsRequest, setSettingsRequest] = useState(0),
+    [correctionOpen, setCorrectionOpen] = useState(false),
+    [corrections, setCorrections] = useState<Record<string, string>>({});
+  const workspaceRef = useRef<WorkspaceSnapshot | null>(null);
+  const draftsRef = useRef<Record<string, CutDraft>>({});
+  function setDrafts(update: React.SetStateAction<Record<string, CutDraft>>) {
+    const next =
+      typeof update === "function" ? update(draftsRef.current) : update;
+    draftsRef.current = next;
+    setDraftsState(next);
+  }
+  const errorRef = useRef<HTMLDivElement>(null),
+    video = useRef<HTMLVideoElement>(null),
+    rejectedVideoKey = useRef(""),
+    previousSourceMedia = useRef<{ identity: string; url: string | null }>({
+      identity: "",
+      url: null,
+    }),
+    auditionEnd = useRef<number | null>(null),
+    auditionLoop = useRef<{
+      startMs: number;
+      cutId: string;
+      assetId: string;
+    } | null>(null),
+    dragCut = useRef<string | null>(null),
+    pendingSeek = useRef<number | null>(null),
+    pendingPlay = useRef(false),
+    busyRef = useRef(false);
+  const accept = useCallback((next: WorkspaceSnapshot) => {
+    workspaceRef.current = next;
+    setSnapshot(next);
+  }, []);
+  const run = useCallback(
+    async <T,>(
+      task: () => Promise<T>,
+      options: { blocking?: boolean; success?: string } = {},
+    ): Promise<T | undefined> => {
+      if (options.blocking && busyRef.current) return;
+      if (options.blocking) {
+        busyRef.current = true;
+        setBusy(true);
+      }
+      setFailure(null);
+      try {
+        const result = await task();
+        if (isSnapshot(result)) {
+          accept(result);
+          if (
+            options.success &&
+            result.save.displayName &&
+            !result.save.dirty &&
+            !result.save.error
+          )
+            setAnnouncement(options.success);
+        }
+        return result;
+      } catch (error) {
+        setFailure({
+          message: message(error),
+          retry: () => {
+            void run(task, options);
+          },
+        });
+        return undefined;
+      } finally {
+        if (options.blocking) {
+          busyRef.current = false;
+          setBusy(false);
+        }
+      }
+    },
+    [accept],
+  );
+  useEffect(() => {
+    if (!api) {
+      setFailure({
+        message:
+          "The desktop connection is unavailable. Open ClipDeck in the desktop app.",
+        retry: null,
+      });
+      return;
+    }
+    let live = true;
+    let received = false;
+    const unsubscribe = api.subscribe((next) => {
+      received = true;
+      if (live) accept(next);
+    });
+    api
+      .getSnapshot()
+      .then((next) => {
+        if (live && !received) accept(next);
+      })
+      .catch((error) => {
+        if (live)
+          setFailure({
+            message: message(error),
+            retry: () => {
+              void run(() => api.getSnapshot());
+            },
+          });
+      });
+    return () => {
+      live = false;
+      unsubscribe();
+    };
+  }, [api, accept, run]);
+  useEffect(() => {
+    if (failure) errorRef.current?.focus({ preventScroll: true });
+  }, [failure]);
+  const project = snapshot?.project;
+  const asset =
+    project?.assets.find((a) => a.id === sourceId) ?? project?.assets[0];
+  const sourcePreview = useSourcePreview(api, snapshot, asset);
+  const sourceVideoKey = `${sourcePreview.key}-${asset?.mediaUrl ?? ""}-${sourceReload}`;
+  const sourceReady =
+    !!asset?.mediaUrl &&
+    asset.status === "ready" &&
+    decodedSource === sourceVideoKey;
+  const sourceVideoError =
+    decodeFailure?.key === sourceVideoKey ? decodeFailure.message : null;
+  const transcript = project?.transcripts.find(
+    (t) => t.assetId === asset?.id && t.fingerprint === asset?.fingerprint,
+  );
+  const transcriptOrigin =
+    transcript?.originId && !transcript.originId.startsWith("legacy-")
+      ? transcript.originId
+      : `${transcript?.words[0]?.id}-${transcript?.words.at(-1)?.id}`;
+  const draft = snapshot?.transcriptionDrafts?.[asset?.id ?? ""];
+  const cuts = useMemo(() => {
+    const byId = new Map(project?.cuts.map((c) => [c.id, c]));
+    return project?.cutOrder.map((id) => byId.get(id)!).filter(Boolean) ?? [];
+  }, [project?.cuts, project?.cutOrder]);
+  const selectedCut = cuts.find((c) => c.id === cutId);
+  const sourceJob = snapshot?.jobs.find(
+    (j) =>
+      j.assetId === asset?.id && j.kind === "transcription" && isWorking(j),
+  );
+  const activeJobs = snapshot?.jobs.filter(isWorking) ?? [];
+  const blocked = cuts.some(
+    (c) =>
+      c.needsReview ||
+      !project?.assets.some(
+        (a) =>
+          a.id === c.assetId &&
+          a.status === "ready" &&
+          a.fingerprint === c.fingerprint,
+      ),
+  );
+  const previewJob = snapshot?.jobs.findLast(
+    (j) =>
+      j.kind === "preview" &&
+      j.status === "completed" &&
+      j.outputUrl &&
+      j.projectId === project?.id &&
+      j.projectRevision === project?.revision,
+  );
+  const previewUrl = !blocked ? previewJob?.outputUrl : null;
+  const playbackPosition =
+    view === "assembly" && previewUrl
+      ? assemblyPosition(cuts, currentMs)
+      : null;
+  const previewBusy = activeJobs.some((j) => j.kind === "preview");
+  const exportBusy = activeJobs.some((j) => j.kind === "export");
+  const addedWords = useMemo(
+    () =>
+      new Set(
+        cuts
+          .filter((c) => c.assetId === asset?.id && !c.needsReview)
+          .flatMap((c) => c.wordIds),
+      ),
+    [cuts, asset?.id],
+  );
+  const selectedWords = useMemo(() => {
+    if (!selection || !transcript) return [];
+    const a = transcript.words.findIndex((w) => w.id === selection.anchor),
+      b = transcript.words.findIndex((w) => w.id === selection.focus);
+    return a >= 0 && b >= 0
+      ? transcript.words.slice(Math.min(a, b), Math.max(a, b) + 1)
+      : [];
+  }, [selection, transcript]);
+  const selectionEnd = selectedWords.reduce(
+    (end, w) => Math.max(end, w.endMs),
+    0,
+  );
+  const selectionDuration = selectedWords.length
+    ? selectionEnd - selectedWords[0]!.startMs
+    : 0;
+  useEffect(() => {
+    setSelection(null);
+    setCorrectionOpen(false);
+    setCurrentMs(0);
+    setRangeMode(false);
+    setView("source");
+    setPlaying(false);
+    stopAudition(true);
+    pendingSeek.current = null;
+  }, [
+    asset?.id,
+    asset?.status,
+    asset?.fingerprint,
+    transcriptOrigin,
+    project?.id,
+  ]);
+  useEffect(() => {
+    if (view !== "source" || !asset?.mediaUrl || asset.status !== "ready")
+      return;
+    const element = video.current;
+    if (!element) return;
+    let live = true;
+    let frame = 0;
+    setDecodedSource("");
+    setDecodeFailure(null);
+    rejectedVideoKey.current = "";
+    let decoded = false,
+      seekVerified = false,
+      probeStarted = false;
+    let restoreTime = 0;
+    const fail = () => {
+      if (!live || video.current !== element) return;
+      rejectedVideoKey.current = sourceVideoKey;
+      stopAudition(true);
+      setPendingAudition(null);
+      pendingSeek.current = null;
+      setDecodedSource("");
+      const fallback = sourcePreview.fallback();
+      setDecodeFailure({
+        key: sourceVideoKey,
+        message: fallback
+          ? "Preparing a compatible preview. Text editing stays available."
+          : "This video could not be decoded or seeked. Retry source preview or relink the recording.",
+      });
+    };
+    const timeout = window.setTimeout(fail, 15000);
+    const ready = () => {
+      if (
+        !live ||
+        video.current !== element ||
+        rejectedVideoKey.current === sourceVideoKey ||
+        !decoded ||
+        !seekVerified
+      )
+        return;
+      window.clearTimeout(timeout);
+      setDecodedSource(sourceVideoKey);
+      setDecodeFailure(null);
+      if (pendingPlay.current) {
+        pendingPlay.current = false;
+        void element
+          .play()
+          .catch((error) =>
+            setFailure({ message: message(error), retry: null }),
+          );
+      }
+    };
+    const onSeeked = () => {
+      if (
+        seekVerified ||
+        !probeStarted ||
+        element.seeking ||
+        !Number.isFinite(element.currentTime) ||
+        element.currentTime < 0 ||
+        element.currentTime > asset.durationMs / 1000
+      )
+        return;
+      seekVerified = true;
+      if (
+        Math.abs(element.currentTime - restoreTime) <= 0.0015 &&
+        element.currentTime !== restoreTime
+      )
+        element.currentTime = restoreTime;
+      ready();
+    };
+    element.addEventListener("seeked", onSeeked);
+    const checkFrame: VideoFrameRequestCallback = (_now, metadata) => {
+      if (
+        !live ||
+        video.current !== element ||
+        rejectedVideoKey.current === sourceVideoKey
+      )
+        return;
+      if (
+        element.videoWidth > 0 &&
+        element.videoHeight > 0 &&
+        metadata.width > 0 &&
+        metadata.height > 0
+      ) {
+        decoded = true;
+        if (!probeStarted) {
+          restoreTime =
+            pendingSeek.current !== null
+              ? pendingSeek.current / 1000
+              : element.currentTime;
+          pendingSeek.current = null;
+          probeStarted = true;
+          // A real current-URL seek must complete, even when the requested position is zero.
+          const probe =
+            restoreTime === element.currentTime
+              ? Math.min((asset.durationMs - 1) / 1000, restoreTime + 0.001)
+              : restoreTime;
+          element.currentTime = Math.max(0, probe);
+        }
+        ready();
+      } else frame = element.requestVideoFrameCallback(checkFrame);
+    };
+    frame = element.requestVideoFrameCallback(checkFrame);
+    return () => {
+      live = false;
+      window.clearTimeout(timeout);
+      element.cancelVideoFrameCallback(frame);
+      element.removeEventListener("seeked", onSeeked);
+      element.pause();
+      pendingPlay.current = false;
+      auditionEnd.current = null;
+      auditionLoop.current = null;
+      pendingSeek.current = null;
+    };
+  }, [sourceVideoKey, view, asset?.status]);
+  useEffect(() => {
+    const previous = previousSourceMedia.current;
+    if (
+      previous.identity === sourcePreview.key &&
+      previous.url &&
+      previous.url !== asset?.mediaUrl
+    ) {
+      stopAudition(true);
+      setPendingAudition(null);
+      pendingSeek.current = null;
+      setCurrentMs(0);
+    }
+    previousSourceMedia.current = {
+      identity: sourcePreview.key,
+      url: asset?.mediaUrl ?? null,
+    };
+    setPlaying(false);
+    setLoopingCutId("");
+  }, [sourceVideoKey]);
+  useEffect(() => {
+    stopAudition();
+  }, [view, cutId, selectedCut?.startMs, selectedCut?.endMs]);
+  useEffect(() => {
+    if (snapshot?.save.error) setAnnouncement("");
+  }, [snapshot?.save.error]);
+  useEffect(() => {
+    if (view === "assembly" && !previewUrl) {
+      video.current?.pause();
+      setPlaying(false);
+    }
+  }, [previewUrl, view]);
+  useEffect(() => {
+    if (!playing || view !== "source") return;
+    let frame = 0;
+    const stopAtBoundary = () => {
+      if (checkAuditionBoundary()) return;
+      frame = requestAnimationFrame(stopAtBoundary);
+    };
+    frame = requestAnimationFrame(stopAtBoundary);
+    return () => cancelAnimationFrame(frame);
+  }, [playing, view]);
+  async function openProject() {
+    const current = await flushDrafts();
+    const untouchedNewWorkspace =
+      current.project.revision === 0 &&
+      current.project.name === "Untitled project" &&
+      current.project.assets.length === 0 &&
+      current.project.transcripts.length === 0 &&
+      current.project.cuts.length === 0 &&
+      current.project.cutOrder.length === 0 &&
+      current.project.savedAt === null &&
+      current.save.displayName === null &&
+      !current.save.recovered &&
+      !current.save.error &&
+      !current.canUndo &&
+      !current.canRedo;
+    // Native marks a never-saved initial workspace dirty despite no user edits.
+    if (!untouchedNewWorkspace && (current.save.dirty || current.save.error)) {
+      const saved = await api.saveProject();
+      const latest = workspaceRef.current;
+      if (
+        latest?.project.id !== current.project.id ||
+        (latest?.project.revision ?? 0) > saved.project.revision
+      )
+        throw new Error(
+          "The project changed while saving. Save the latest edits before opening another project.",
+        );
+      accept(saved);
+      if (saved.save.error || saved.save.dirty || !saved.save.displayName)
+        throw new Error(
+          "Save the current project before opening another project.",
+        );
+    }
+    if (Object.keys(draftsRef.current).length)
+      throw new Error(
+        "New edits were entered while saving. Save them before opening another project.",
+      );
+    const next = await api.openProject();
+    sourcePreview.reset();
+    setPendingAudition(null);
+    return next;
+  }
+  async function relinkSource(id: string) {
+    const next = await api.relinkMedia(id);
+    sourcePreview.reset();
+    return next;
+  }
+  async function flushDrafts() {
+    for (const [id, draft] of Object.entries(draftsRef.current)) {
+      const current = workspaceRef.current;
+      const cut = current?.project.cuts.find((c) => c.id === id);
+      if (!cut) continue;
+      const source = current?.project.assets.find((a) => a.id === cut.assetId);
+      if (!source)
+        throw new Error("Relink this source before applying its draft.");
+      const bounds = range(draft.start, draft.end, source.durationMs);
+      accept(
+        await api.applyEdit({
+          type: "updateCut",
+          cutId: id,
+          changes: {
+            ...bounds,
+            note: draft.note,
+            ...(draft.text !== draft.baseText ? { text: draft.text } : {}),
+          },
+        }),
+      );
+      setDrafts((old) => {
+        if (old[id] !== draft) return old;
+        const next = { ...old };
+        delete next[id];
+        return next;
+      });
+    }
+    if (Object.keys(draftsRef.current).length)
+      throw new Error(
+        "New edits arrived while applying changes. Review them and try again.",
+      );
+    if (!workspaceRef.current) throw new Error("The workspace is not ready.");
+    return workspaceRef.current;
+  }
+  async function reviewExport() {
+    await run(
+      async () => {
+        setExportReview(null);
+        const current = await flushDrafts();
+        const byId = new Map(current.project.cuts.map((c) => [c.id, c]));
+        const ordered = current.project.cutOrder
+          .map((id) => byId.get(id)!)
+          .filter(Boolean);
+        setExportReview({
+          projectId: current.project.id,
+          revision: current.project.revision,
+          cutCount: ordered.length,
+          durationMs: assemblyDuration(ordered),
+          width: current.project.output.width,
+          height: current.project.output.height,
+        });
+      },
+      { blocking: true },
+    );
+  }
+  async function saveProject(asNew = false) {
+    await flushDrafts();
+    return api.saveProject(asNew);
+  }
+  useEffect(() => {
+    setDrafts({});
+    setReadingMode("source");
+    setCompletedExport(null);
+    setExportReview(null);
+  }, [project?.id]);
+  useEffect(() => {
+    setDrafts((old) => {
+      const ids = new Set(cuts.map((c) => c.id));
+      const entries = Object.entries(old).filter(([id]) => ids.has(id));
+      return entries.length === Object.keys(old).length
+        ? old
+        : Object.fromEntries(entries);
+    });
+  }, [project?.cuts]);
+  function edit(command: EditCommand) {
+    return run(() => api.applyEdit(command), { blocking: true });
+  }
+  function stopAudition(forcePause = false) {
+    pendingPlay.current = false;
+    const wasAuditioning =
+      auditionEnd.current !== null || auditionLoop.current !== null;
+    auditionEnd.current = null;
+    auditionLoop.current = null;
+    if (wasAuditioning || forcePause) {
+      video.current?.pause();
+      setPlaying(false);
+    }
+    setLoopingCutId("");
+  }
+  function checkAuditionBoundary(restartAtMediaEnd = false) {
+    const element = video.current;
+    if (
+      !element ||
+      (element.paused && !(restartAtMediaEnd && element.ended)) ||
+      auditionEnd.current === null ||
+      element.currentTime * 1000 < auditionEnd.current
+    )
+      return false;
+    const loop = auditionLoop.current;
+    if (
+      loop &&
+      view === "source" &&
+      element.dataset.assetId === loop.assetId &&
+      loop.cutId === cutId
+    ) {
+      const needsRestart = element.paused && restartAtMediaEnd && element.ended;
+      element.currentTime = loop.startMs / 1000;
+      setCurrentMs(loop.startMs);
+      if (needsRestart)
+        void element.play().catch((error) => {
+          stopAudition(true);
+          setFailure({ message: message(error), retry: null });
+        });
+      return false;
+    }
+    const end = auditionEnd.current;
+    element.pause();
+    element.currentTime = end / 1000;
+    setCurrentMs(end);
+    auditionEnd.current = null;
+    return true;
+  }
+  function startCutAudition(repeat: boolean) {
+    if (!selectedCut) return;
+    chooseSource(selectedCut.assetId);
+    setPendingAudition({ cut: selectedCut, repeat, projectId: project!.id });
+  }
+  useEffect(() => {
+    if (!pendingAudition) return;
+    const { cut: requestedCut, repeat } = pendingAudition;
+    const cut = selectedCut;
+    if (
+      !cut ||
+      cut.id !== requestedCut.id ||
+      cut.assetId !== requestedCut.assetId ||
+      cut.fingerprint !== requestedCut.fingerprint ||
+      cut.startMs !== requestedCut.startMs ||
+      cut.endMs !== requestedCut.endMs ||
+      cut.needsReview ||
+      view !== "source" ||
+      asset?.id !== cut.assetId ||
+      asset.status !== "ready" ||
+      cutId !== cut.id ||
+      pendingAudition.projectId !== project?.id ||
+      cut.fingerprint !== asset.fingerprint
+    ) {
+      setPendingAudition(null);
+      return;
+    }
+    if (!sourceReady) return;
+    setPendingAudition(null);
+    seek(cut.startMs, true, cut.endMs, cut.assetId, repeat ? cut.id : null);
+  }, [
+    pendingAudition,
+    view,
+    asset?.id,
+    asset?.status,
+    asset?.fingerprint,
+    cutId,
+    sourceReady,
+    project?.id,
+    selectedCut,
+  ]);
+  function chooseSource(id: string) {
+    stopAudition();
+    setPendingAudition(null);
+    video.current?.pause();
+    setPlaying(false);
+    pendingSeek.current = null;
+    pendingPlay.current = false;
+    setSourceId(id);
+    setView("source");
+    setReadingMode("source");
+    setPanel("video");
+    setSourcesOpen(false);
+  }
+  function seek(
+    ms: number,
+    play = false,
+    end: number | null = null,
+    targetAssetId = asset?.id,
+    repeatCutId: string | null = null,
+  ) {
+    setPendingAudition(null);
+    stopAudition();
+    if (view !== "source") setPlaying(false);
+    setView("source");
+    setPanel("video");
+    setCurrentMs(ms);
+    pendingSeek.current = ms;
+    pendingPlay.current = play;
+    auditionEnd.current = end;
+    auditionLoop.current =
+      repeatCutId && targetAssetId
+        ? { startMs: ms, cutId: repeatCutId, assetId: targetAssetId }
+        : null;
+    setLoopingCutId(repeatCutId ?? "");
+    const el = video.current;
+    if (
+      el &&
+      view === "source" &&
+      el.dataset.assetId === targetAssetId &&
+      el.readyState >= 1
+    ) {
+      el.currentTime = ms / 1000;
+      pendingSeek.current = null;
+      if (play && sourceReady) {
+        pendingPlay.current = false;
+        void el
+          .play()
+          .catch((e) => setFailure({ message: message(e), retry: null }));
+      }
+    }
+  }
+  function selectWord(id: string, extend: boolean) {
+    if (!transcript || asset?.status !== "ready") return;
+    setSelection((old) => ({
+      anchor: extend && old ? old.anchor : id,
+      focus: id,
+    }));
+    if (!extend) {
+      const word = transcript.words.find((w) => w.id === id);
+      if (word) seek(word.startMs);
+    }
+  }
+  async function addSelection() {
+    if (
+      !asset ||
+      asset.status !== "ready" ||
+      !transcript ||
+      !selection ||
+      !selectedWords.length ||
+      busyRef.current
+    ) {
+      setSelection(null);
+      return;
+    }
+    let addedId = "";
+    const result = await run(
+      async () => {
+        try {
+          const cut = {
+            ...selectionToCut(
+              { ...asset, fileRef: "" },
+              transcript.words,
+              selection.anchor,
+              selection.focus,
+            ),
+            id: crypto.randomUUID(),
+            transcriptRevision: transcript.revision,
+          };
+          addedId = cut.id;
+          return await api.applyEdit({ type: "addCut", cut });
+        } catch (error) {
+          setSelection(null);
+          throw error;
+        }
+      },
+      { blocking: true },
+    );
+    if (result) {
+      setCutId(addedId);
+      setAnnouncement(
+        `${t("Added cut")} ${result.project.cutOrder.length} · ${time(selectionDuration, true)}`,
+      );
+    }
+  }
+  async function addRange(startMs: number, endMs: number) {
+    if (!asset) return;
+    const cut: Cut = {
+      id: crypto.randomUUID(),
+      assetId: asset.id,
+      fingerprint: asset.fingerprint,
+      transcriptRevision: null,
+      startMs,
+      endMs,
+      wordIds: [],
+      text: "",
+      note: "",
+      needsReview: false,
+    };
+    const result = await edit({ type: "addCut", cut });
+    if (result) {
+      setCutId(cut.id);
+      setAnnouncement(
+        `${t("Added cut")} ${result.project.cutOrder.length} · ${time(endMs - startMs, true)}`,
+      );
+    }
+  }
+  function auditionSelection() {
+    if (selectedWords.length)
+      seek(selectedWords[0]!.startMs, true, selectionEnd);
+  }
+  function inspectCut(cut: Cut) {
+    if (readingMode === "script") {
+      setCutId(cut.id);
+      setPanel("inspector");
+      return;
+    }
+    chooseSource(cut.assetId);
+    setCutId(cut.id);
+    setPanel("inspector");
+    const t = project?.transcripts.find((t) => t.assetId === cut.assetId);
+    setTimeout(() => {
+      seek(cut.startMs, false, null, cut.assetId);
+      setPanel("inspector");
+      if (cut.wordIds.length && t?.revision === cut.transcriptRevision)
+        setSelection({ anchor: cut.wordIds[0]!, focus: cut.wordIds.at(-1)! });
+    }, 0);
+  }
+  function moveCut(id: string, delta: number) {
+    if (!project) return;
+    const ids = [...project.cutOrder],
+      from = ids.indexOf(id),
+      to = from + delta;
+    if (from < 0 || to < 0 || to >= ids.length) return;
+    ids.splice(from, 1);
+    ids.splice(to, 0, id);
+    void edit({ type: "reorderCuts", cutIds: ids });
+  }
+  function dropCut(target: string) {
+    const from = dragCut.current;
+    dragCut.current = null;
+    if (!project || !from || from === target) return;
+    const ids = project.cutOrder.filter((id) => id !== from);
+    ids.splice(ids.indexOf(target), 0, from);
+    void edit({ type: "reorderCuts", cutIds: ids });
+  }
+  async function preparePreview() {
+    setView("assembly");
+    setPanel("video");
+    await run(
+      async () => {
+        await flushDrafts();
+        return api.preparePreview();
+      },
+      { blocking: true },
+    );
+  }
+  function showModelSettings() {
+    if (asset) {
+      setRangeMode(false);
+      setReadingMode("source");
+      setSettingsRequest((n) => n + 1);
+    }
+    setQueueOpen(false);
+  }
+  function retryJob(job: Job) {
+    if (job.kind === "transcription" && job.assetId) {
+      chooseSource(job.assetId);
+      setRangeMode(false);
+      setQueueOpen(false);
+    } else if (job.kind === "modelDownload") showModelSettings();
+    else if (job.kind === "sourcePreview" && job.assetId) {
+      void sourcePreview.request(job.assetId);
+    } else if (job.kind === "preview") void preparePreview();
+    else if (job.kind === "export")
+      void run(
+        async () => {
+          await flushDrafts();
+          return api.exportVideo();
+        },
+        { blocking: true },
+      );
+  }
+  useEffect(() => {
+    const handle = (event: KeyboardEvent) => {
+      const input =
+        event.target instanceof HTMLElement &&
+        !!event.target.closest(
+          'input,textarea,select,[contenteditable="true"]',
+        );
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "s") {
+        event.preventDefault();
+        void run(() => saveProject(event.shiftKey), {
+          blocking: true,
+          success: "Project saved.",
+        });
+      } else if (
+        !input &&
+        (event.metaKey || event.ctrlKey) &&
+        event.key.toLowerCase() === "z"
+      ) {
+        event.preventDefault();
+        if (event.shiftKey ? snapshot?.canRedo : snapshot?.canUndo)
+          void edit({ type: event.shiftKey ? "redo" : "undo" });
+      } else if (
+        !input &&
+        !event.metaKey &&
+        !event.ctrlKey &&
+        event.key.toLowerCase() === "e"
+      ) {
+        event.preventDefault();
+        void addSelection();
+      } else if (
+        !input &&
+        event.code === "Space" &&
+        (event.target === document.body ||
+          (event.target instanceof HTMLElement &&
+            !!event.target.closest(".word,.assembly-cut,.transcript-scroll")))
+      ) {
+        event.preventDefault();
+        togglePlayback();
+      } else if (event.key === "Escape") {
+        setHelpOpen(false);
+        setQueueOpen(false);
+        setSourcesOpen(false);
+        setSelection(null);
+      }
+    };
+    window.addEventListener("keydown", handle);
+    return () => window.removeEventListener("keydown", handle);
+  });
+  function togglePlayback() {
+    const el = video.current;
+    if (!el || (view === "source" && !sourceReady)) return;
+    if (el.paused)
+      void el
+        .play()
+        .catch((error) => setFailure({ message: message(error), retry: null }));
+    else el.pause();
+  }
+  const displayedUrl =
+    view === "source"
+      ? asset?.status === "ready"
+        ? asset.mediaUrl
+        : null
+      : previewUrl;
+  const duration =
+    view === "source" ? (asset?.durationMs ?? 0) : assemblyDuration(cuts);
+  function onTime() {
+    const el = video.current;
+    if (!el) return;
+    const ms = el.currentTime * 1000;
+    setCurrentMs(ms);
+    if (view === "source") checkAuditionBoundary();
+  }
+  return (
+    <div
+      className={`app${sourcesOpen ? " sources-open" : ""}${cuts.length ? " has-cuts" : " empty-assembly"}`}
+      onDragOver={(e) => {
+        if (e.dataTransfer.types.includes("Files")) {
+          e.preventDefault();
+          setDropActive(true);
+        }
+      }}
+      onDragLeave={(e) => {
+        if (!e.currentTarget.contains(e.relatedTarget as Node))
+          setDropActive(false);
+      }}
+      onDrop={(e) => {
+        if (e.dataTransfer.files.length) {
+          e.preventDefault();
+          setDropActive(false);
+          void run(
+            () => api.importDroppedFiles(Array.from(e.dataTransfer.files)),
+            { blocking: true },
+          );
+        }
+      }}
+    >
+      <header className="project-toolbar">
+        <div className="brand">
+          <Icon name="scissors" />
+          <span>{t("ClipDeck")}</span>
+        </div>
+        <div className="project-identity">
+          <input
+            aria-label={t("Project name")}
+            key={`${project?.id}-${project?.name}`}
+            defaultValue={project?.name ?? "Loading workspace"}
+            disabled={!project || busy}
+            onBlur={(e) => {
+              const name = e.target.value.trim();
+              if (name && name !== project?.name)
+                void edit({ type: "renameProject", name });
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") e.currentTarget.blur();
+            }}
+          />
+          <span className="save-state">
+            {snapshot?.save.error
+              ? t("Save needs attention")
+              : Object.keys(drafts).length
+                ? t("Unapplied edits \u00b7 save to apply")
+                : snapshot?.save.recovered
+                  ? t("Recovered project")
+                  : snapshot?.save.dirty
+                    ? t("Unsaved changes")
+                    : snapshot?.save.displayName
+                      ? t("Saved locally")
+                      : t("Local project")}
+          </span>
+        </div>
+        <div className="toolbar-actions">
+          <select
+            className="locale-select"
+            aria-label={t("Interface language")}
+            value={locale}
+            onChange={(e) => setLocale(e.target.value as "en" | "zh")}
+          >
+            <option value="en">{t("EN")}</option>
+            <option value="zh">中文</option>
+          </select>
+          <button
+            aria-label={t("Open project")}
+            title={t("Open project")}
+            disabled={busy || !snapshot?.capabilities.persistence}
+            onClick={() => void run(() => openProject(), { blocking: true })}
+          >
+            <Icon name="folder" />
+            <span className="wide-label">{t("Open")}</span>
+          </button>
+          <button
+            aria-label={t("Save project")}
+            title={t(
+              "Save project (\u2318S) \u00b7 Project files reference original media; they do not contain videos.",
+            )}
+            disabled={busy || !snapshot?.capabilities.persistence}
+            onClick={() =>
+              void run(() => saveProject(), {
+                blocking: true,
+                success: "Project saved.",
+              })
+            }
+          >
+            <Icon name="save" />
+            <span className="wide-label">{t("Save")}</span>
+          </button>
+          <button
+            className="save-as"
+            title={t("Save a copy (\u21e7\u2318S)")}
+            disabled={busy || !snapshot?.capabilities.persistence}
+            onClick={() =>
+              void run(() => saveProject(true), {
+                blocking: true,
+                success: "Project copy saved.",
+              })
+            }
+          >
+            {t("Save as")}
+          </button>
+          <span className="toolbar-divider" />
+          <button
+            aria-label={t("Undo")}
+            title={t("Undo (\u2318Z)")}
+            disabled={busy || !snapshot?.canUndo}
+            onClick={() => void edit({ type: "undo" })}
+          >
+            <Icon name="undo" />
+          </button>
+          <button
+            aria-label={t("Redo")}
+            title={t("Redo (\u21e7\u2318Z)")}
+            disabled={busy || !snapshot?.canRedo}
+            onClick={() => void edit({ type: "redo" })}
+          >
+            <Icon name="redo" />
+          </button>
+          <button
+            className="primary export-button"
+            disabled={
+              busy ||
+              !cuts.length ||
+              blocked ||
+              exportBusy ||
+              !snapshot?.capabilities.rendering
+            }
+            onClick={() => void reviewExport()}
+          >
+            <Icon name="export" />
+            {exportBusy ? t("Exporting\u2026") : t("Export video")}
+          </button>
+        </div>
+      </header>
+      {failure && (
+        <div className="error-banner" role="alert" tabIndex={-1} ref={errorRef}>
+          <span>{t(failure.message)}</span>
+          {failure.retry && (
+            <button onClick={failure.retry}>{t("Retry")}</button>
+          )}
+          <button
+            aria-label={t("Dismiss error")}
+            onClick={() => setFailure(null)}
+          >
+            <Icon name="close" />
+          </button>
+        </div>
+      )}
+      {!!snapshot?.importFailures?.length && (
+        <section
+          className="import-errors"
+          role="alert"
+          aria-label={t("Videos not imported")}
+        >
+          <div>
+            <strong>{t("Videos not imported")}</strong>
+            <ul>
+              {snapshot.importFailures.map((failure, index) => (
+                <li key={`${index}-${failure.name}`}>
+                  <strong>{failure.name}</strong>: {t(failure.message)}
+                </li>
+              ))}
+            </ul>
+          </div>
+          <button
+            disabled={busy || !snapshot.capabilities.media}
+            onClick={() =>
+              void run(() => api.importMedia(), { blocking: true })
+            }
+          >
+            {t("Choose videos again")}
+          </button>
+        </section>
+      )}
+      {snapshot?.save.error && (
+        <div className="error-banner save-error" role="alert">
+          <span>{snapshot.save.error}</span>
+          <button
+            disabled={busy || !snapshot.capabilities.persistence}
+            onClick={() =>
+              void run(() => saveProject(true), {
+                blocking: true,
+                success: "Recovery copy saved.",
+              })
+            }
+          >
+            {t("Save a recovery copy")}
+          </button>
+          <button
+            disabled={busy || !snapshot.capabilities.persistence}
+            onClick={() => void run(() => openProject(), { blocking: true })}
+          >
+            {t("Open saved project")}
+          </button>
+        </div>
+      )}
+      {!snapshot ? (
+        <div className="workspace-loading">
+          <h1>{t("Opening your workspace")}</h1>
+          <p>{t("Connecting to the local editor\u2026")}</p>
+          <div className="loading-lines" />
+        </div>
+      ) : (
+        <>
+          <div className="workspace">
+            <aside className="sources">
+              <div className="section-heading">
+                <h2>
+                  {t("Sources")}
+                  <span>{project?.assets.length}</span>
+                </h2>
+                <button
+                  aria-label={t("Import videos")}
+                  title={t("Import videos")}
+                  disabled={busy || !snapshot.capabilities.media}
+                  onClick={() =>
+                    void run(() => api.importMedia(), { blocking: true })
+                  }
+                >
+                  <Icon name="plus" />
+                </button>
+              </div>
+              <div className="source-list">
+                {project?.assets.map((source, i) => (
+                  <div
+                    className={`source-item${source.id === asset?.id ? " active" : ""}`}
+                    key={source.id}
+                  >
+                    <button
+                      className="source-button"
+                      title={source.name}
+                      aria-pressed={source.id === asset?.id}
+                      onClick={() => chooseSource(source.id)}
+                    >
+                      <span className="source-index">
+                        {String(i + 1).padStart(2, "0")}
+                      </span>
+                      <span className="source-detail">
+                        <strong>{source.name}</strong>
+                        <span>
+                          {time(source.durationMs)}{" "}
+                          <span className="source-status">
+                            {snapshot.jobs.findLast(
+                              (j) =>
+                                j.kind === "transcription" &&
+                                j.assetId === source.id,
+                            )?.status !== undefined &&
+                            snapshot.jobs.findLast(
+                              (j) =>
+                                j.kind === "transcription" &&
+                                j.assetId === source.id,
+                            )?.status !== "completed"
+                              ? `${t(snapshot.jobs.findLast((j) => j.kind === "transcription" && j.assetId === source.id)?.status ?? "")} · ${snapshot.jobs.findLast((j) => j.kind === "transcription" && j.assetId === source.id)?.stage}`
+                              : source.status !== "ready"
+                                ? source.status
+                                : project.transcripts.some(
+                                      (t) => t.assetId === source.id,
+                                    )
+                                  ? t("Transcribed")
+                                  : source.hasAudio
+                                    ? t("Ready to transcribe")
+                                    : t("Video only")}
+                          </span>
+                        </span>
+                      </span>
+                    </button>
+                    {source.status !== "ready" && (
+                      <button
+                        className="relink"
+                        disabled={busy}
+                        onClick={() =>
+                          void run(() => relinkSource(source.id), {
+                            blocking: true,
+                          })
+                        }
+                      >
+                        {t("Relink source")}
+                      </button>
+                    )}
+                  </div>
+                ))}
+                {!project?.assets.length && (
+                  <p className="rail-empty">
+                    {t("Your imported recordings will appear here.")}
+                  </p>
+                )}
+              </div>
+              <div className="source-footer">
+                <Icon name="video" />
+                <span>{t("Originals stay untouched")}</span>
+              </div>
+            </aside>
+            <section className="reading-pane">
+              <div className="reading-heading">
+                <button
+                  className="sources-toggle"
+                  aria-label={t("Toggle sources")}
+                  aria-expanded={sourcesOpen}
+                  onClick={() => setSourcesOpen(!sourcesOpen)}
+                >
+                  <Icon name="list" />
+                </button>
+                <div>
+                  <h1>
+                    {readingMode === "script"
+                      ? t("Assembly script")
+                      : asset
+                        ? t("Transcript")
+                        : t("Start with your footage")}
+                  </h1>
+                  {asset && <p title={asset.name}>{asset.name}</p>}
+                </div>
+                {asset && (
+                  <div className="mode-switch">
+                    <button
+                      aria-pressed={!rangeMode}
+                      onClick={() => setRangeMode(false)}
+                    >
+                      {t("Text")}
+                    </button>
+                    <button
+                      aria-pressed={rangeMode}
+                      onClick={() => setRangeMode(true)}
+                    >
+                      {t("Range")}
+                    </button>
+                  </div>
+                )}
+              </div>
+              <div className="reading-views">
+                <button
+                  aria-pressed={readingMode === "source"}
+                  onClick={() => setReadingMode("source")}
+                >
+                  {t("Source text")}
+                </button>
+                <button
+                  aria-pressed={readingMode === "script"}
+                  disabled={!cuts.length}
+                  onClick={() => {
+                    setReadingMode("script");
+                    setView("assembly");
+                    setCurrentMs(0);
+                  }}
+                >
+                  {t("Assembly script")}
+                </button>
+              </div>
+              <div className="reading-body">
+                {asset && (
+                  <div
+                    hidden={
+                      asset.status !== "ready" ||
+                      !asset.hasAudio ||
+                      rangeMode ||
+                      readingMode !== "source"
+                    }
+                    className="transcription-host"
+                  >
+                    <TranscriptionPanel
+                      api={api}
+                      snapshot={snapshot}
+                      asset={asset}
+                      accept={accept}
+                      settingsRequest={settingsRequest}
+                    />
+                  </div>
+                )}
+                {readingMode === "script" ? (
+                  <AssemblyScript
+                    cuts={cuts}
+                    assets={project?.assets ?? []}
+                    selected={cutId}
+                    onInspect={inspectCut}
+                    onSource={(cut) => {
+                      setReadingMode("source");
+                      chooseSource(cut.assetId);
+                      setCutId(cut.id);
+                    }}
+                    onMove={(id, position) => {
+                      if (
+                        Number.isInteger(position) &&
+                        position >= 0 &&
+                        position < cuts.length
+                      )
+                        moveCut(
+                          id,
+                          position - cuts.findIndex((c) => c.id === id),
+                        );
+                    }}
+                  />
+                ) : !asset ? (
+                  <div className="empty-workspace">
+                    <div className="import-mark">
+                      <Icon name="video" />
+                    </div>
+                    <h2>
+                      {t("A rough cut starts with")}
+                      <br />
+                      {t("the words worth keeping.")}
+                    </h2>
+                    <p>
+                      {t(
+                        "Choose your videos. Find a passage, select it, and build your assembly below.",
+                      )}
+                    </p>
+                    <button
+                      className="primary"
+                      disabled={busy || !snapshot.capabilities.media}
+                      onClick={() =>
+                        void run(() => api.importMedia(), { blocking: true })
+                      }
+                    >
+                      <Icon name="plus" />
+                      {busy ? t("Importing\u2026") : t("Choose videos")}
+                    </button>
+                    <span className="drop-hint">
+                      {t("or drop video files anywhere in this window")}
+                    </span>
+                    {!snapshot.capabilities.media && (
+                      <p className="warning">
+                        {t("Media import is unavailable in this build.")}
+                      </p>
+                    )}
+                  </div>
+                ) : asset.status !== "ready" ? (
+                  <div className="transcript-empty">
+                    <h2>
+                      {asset.status === "missing"
+                        ? t("Find this recording")
+                        : t("This recording has changed")}
+                    </h2>
+                    <p>
+                      {t(
+                        "Relink the original file to continue. Selections from changed media need to be made again.",
+                      )}
+                    </p>
+                    <button
+                      onClick={() =>
+                        void run(() => relinkSource(asset.id), {
+                          blocking: true,
+                        })
+                      }
+                    >
+                      {t("Relink source")}
+                    </button>
+                  </div>
+                ) : rangeMode || !asset.hasAudio ? (
+                  <div className="manual-pane">
+                    <h2>
+                      {asset.hasAudio
+                        ? t("Select a time range")
+                        : t("Cut video without a transcript")}
+                    </h2>
+                    <RangeEditor
+                      canAudition={sourceReady}
+                      key={asset.id}
+                      asset={asset}
+                      currentMs={view === "source" ? currentMs : 0}
+                      onAdd={(a, b) => void addRange(a, b)}
+                      onAudition={(a, b) => seek(a, true, b)}
+                      busy={busy}
+                    />
+                  </div>
+                ) : transcript ? (
+                  <TranscriptView
+                    key={`${asset.id}-${transcriptOrigin}`}
+                    transcript={transcript}
+                    selection={selection}
+                    onSelect={selectWord}
+                    currentMs={view === "source" ? currentMs : -1}
+                    addedWords={addedWords}
+                  />
+                ) : (
+                  <>
+                    {draft && draft.words.length > 0 ? (
+                      <TranscriptView
+                        transcript={draft}
+                        selection={null}
+                        onSelect={() => {}}
+                        currentMs={-1}
+                        addedWords={new Set()}
+                        draft
+                      />
+                    ) : (
+                      !sourceJob && (
+                        <div className="transcript-empty quiet">
+                          <Icon name="audio" />
+                          <p>
+                            {t(
+                              "Your transcript will appear here, with a time anchor for every word.",
+                            )}
+                          </p>
+                          <button
+                            className="text-button"
+                            onClick={() => setRangeMode(true)}
+                          >
+                            {t("Select a time range instead")}
+                          </button>
+                        </div>
+                      )
+                    )}
+                  </>
+                )}
+              </div>
+              {asset &&
+                readingMode === "source" &&
+                !rangeMode &&
+                asset.status === "ready" &&
+                selectedWords.length > 0 && (
+                  <div className="selection-tray">
+                    <div>
+                      {selectedWords.length > 0 ? (
+                        <>
+                          <strong>
+                            {selectedWords.length}{" "}
+                            {t(
+                              selectedWords.length === 1
+                                ? "word selected"
+                                : "words selected",
+                            )}
+                          </strong>
+                          <span>
+                            {time(selectedWords[0]!.startMs, true)} —{" "}
+                            {time(selectionEnd, true)}{" "}
+                            <b>{time(selectionDuration, true)}</b>
+                          </span>
+                        </>
+                      ) : (
+                        <>
+                          <strong>
+                            {draft
+                              ? t("Transcription in progress")
+                              : rangeMode || !asset.hasAudio
+                                ? t("Set your range above")
+                                : t("Select a passage to keep")}
+                          </strong>
+                          <span>
+                            {draft
+                              ? t(
+                                  "Editing opens when the transcript is complete.",
+                                )
+                              : t(
+                                  "Click a word, then Shift-click the end of a passage.",
+                                )}
+                          </span>
+                        </>
+                      )}
+                    </div>
+                    <button
+                      disabled={busy || selectedWords.length > 1000}
+                      title={t("Select up to 1000 words to correct at once.")}
+                      onClick={() => {
+                        setCorrections(
+                          Object.fromEntries(
+                            selectedWords.map((w) => [w.id, w.text]),
+                          ),
+                        );
+                        setCorrectionOpen(true);
+                      }}
+                    >
+                      {t("Correct text")}
+                    </button>
+                    <button
+                      disabled={!selectedWords.length || !sourceReady}
+                      onClick={auditionSelection}
+                    >
+                      <Icon name="play" />
+                      <span>{t("Audition")}</span>
+                    </button>
+                    <button
+                      className="primary"
+                      aria-label={t("Add selection")}
+                      title={t("Add selection (E)")}
+                      disabled={
+                        busy ||
+                        !selectedWords.length ||
+                        asset.status !== "ready"
+                      }
+                      onClick={() => void addSelection()}
+                    >
+                      <Icon name="plus" />
+                      <span>{t("Add selection")}</span>
+                      <kbd>{t("E")}</kbd>
+                    </button>
+                  </div>
+                )}
+            </section>
+            <aside className={`monitor-pane showing-${panel}`}>
+              <div className="monitor-heading">
+                <div className="mode-switch">
+                  <button
+                    aria-pressed={view === "source"}
+                    onClick={() => {
+                      setView("source");
+                      setPanel("video");
+                      setCurrentMs(0);
+                    }}
+                  >
+                    {t("Source")}
+                  </button>
+                  <button
+                    aria-pressed={view === "assembly"}
+                    onClick={() => {
+                      setView("assembly");
+                      setPanel("video");
+                      setCurrentMs(0);
+                    }}
+                  >
+                    {t("Assembly")}
+                  </button>
+                </div>
+                <button
+                  className="inspector-toggle"
+                  aria-pressed={panel === "inspector"}
+                  onClick={() =>
+                    setPanel(panel === "video" ? "inspector" : "video")
+                  }
+                >
+                  {t("Inspector")}
+                </button>
+                <span className="monitor-caption">
+                  {view === "source"
+                    ? (asset?.name ?? t("Original footage"))
+                    : t("Continuous preview")}
+                </span>
+              </div>
+              <div className="video-section">
+                <div
+                  className={`video-stage ${view === "assembly" ? project?.output.preset : ""}`}
+                >
+                  {displayedUrl ? (
+                    <video
+                      ref={video}
+                      data-asset-id={view === "source" ? asset?.id : undefined}
+                      data-portrait={
+                        view === "source" && asset && asset.height > asset.width
+                          ? "true"
+                          : undefined
+                      }
+                      key={
+                        view === "source"
+                          ? sourceVideoKey
+                          : `${view}-${displayedUrl}`
+                      }
+                      src={displayedUrl}
+                      aria-label={
+                        view === "source"
+                          ? t("Source video")
+                          : t("Assembly video")
+                      }
+                      onTimeUpdate={onTime}
+                      onPlay={() => setPlaying(true)}
+                      onPause={() => {
+                        setPlaying(false);
+                        if (video.current)
+                          setCurrentMs(video.current.currentTime * 1000);
+                      }}
+                      onEnded={() => {
+                        if (view === "source") checkAuditionBoundary(true);
+                      }}
+                      onLoadedMetadata={() => {
+                        if (
+                          video.current &&
+                          pendingSeek.current !== null &&
+                          view === "source"
+                        ) {
+                          video.current.currentTime =
+                            pendingSeek.current / 1000;
+                          pendingSeek.current = null;
+                        }
+                      }}
+                      onError={(event) => {
+                        if (event.currentTarget !== video.current) return;
+                        if (view === "source") {
+                          rejectedVideoKey.current = sourceVideoKey;
+                          stopAudition(true);
+                          setDecodedSource("");
+                          setPendingAudition(null);
+                          pendingSeek.current = null;
+                          sourcePreview.fallback();
+                          setDecodeFailure({
+                            key: sourceVideoKey,
+                            message:
+                              "This source preview could not be decoded. Retry or relink the recording.",
+                          });
+                          return;
+                        }
+                        setFailure({
+                          message:
+                            "This video could not be played. Relink the source or prepare the assembly again.",
+                          retry:
+                            view === "assembly"
+                              ? () => void preparePreview()
+                              : null,
+                        });
+                      }}
+                    />
+                  ) : (
+                    <div className="monitor-empty">
+                      <Icon name="video" />
+                      <p
+                        hidden={
+                          view === "source" &&
+                          asset?.status === "ready" &&
+                          sourcePreview.available
+                        }
+                      >
+                        {view === "assembly"
+                          ? previewBusy
+                            ? t("Preparing continuous preview\u2026")
+                            : cuts.length
+                              ? snapshot.capabilities.rendering
+                                ? t(
+                                    "Prepare a preview of your current assembly.",
+                                  )
+                                : t(
+                                    "Assembly preview is unavailable in this build.",
+                                  )
+                              : t("Your assembly preview appears here.")
+                          : asset
+                            ? asset.status !== "ready"
+                              ? t(
+                                  "Relink this recording to prepare its preview.",
+                                )
+                              : !sourcePreview.available
+                                ? t(
+                                    "Source preview is unavailable in this build.",
+                                  )
+                                : t("Preparing source preview\u2026")
+                            : t("Original footage appears here.")}
+                      </p>
+                      {view === "assembly" && cuts.length > 0 && (
+                        <button
+                          disabled={
+                            previewBusy ||
+                            blocked ||
+                            !snapshot.capabilities.rendering
+                          }
+                          onClick={() => void preparePreview()}
+                        >
+                          {t("Prepare preview")}
+                        </button>
+                      )}
+                    </div>
+                  )}
+                  {view === "source" &&
+                    asset?.status === "ready" &&
+                    sourcePreview.available &&
+                    (!asset.mediaUrl || !sourceReady) && (
+                      <div
+                        className="source-preview-status"
+                        role={
+                          sourceVideoError || sourcePreview.error
+                            ? "alert"
+                            : "status"
+                        }
+                      >
+                        <p>
+                          {sourceVideoError
+                            ? t(sourceVideoError)
+                            : (sourcePreview.error ??
+                              (asset.mediaUrl
+                                ? t("Decoding source video\u2026")
+                                : sourcePreview.job?.status === "cancelled"
+                                  ? t("Source preview cancelled.")
+                                  : (sourcePreview.job?.stage ??
+                                    t("Preparing source preview\u2026"))))}
+                        </p>
+                        {sourcePreview.pending && (
+                          <progress
+                            aria-label={t("Source preview preparation")}
+                            max={1}
+                            {...(sourcePreview.job?.progress == null
+                              ? {}
+                              : { value: sourcePreview.job.progress })}
+                          />
+                        )}
+                        {sourcePreview.job && isWorking(sourcePreview.job) ? (
+                          <button
+                            disabled={
+                              sourcePreview.job.cancelRequested ||
+                              sourcePreview.job.status === "cancelling"
+                            }
+                            onClick={() =>
+                              void run(() =>
+                                api.cancelJob(sourcePreview.job!.id),
+                              )
+                            }
+                          >
+                            {t("Cancel source preview")}
+                          </button>
+                        ) : (
+                          (sourceVideoError ||
+                            (!sourcePreview.pending && !asset.mediaUrl)) && (
+                            <button
+                              onClick={() => {
+                                stopAudition(true);
+                                setPendingAudition(null);
+                                setSourceReload((n) => n + 1);
+                                void sourcePreview.request();
+                              }}
+                            >
+                              {t("Retry source preview")}
+                            </button>
+                          )
+                        )}
+                      </div>
+                    )}
+                </div>
+                <div className="transport">
+                  <button
+                    aria-label={
+                      playing ? t("Pause playback") : t("Play playback")
+                    }
+                    disabled={
+                      !displayedUrl || (view === "source" && !sourceReady)
+                    }
+                    onClick={togglePlayback}
+                  >
+                    <Icon name={playing ? "pause" : "play"} />
+                  </button>
+                  <span>{time(currentMs, true)}</span>
+                  <input
+                    type="range"
+                    min={0}
+                    max={Math.max(1, duration)}
+                    step={1}
+                    value={Math.min(currentMs, duration)}
+                    aria-label={
+                      view === "source"
+                        ? t("Source playhead")
+                        : t("Assembly playhead")
+                    }
+                    disabled={
+                      !displayedUrl || (view === "source" && !sourceReady)
+                    }
+                    onChange={(e) => {
+                      const ms = Number(e.target.value);
+                      setCurrentMs(ms);
+                      if (view === "source") stopAudition(true);
+                      if (video.current) video.current.currentTime = ms / 1000;
+                    }}
+                  />
+                  <span className="muted">{time(duration)}</span>
+                </div>
+                {playbackPosition && (
+                  <div
+                    className="playback-context"
+                    aria-label={t("Assembly playback context")}
+                  >
+                    <strong>
+                      {t("Cut")} {playbackPosition.index + 1} ·{" "}
+                      {project?.assets.find(
+                        (a) => a.id === playbackPosition.cut.assetId,
+                      )?.name ?? t("Missing source")}
+                    </strong>
+                    <span>
+                      {t("Source")} {time(playbackPosition.sourceMs, true)}{" "}
+                      <span>
+                        {t("Assembly")} {time(currentMs, true)}
+                      </span>
+                    </span>
+                  </div>
+                )}
+                <div className="monitor-meta">
+                  <span>
+                    {view === "source" && asset
+                      ? `${asset.width} × ${asset.height}`
+                      : view === "assembly"
+                        ? `${project?.output.width} × ${project?.output.height}`
+                        : t("No source selected")}
+                  </span>
+                  <span>
+                    {view === "source" && asset
+                      ? `${asset.fps.toFixed(2).replace(/\.00$/, "")} fps`
+                      : "30 fps"}
+                  </span>
+                </div>
+              </div>
+              {selectedCut ? (
+                <CutInspector
+                  canAudition={
+                    selectedCut.assetId === asset?.id
+                      ? sourceReady
+                      : !!project?.assets.find(
+                          (a) => a.id === selectedCut.assetId,
+                        )?.mediaUrl
+                  }
+                  cut={selectedCut}
+                  ordinal={cuts.indexOf(selectedCut) + 1}
+                  draft={drafts[selectedCut.id] ?? cutDraft(selectedCut)}
+                  onDraft={(draft) =>
+                    setDrafts((old) => ({ ...old, [selectedCut.id]: draft }))
+                  }
+                  currentMs={
+                    view === "source" && asset?.id === selectedCut.assetId
+                      ? currentMs
+                      : selectedCut.startMs
+                  }
+                  asset={project?.assets.find(
+                    (a) => a.id === selectedCut.assetId,
+                  )}
+                  busy={busy}
+                  onUpdate={(changes) => {
+                    const appliedDraft = drafts[selectedCut.id];
+                    void (async () => {
+                      const result = await edit({
+                        type: "updateCut",
+                        cutId: selectedCut.id,
+                        changes: {
+                          startMs: changes.startMs,
+                          endMs: changes.endMs,
+                          note: changes.note,
+                          ...(changes.text !== selectedCut.text
+                            ? { text: changes.text }
+                            : {}),
+                        },
+                      });
+                      if (result)
+                        setDrafts((old) => {
+                          if (old[selectedCut.id] !== appliedDraft) return old;
+                          const next = { ...old };
+                          delete next[selectedCut.id];
+                          return next;
+                        });
+                    })();
+                  }}
+                  onAudition={() => startCutAudition(false)}
+                  looping={loopingCutId === selectedCut.id}
+                  onLoop={() =>
+                    loopingCutId === selectedCut.id
+                      ? stopAudition(true)
+                      : startCutAudition(true)
+                  }
+                />
+              ) : (
+                <div className="inspector-empty">
+                  <h2>{t("Cut inspector")}</h2>
+                  <p>
+                    {t(
+                      "Select a cut in your assembly to fine-tune its boundaries and add a note.",
+                    )}
+                  </p>
+                </div>
+              )}
+            </aside>
+          </div>
+          <section className="assembly" aria-label={t("Assembly")}>
+            <div className="assembly-heading">
+              <h2>
+                {t("Assembly")}{" "}
+                <span>
+                  {cuts.length} {t(cuts.length === 1 ? "cut" : "cuts")}
+                </span>
+              </h2>
+              <strong className="assembly-duration">
+                {time(assemblyDuration(cuts), true)}
+              </strong>
+              <div className="assembly-actions">
+                <button
+                  aria-label={t("Move selected cut earlier")}
+                  title={t("Move selected cut earlier")}
+                  disabled={
+                    busy || !selectedCut || cuts.indexOf(selectedCut) === 0
+                  }
+                  onClick={() => moveCut(cutId, -1)}
+                >
+                  <Icon name="left" />
+                </button>
+                <button
+                  aria-label={t("Move selected cut later")}
+                  title={t("Move selected cut later")}
+                  disabled={
+                    busy ||
+                    !selectedCut ||
+                    cuts.indexOf(selectedCut) === cuts.length - 1
+                  }
+                  onClick={() => moveCut(cutId, 1)}
+                >
+                  <Icon name="right" />
+                </button>
+                <button
+                  aria-label={t("Remove selected cut")}
+                  title={t("Remove selected cut")}
+                  disabled={busy || !selectedCut}
+                  onClick={() => void edit({ type: "removeCut", cutId })}
+                >
+                  <Icon name="trash" />
+                </button>
+                <span className="toolbar-divider" />
+                <label className="output-label">
+                  <span>{t("Frame")}</span>
+                  <select
+                    aria-label={t("Output frame")}
+                    value={project?.output.preset}
+                    disabled={busy}
+                    onChange={(e) =>
+                      void edit({
+                        type: "setOutput",
+                        preset: e.target.value as OutputPreset,
+                      })
+                    }
+                  >
+                    <option value="landscape">{t("16:9 Landscape")}</option>
+                    <option value="portrait">{t("9:16 Portrait")}</option>
+                    <option value="square">{t("1:1 Square")}</option>
+                  </select>
+                </label>
+                <button
+                  aria-label={t("Prepare assembly preview")}
+                  disabled={
+                    !cuts.length ||
+                    blocked ||
+                    previewBusy ||
+                    !snapshot.capabilities.rendering
+                  }
+                  onClick={() => void preparePreview()}
+                >
+                  <Icon name="play" />
+                  <span>
+                    {previewBusy ? t("Preparing\u2026") : t("Preview assembly")}
+                  </span>
+                </button>
+              </div>
+            </div>
+            {blocked && (
+              <p className="assembly-warning">
+                {t(
+                  "Review changed cuts or relink missing sources before preview and export.",
+                )}
+              </p>
+            )}
+            <div
+              className="assembly-strip"
+              role="list"
+              aria-label={t("Ordered cuts")}
+            >
+              {cuts.map((cut, i) => {
+                const label = excerpt(cut.text) || t("Video range");
+                const source = project?.assets.find(
+                  (a) => a.id === cut.assetId,
+                );
+                return (
+                  <button
+                    key={cut.id}
+                    role="listitem"
+                    draggable={!busy}
+                    aria-label={`${t("Cut")} ${i + 1}: ${label}`}
+                    title={label}
+                    aria-current={cut.id === cutId ? "true" : undefined}
+                    data-playback-current={
+                      cut.id === playbackPosition?.cut.id ? "true" : undefined
+                    }
+                    className={`assembly-cut${cut.id === playbackPosition?.cut.id ? " playback-current" : ""}${cut.id === cutId ? " active" : ""}${cut.needsReview ? " needs-review" : ""}`}
+                    onClick={() => inspectCut(cut)}
+                    onDragStart={(e) => {
+                      dragCut.current = cut.id;
+                      e.dataTransfer.effectAllowed = "move";
+                      e.dataTransfer.setData("text/plain", cut.id);
+                    }}
+                    onDragEnd={() => {
+                      dragCut.current = null;
+                    }}
+                    onDragOver={(e) => {
+                      if (dragCut.current) {
+                        e.preventDefault();
+                        e.dataTransfer.dropEffect = "move";
+                      }
+                    }}
+                    onDrop={(e) => {
+                      if (dragCut.current) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        dropCut(cut.id);
+                      }
+                    }}
+                    onKeyDown={(e) => {
+                      if (
+                        e.altKey &&
+                        ["ArrowLeft", "ArrowRight"].includes(e.key)
+                      ) {
+                        e.preventDefault();
+                        moveCut(cut.id, e.key === "ArrowLeft" ? -1 : 1);
+                      }
+                    }}
+                  >
+                    <span className="cut-topline">
+                      <span className="cut-number">
+                        {cut.id === playbackPosition?.cut.id && (
+                          <Icon name="play" />
+                        )}
+                        {String(i + 1).padStart(2, "0")}
+                      </span>
+                      <span className="cut-source" title={source?.name}>
+                        {source?.name ?? t("Missing source")}
+                      </span>
+                      <Icon name="grip" />
+                    </span>
+                    <span className="cut-text">
+                      {cut.needsReview ? t("Review required \u00b7 ") : ""}
+                      {label}
+                    </span>
+                    <span className="cut-time">
+                      <span>
+                        {time(cut.startMs, true)} — {time(cut.endMs, true)}
+                      </span>
+                      <strong>{time(cut.endMs - cut.startMs, true)}</strong>
+                    </span>
+                  </button>
+                );
+              })}
+              {!cuts.length && (
+                <div className="assembly-empty">
+                  <Icon name="scissors" />
+                  <div>
+                    <strong>{t("Your story, in the order you choose.")}</strong>
+                    <p>
+                      {t(
+                        "Add a passage or a time range. Drag cuts to arrange them.",
+                      )}
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+          </section>
+          <footer className="status-bar">
+            <button
+              className={`model-status ${snapshot.model.status}`}
+              onClick={() => setQueueOpen(!queueOpen)}
+            >
+              <span className="status-dot" />
+              {snapshot.model.status === "ready"
+                ? t("Local transcription ready")
+                : snapshot.model.status === "downloading"
+                  ? t("Preparing model\u2026")
+                  : t("Set up local transcription")}
+            </button>
+            <span
+              className="local-note"
+              title={t(
+                "Project files reference original media; keep both together.",
+              )}
+            >
+              {t("Project files reference original media; keep both together.")}
+            </span>
+            <button
+              onClick={() => setQueueOpen(!queueOpen)}
+              aria-expanded={queueOpen}
+            >
+              <Icon name="list" />
+              {t("Processing")}{" "}
+              {activeJobs.length > 0 && (
+                <span className="count-badge">{activeJobs.length}</span>
+              )}
+            </button>
+            <button
+              aria-label={t("Keyboard shortcuts")}
+              onClick={() => setHelpOpen(!helpOpen)}
+            >
+              <Icon name="help" />
+            </button>
+          </footer>
+        </>
+      )}
+      {queueOpen && snapshot && (
+        <aside className="queue-panel" aria-label={t("Processing queue")}>
+          <div className="section-heading">
+            <h2>{t("Processing")}</h2>
+            <button
+              aria-label={t("Close processing queue")}
+              onClick={() => setQueueOpen(false)}
+            >
+              <Icon name="close" />
+            </button>
+          </div>
+          <section className="model-setup">
+            <h3>{t("Local transcription model")}</h3>
+            <p>
+              {snapshot.model.message ||
+                "Prepare a multilingual model once, then transcribe offline."}
+            </p>
+            <p>
+              {snapshot.model.status === "ready"
+                ? snapshot.model.id
+                : t("Prepare text after importing a source.")}
+            </p>
+            {asset && (
+              <button onClick={showModelSettings}>
+                {t("Transcription settings")}
+              </button>
+            )}
+          </section>
+          <JobList
+            jobs={snapshot.jobs}
+            assets={snapshot.project.assets}
+            onCancel={(j) => void run(() => api.cancelJob(j.id))}
+            onRetry={retryJob}
+            onReveal={(j) => void run(() => api.revealExport(j.id))}
+            onPlay={(j) => {
+              setCompletedExport(j);
+              setQueueOpen(false);
+            }}
+          />
+        </aside>
+      )}
+      {correctionOpen && transcript && (
+        <aside
+          className="correction-panel"
+          aria-label={t("Correct transcript")}
+        >
+          <div className="section-heading">
+            <h2>{t("Correct text")}</h2>
+            <button disabled={busy} onClick={() => setCorrectionOpen(false)}>
+              {t("Close")}
+            </button>
+          </div>
+          <p>
+            {t(
+              "Correct recognition only. Original sound and time anchors stay unchanged.",
+            )}
+          </p>
+          <div className="correction-words">
+            {Object.entries(corrections).map(([id, text], index) => (
+              <label key={id}>
+                {time(
+                  transcript.words.find((w) => w.id === id)?.startMs ?? 0,
+                  true,
+                )}
+                <input
+                  aria-label={`${t("Word")} ${index + 1}`}
+                  disabled={busy}
+                  value={text}
+                  maxLength={1000}
+                  onChange={(e) => {
+                    if (!busyRef.current)
+                      setCorrections((old) => ({
+                        ...old,
+                        [id]: e.target.value,
+                      }));
+                  }}
+                />
+              </label>
+            ))}
+          </div>
+          <button
+            className="primary"
+            disabled={
+              busy ||
+              Object.values(corrections).some((text) => !text.trim()) ||
+              Object.entries(corrections).every(
+                ([id, text]) =>
+                  transcript.words.find((w) => w.id === id)?.text === text,
+              )
+            }
+            onClick={() => {
+              void (async () => {
+                const result = await edit({
+                  type: "correctTranscript",
+                  assetId: transcript.assetId,
+                  fingerprint: transcript.fingerprint,
+                  transcriptRevision: transcript.revision,
+                  changes: Object.entries(corrections)
+                    .filter(
+                      ([id, text]) =>
+                        transcript.words.find((w) => w.id === id)?.text !==
+                        text,
+                    )
+                    .map(([wordId, text]) => {
+                      const original =
+                        transcript.words.find((word) => word.id === wordId)
+                          ?.text ?? "";
+                      const prefix = /^\s+/.exec(original)?.[0] ?? "";
+                      return {
+                        wordId,
+                        text:
+                          prefix && !/^\s/.test(text) ? prefix + text : text,
+                      };
+                    }),
+                });
+                if (result) {
+                  setCorrectionOpen(false);
+                  setAnnouncement("Text corrected. Timing unchanged.");
+                }
+              })();
+            }}
+          >
+            {t("Apply correction")}
+          </button>
+        </aside>
+      )}
+      {completedExport?.outputUrl && (
+        <aside
+          className="export-summary completed-export"
+          aria-label={t("Completed export")}
+        >
+          <div className="section-heading">
+            <h2>{t("Export complete")}</h2>
+            <button onClick={() => setCompletedExport(null)}>
+              {t("Back to editing")}
+            </button>
+          </div>
+          <video
+            controls
+            src={completedExport.outputUrl}
+            aria-label={t("Exported video")}
+            preload="metadata"
+          />
+          <p>
+            {t(
+              "Saved at the destination you chose. Show the file to see its name and location.",
+            )}
+          </p>
+          <button
+            onClick={() => void run(() => api.revealExport(completedExport.id))}
+          >
+            {t("Show exported video")}
+          </button>
+        </aside>
+      )}
+      {exportReview && (
+        <aside className="export-summary" aria-label={t("Export summary")}>
+          <div className="section-heading">
+            <h2>{t("Export video")}</h2>
+            <button onClick={() => setExportReview(null)}>{t("Close")}</button>
+          </div>
+          <p>
+            {exportReview.cutCount}{" "}
+            {t(exportReview.cutCount === 1 ? "cut" : "cuts")} ·{" "}
+            {time(exportReview.durationMs, true)}
+          </p>
+          <p>
+            {exportReview.width} × {exportReview.height}
+            {t("· 30 fps · MP4 / H.264 / AAC")}
+          </p>
+          <p>{t("Full picture preserved. Bars fill any unused frame area.")}</p>
+          <p>
+            {t("Choose where to save the finished video in the next window.")}
+          </p>
+          {(project?.id !== exportReview.projectId ||
+            project?.revision !== exportReview.revision ||
+            Object.keys(drafts).length > 0) && (
+            <p role="status">
+              {t("Assembly changed. Update the summary before exporting.")}
+              <button disabled={busy} onClick={() => void reviewExport()}>
+                {t("Update export summary")}
+              </button>
+            </p>
+          )}
+          <button
+            className="primary"
+            disabled={
+              busy ||
+              blocked ||
+              exportBusy ||
+              project?.id !== exportReview.projectId ||
+              project?.revision !== exportReview.revision ||
+              Object.keys(drafts).length > 0
+            }
+            onClick={() => {
+              setExportReview(null);
+              setQueueOpen(true);
+              void run(
+                async () => {
+                  const latest = workspaceRef.current;
+                  if (
+                    latest?.project.id !== exportReview.projectId ||
+                    latest.project.revision !== exportReview.revision ||
+                    Object.keys(draftsRef.current).length
+                  )
+                    throw new Error(
+                      "Assembly changed. Update the summary before exporting.",
+                    );
+                  return api.exportVideo();
+                },
+                { blocking: true },
+              );
+            }}
+          >
+            {t("Choose destination and export")}
+          </button>
+        </aside>
+      )}
+      {helpOpen && (
+        <aside className="shortcuts-panel" aria-label={t("Keyboard shortcuts")}>
+          <div className="section-heading">
+            <h2>{t("Keyboard shortcuts")}</h2>
+            <button
+              aria-label={t("Close keyboard shortcuts")}
+              onClick={() => setHelpOpen(false)}
+            >
+              <Icon name="close" />
+            </button>
+          </div>
+          <dl>
+            <dt>{t("Seek / move between words")}</dt>
+            <dd>{t("Arrow keys")}</dd>
+            <dt>{t("Extend a passage")}</dt>
+            <dd>{t("Shift + Arrow")}</dd>
+            <dt>{t("Add selected passage")}</dt>
+            <dd>{t("E")}</dd>
+            <dt>{t("Move a focused cut")}</dt>
+            <dd>{t("Alt + Left / Right")}</dd>
+            <dt>{t("Save / save a copy")}</dt>
+            <dd>{t("\u2318S / \u21e7\u2318S")}</dd>
+            <dt>{t("Undo / redo")}</dt>
+            <dd>{t("\u2318Z / \u21e7\u2318Z")}</dd>
+            <dt>{t("Close panels / clear selection")}</dt>
+            <dd>{t("Esc")}</dd>
+          </dl>
+        </aside>
+      )}
+      {dropActive && (
+        <div className="drop-overlay">
+          <Icon name="plus" />
+          <h2>{t("Drop videos to add sources")}</h2>
+          <p>{t("Your original files stay in place.")}</p>
+        </div>
+      )}
+      <div
+        role="status"
+        className={`feedback ${announcement ? "visible" : ""}`}
+        aria-live="polite"
+      >
+        {t(announcement)}
+        {announcement && snapshot?.canUndo && (
+          <button
+            onClick={() => {
+              void edit({ type: "undo" });
+              setAnnouncement("Undone.");
+            }}
+          >
+            {t("Undo last edit")}
+          </button>
+        )}
+        {announcement && (
+          <button
+            aria-label={t("Dismiss feedback")}
+            onClick={() => setAnnouncement("")}
+          >
+            ×
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}

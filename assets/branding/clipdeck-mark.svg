@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <title>ClipDeck</title>
+  <desc>Original ClipDeck mark: an ink tile, a stack of paper cards, and an amber editing cut.</desc>
+  <rect x="88" y="88" width="848" height="848" rx="196" fill="#232526"/>
+  <rect x="89" y="89" width="846" height="846" rx="195" fill="none" stroke="#343637" stroke-width="2"/>
+  <rect x="240" y="228" width="432" height="512" rx="48" fill="#4d5050"/>
+  <rect x="268" y="256" width="432" height="512" rx="48" fill="#878982"/>
+  <rect x="296" y="284" width="432" height="512" rx="48" fill="#e4e0d6"/>
+  <path d="M586 284 L449 796" fill="none" stroke="#232526" stroke-width="72"/>
+  <path d="M586 284 L449 796" fill="none" stroke="#d4a345" stroke-width="48"/>
+  <path d="M349 389 H438 M349 433 H420 M589 647 H675 M578 691 H675" fill="none" stroke="#a8a99f" stroke-width="12" stroke-linecap="round"/>
+</svg>

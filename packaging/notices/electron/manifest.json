@@ -1,0 +1,23 @@
+{
+  "basis": "Electron 44.5.1 DEPS exact pinned upstream framework revisions",
+  "files": [
+    {
+      "path": "Electron-v44.5.1-DEPS",
+      "url": "https://raw.githubusercontent.com/electron/electron/v44.5.1/DEPS",
+      "bytes": 8472,
+      "sha256": "c2b7667829993049e7a9ee9038b0f754fa5e7e50d250e35edefe8030a97e4068"
+    },
+    {
+      "path": "Mantle-LICENSE.md",
+      "url": "https://raw.githubusercontent.com/Mantle/Mantle/2a8e2123a3931038179ee06105c9e6ec336b12ea/LICENSE.md",
+      "bytes": 2445,
+      "sha256": "285eede6f638adc9c352be7d66134611e5ea95044095a84de9867fb864e66eab"
+    },
+    {
+      "path": "ReactiveObjC-LICENSE.md",
+      "url": "https://raw.githubusercontent.com/ReactiveCocoa/ReactiveObjC/74ab5baccc6f7202c8ac69a8d1e152c29dc1ea76/LICENSE.md",
+      "bytes": 1093,
+      "sha256": "095fec1a3d6ad029fe0661fa6092a272d50af016b1771992e0bba9b2a73e7763"
+    }
+  ]
+}
