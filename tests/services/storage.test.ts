@@ -14,7 +14,7 @@ import {
   readProjectFile,
   resolveProjectReference,
 } from "../../src/main/services/storage";
-import { createProject, applyProjectEdit } from "../../src/domain/project";
+import { createProject, applyProjectEdit, serializeProject } from "../../src/domain/project";
 import { SourceRegistry, type MediaService } from "../../src/main/services/media";
 import { asset } from "../domain/fixtures";
 let dir: string;
@@ -23,6 +23,46 @@ beforeEach(async () => {
 });
 afterEach(async () => {
   await rm(dir, { recursive: true, force: true });
+});
+it("a superseded recovery cannot replace the newly opened project's source authority", async () => {
+  const sources = new SourceRegistry();
+  const recoveredAsset = { ...asset, id: "recovered-source", fileRef: "old.mp4" };
+  const openedAsset = { ...asset, id: "opened-source", fileRef: "new.mp4" };
+  await writeFile(path.join(dir, "old.mp4"), "old recording");
+  await writeFile(path.join(dir, "new.mp4"), "new recording");
+  const media = { prepareRelink: async (a: typeof asset, file: string) => ({
+    asset: { ...a, status: "ready" as const },
+    approve: () => sources.register(a.id, file),
+  }) } as unknown as MediaService;
+  const store = new ProjectStore(path.join(dir, "recovery.json"), sources, media);
+  const old = { ...createProject(), assets: [recoveredAsset] };
+  const next = { ...createProject(), assets: [openedAsset] };
+  const target = path.join(dir, "new.clipdeck");
+  await writeFile(target, JSON.stringify(serializeProject(next)));
+  sources.register(recoveredAsset.id, await realpath(path.join(dir, "old.mp4")));
+  // Delay an in-flight autosave at the serialization boundary. recover() waits
+  // for it while a later native Open is free to select a different project.
+  const original = (store as any).data.bind(store);
+  let release!: () => void, entered!: () => void;
+  const gate = new Promise<void>((r) => (release = r));
+  const waiting = new Promise<void>((r) => (entered = r));
+  (store as any).data = async (p: any, file: string) => {
+    const value = await original(p, file);
+    entered();
+    await gate;
+    return value;
+  };
+  const saving = store.autosave(old);
+  await waiting;
+  const recovering = store.recover();
+  const rejection = expect(recovering).rejects.toThrow(/superseded/i);
+  await store.open(target);
+  release();
+  await saving;
+  await rejection;
+  expect(store.currentPath).toBe(await realpath(target));
+  expect(sources.ids()).toEqual([openedAsset.id]);
+  expect(sources.resolve(openedAsset.id)).toBe(await realpath(path.join(dir, "new.mp4")));
 });
 it("reopens a natively selected external source after restart without trusting arbitrary project paths", async () => {
   const projectDir = path.join(dir, "projects"), dataDir = path.join(dir, "private-state");
@@ -35,11 +75,10 @@ it("reopens a natively selected external source after restart without trusting a
   const target = path.join(projectDir, "p.clipdeck"), recovery = path.join(dataDir, "recovery.json");
   await new ProjectStore(recovery, sources).save(p, target);
   const reopenedSources = new SourceRegistry();
-  const media = { relink: async (a: typeof asset, file: string) => {
+  const media = { prepareRelink: async (a: typeof asset, file: string) => {
     expect(file).toBe(canonical);
-    reopenedSources.register(a.id, file);
-    return { ...a, status: "ready" as const };
-  }} as MediaService;
+    return { asset: { ...a, status: "ready" as const }, approve: () => reopenedSources.register(a.id, file) };
+  }} as unknown as MediaService;
   const reopened = await new ProjectStore(recovery, reopenedSources, media).open(target);
   expect(reopened.assets[0]!.status).toBe("ready");
   expect(reopenedSources.resolve(asset.id)).toBe(canonical);
@@ -67,7 +106,7 @@ it("an authorized project cannot substitute a different external file reference"
   const serialized = JSON.parse(await readFile(target, "utf8"));
   serialized.assets[0].fileRef = "../other.mp4";
   await writeFile(target, JSON.stringify(serialized));
-  const media = { relink: async () => { throw new Error("must not read substituted source"); }} as unknown as MediaService;
+  const media = { prepareRelink: async () => { throw new Error("must not read substituted source"); }} as unknown as MediaService;
   const reopened = await new ProjectStore(recovery, new SourceRegistry(), media).open(target);
   expect(reopened.assets[0]!.status).toBe("missing");
 });

@@ -65,15 +65,17 @@ it("missing VAD resources fail explicitly before any transcription", async () =>
   expect(result.events[0].message).toMatch(/VAD/i);
 });
 it("missing tokenizer does not trigger online fallback", async () => {
-  const result = await worker({
-    mode: "transcribe",
-    modelDirectory: path.resolve("worker"),
-    audioPath: "absent",
-    durationMs: 1000,
-    language: "en",
-  });
-  expect(result.code).toBe(1);
-  expect(result.events[0]?.message).toMatch(/model.bin|tokenizer/i);
+  const directory = await mkdtemp(path.join(tmpdir(), "clipdeck-invalid-model-"));
+  try {
+    const pcm = path.join(directory, "neutral.pcm");
+    await writeFile(pcm, Buffer.alloc(32));
+    const result = await worker({
+      mode: "transcribe", modelDirectory: path.resolve("worker"),
+      audioPath: pcm, audioFormat: "s16le", durationMs: 1000, language: "en",
+    });
+    expect(result.code).toBe(1);
+    expect(result.events[0]?.message).toMatch(/model.bin|tokenizer/i);
+  } finally { await rm(directory, { recursive: true, force: true }); }
 });
 
 it("production preflight never silently accepts superseded development Python", async () => {
@@ -82,7 +84,7 @@ it("production preflight never silently accepts superseded development Python", 
   expect(result.events[0].pythonVersion).toBe("3.12.15");
 }, 30000);
 
-import { mkdtemp, readdir, rm } from "node:fs/promises";
+import { mkdtemp, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 it("preflight disables telemetry before library initialization and leaves a fresh HOME empty", async () => {
   const home = await mkdtemp(path.join(tmpdir(), "clipdeck-private-worker-"));

@@ -4,6 +4,7 @@ import { statSync } from "node:fs";
 import type { AssemblyPlan, Asset } from "../../shared/contracts";
 import type { JobContext } from "./jobs";
 import { runProcess } from "./process";
+import { SOURCE_INPUT_OPTIONS } from "./source-input";
 export interface RenderInput {
   asset: Asset;
   file: string;
@@ -113,8 +114,7 @@ export class RenderEngine {
           "-nostdin",
           "-progress",
           "pipe:1",
-          "-protocol_whitelist",
-          "file,pipe",
+          ...SOURCE_INPUT_OPTIONS,
           "-ss",
           seconds(segment.startMs),
           "-t",
@@ -138,8 +138,7 @@ export class RenderEngine {
           `Cut ${i + 1} contains no usable video frame in the selected range; widen its bounds`,
         );
       const args = [
-        "-protocol_whitelist",
-        "file,pipe",
+        ...SOURCE_INPUT_OPTIONS,
         "-ss",
         seconds(segment.startMs),
         "-t",

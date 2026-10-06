@@ -9,13 +9,16 @@ import {
   fsyncSync,
   rmSync,
 } from "node:fs";
-import { mkdir, mkdtemp, rm, realpath, statfs } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, realpath } from "node:fs/promises";
 import path from "node:path";
 import type { AssemblyPlan, Asset, Project } from "../../shared/contracts";
 import { buildAssemblyPlan } from "../../domain/assembly";
 import type { MediaService } from "./media";
 import type { JobContext, JobManager } from "./jobs";
 import { MediaProtocol, fileSignature } from "./media-protocol";
+import { SOURCE_INPUT_OPTIONS } from "./source-input";
+import { OwnedStagingRegistry, CLEANUP_WARNING } from "./transient";
+import { mediaDiskReservations } from "./capacity";
 import {
   RenderEngine,
   videoFilter,
@@ -151,7 +154,10 @@ export class RenderService {
   }
   constructor(readonly options: RenderOptions) {
     this.engine = new RenderEngine(options.ffmpeg, options.ffprobe);
+    this.exportStaging = new OwnedStagingRegistry(path.join(path.dirname(options.cacheRoot), "render-staging.json"));
   }
+  private readonly exportStaging: OwnedStagingRegistry;
+  get cleanupWarnings(): string[] { return [...this.exportStaging.warnings]; }
   receipt(id: string): RenderReceipt | undefined {
     return this.results.get(id)?.receipt;
   }
@@ -308,6 +314,7 @@ export class RenderService {
     }
   }
   async initialize(): Promise<void> {
+    await this.exportStaging.initialize();
     await rm(this.options.cacheRoot, { recursive: true, force: true });
     await mkdir(this.options.cacheRoot, { recursive: true });
   }
@@ -347,13 +354,15 @@ export class RenderService {
       { assetId, totalMs: asset.durationMs },
       async (ctx) => {
         let dir: string | undefined;
+        let releaseDisk: (() => void) | undefined;
         try {
           ctx.update({ stage: "checking source identity", progress: null });
           await this.verifySources(inputs, ctx.signal);
-          await this.reserve(target.parent, samples);
+          releaseDisk = await this.reserve(target.parent, samples);
+          ctx.throwIfCancelled();
           dir = await mkdtemp(path.join(target.parent, ".clipdeck-source-"));
           const file = path.join(dir, "verified.mp4");
-          const args = ["-protocol_whitelist", "file,pipe", "-i", input.file];
+          const args = [...SOURCE_INPUT_OPTIONS, "-i", input.file];
           if (!asset.hasAudio)
             args.push("-f", "lavfi", "-i", "anullsrc=r=48000:cl=stereo");
           const af = asset.hasAudio
@@ -445,9 +454,12 @@ export class RenderService {
           ctx.update({ outputUrl: url });
           await this.prune();
         } finally {
-          if (dir)
-            await rm(dir, { recursive: true, force: true }).catch(() => {});
-          if (!this.results.has(id)) this.releaseLookup(key, id);
+          try {
+            if (dir) await rm(dir, { recursive: true, force: true }).catch(() => {});
+          } finally {
+            releaseDisk?.();
+            if (!this.results.has(id)) this.releaseLookup(key, id);
+          }
         }
       },
     );
@@ -502,12 +514,8 @@ export class RenderService {
     this.releaseLookup(key, id);
     return;
   }
-  private async reserve(parent: string, samples: number): Promise<void> {
-    const free = await statfs(parent);
-    if (free.bavail * free.bsize < samples * 4 + 256 * 1024 ** 2)
-      throw new Error(
-        "Not enough free space for media processing and audio verification",
-      );
+  private reserve(parent: string, samples: number): Promise<() => void> {
+    return mediaDiskReservations.reserve(parent, samples * 4);
   }
   private start(
     kind: "preview" | "export",
@@ -527,11 +535,15 @@ export class RenderService {
       },
       async (ctx) => {
         let dir: string | undefined;
+        let releaseDisk: (() => void) | undefined;
         try {
           await this.verifySources(inputs, ctx.signal);
           this.checkTarget(target);
-          await this.reserve(target.parent, plan.totalSamples);
-          dir = await mkdtemp(path.join(target.parent, ".clipdeck-render-"));
+          releaseDisk = await this.reserve(target.parent, plan.totalSamples);
+          ctx.throwIfCancelled();
+          dir = kind === "export"
+            ? await this.exportStaging.create(target.parent)
+            : await mkdtemp(path.join(target.parent, ".clipdeck-render-"));
           const file = await this.engine.assemble(
             plan,
             inputs,
@@ -590,9 +602,14 @@ export class RenderService {
           ctx.update({ outputUrl: url });
           await this.prune();
         } finally {
-          if (dir)
-            await rm(dir, { recursive: true, force: true }).catch(() => {});
-          if (!this.results.has(id)) this.releaseLookup(key, id);
+          try { if (dir) {
+            if (kind === "export")
+              await this.exportStaging.remove(dir).catch(() => { this.exportStaging.warnings.add(CLEANUP_WARNING); });
+            else await rm(dir, { recursive: true, force: true }).catch(() => {});
+          } } finally {
+            releaseDisk?.();
+            if (!this.results.has(id)) this.releaseLookup(key, id);
+          }
         }
       },
     );

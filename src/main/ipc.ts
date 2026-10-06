@@ -11,7 +11,7 @@ import { createProject, parseEditCommand } from "../domain/project";
 import { record, id, oneOf, bool, list, text } from "../domain/validation";
 export type NativeAPI = Omit<
   ClipDeckAPI,
-  "subscribe" | "importDroppedFiles"
+  "subscribe" | "onCloseRequested" | "importDroppedFiles"
 > & { importDroppedFiles(paths: string[]): Promise<WorkspaceSnapshot> };
 export type IpcServices = Partial<NativeAPI>;
 const METHODS = [

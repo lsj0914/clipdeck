@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import path from "node:path";
 import type { Project } from "../../shared/contracts";
 import { serializeProject, validateProject } from "../../domain/project";
-import { SourceRegistry, MediaService } from "./media";
+import { SourceRegistry, MediaService, type PreparedRelink } from "./media";
 export const PROJECT_BYTE_LIMIT = 64 * 1024 * 1024;
 interface SourceGrant {
   projectFile: string;
@@ -217,12 +217,12 @@ export class ProjectStore {
     await publication;
     return saved;
   }
-  private async approve(p: Project, file: string): Promise<Project> {
+  private async approve(p: Project, file: string, generation = this.generation): Promise<Project> {
     await this.grantQueue.catch(() => {});
     let grants: SourceGrant[] = [];
     try { grants = await this.grants(); } catch { /* Fail closed; native relink remains available. */ }
-    this.sources.clear();
     const assets = [];
+    const pending: PreparedRelink[] = [];
     for (const asset of p.assets) {
       try {
         let source: string;
@@ -235,18 +235,27 @@ export class ProjectStore {
           source = candidate;
         }
         if (!this.media) throw new Error("Media service unavailable");
-        assets.push(await this.media.relink(asset, source));
+        const inspected = await this.media.prepareRelink(asset, source);
+        pending.push(inspected);
+        assets.push(inspected.asset);
       } catch {
         assets.push({ ...asset, status: "missing" as const });
       }
     }
-    return validateProject({ ...serializeProject(p), assets });
+    const approved = validateProject({ ...serializeProject(p), assets });
+    if (generation !== this.generation)
+      throw new Error("Project opening was superseded");
+    // Commit source authority only after the entire incoming project is valid.
+    // Failed or superseded opens must leave the current project's files usable.
+    this.sources.clear();
+    for (const source of pending) source.approve();
+    return approved;
   }
   async open(file: string): Promise<Project> {
     const generation = ++this.generation;
     const target = await realpath(file);
     const parsed = await readProjectFile(target);
-    const p = await this.approve(parsed, target);
+    const p = await this.approve(parsed, target, generation);
     if (this.generation !== generation)
       throw new Error("Project opening was superseded");
     this.currentPath = target;
@@ -307,7 +316,7 @@ export class ProjectStore {
         if (saved.id === p.id && saved.revision >= p.revision) return null;
       } catch {}
     }
-    p = await this.approve(p, raw.currentPath ?? this.recoveryPath);
+    p = await this.approve(p, raw.currentPath ?? this.recoveryPath, generation);
     if (this.generation !== generation)
       throw new Error("Recovery was superseded");
     this.currentPath = raw.currentPath;

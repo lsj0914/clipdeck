@@ -15,6 +15,8 @@ import type {
   Job,
   OutputPreset,
   WorkspaceSnapshot,
+  CloseAction,
+  ClosePreparation,
 } from "../shared/contracts";
 import {
   selectionToCut,
@@ -103,7 +105,11 @@ function Workbench({ api = window.clipdeck }: { api?: ClipDeckAPI }) {
     [completedExport, setCompletedExport] = useState<Job | null>(null),
     [settingsRequest, setSettingsRequest] = useState(0),
     [correctionOpen, setCorrectionOpen] = useState(false),
-    [corrections, setCorrections] = useState<Record<string, string>>({});
+    [corrections, setCorrections] = useState<Record<string, string>>({}),
+    [closing, setClosing] = useState(false);
+  const closingRef = useRef(false);
+  const projectNameInput = useRef<HTMLInputElement>(null);
+  const closeHandler = useRef<(action: CloseAction) => Promise<ClosePreparation>>(async () => ({ ready: false, locale: "en" }));
   const workspaceRef = useRef<WorkspaceSnapshot | null>(null);
   const draftsRef = useRef<Record<string, CutDraft>>({});
   function setDrafts(update: React.SetStateAction<Record<string, CutDraft>>) {
@@ -138,7 +144,7 @@ function Workbench({ api = window.clipdeck }: { api?: ClipDeckAPI }) {
       task: () => Promise<T>,
       options: { blocking?: boolean; success?: string } = {},
     ): Promise<T | undefined> => {
-      if (options.blocking && busyRef.current) return;
+      if (closingRef.current || (options.blocking && busyRef.current)) return;
       if (options.blocking) {
         busyRef.current = true;
         setBusy(true);
@@ -208,6 +214,9 @@ function Workbench({ api = window.clipdeck }: { api?: ClipDeckAPI }) {
       unsubscribe();
     };
   }, [api, accept, run]);
+  useEffect(() => {
+    if (api) return api.onCloseRequested((action) => closeHandler.current(action));
+  }, [api]);
   useEffect(() => {
     if (failure) errorRef.current?.focus({ preventScroll: true });
   }, [failure]);
@@ -306,9 +315,14 @@ function Workbench({ api = window.clipdeck }: { api?: ClipDeckAPI }) {
     asset?.id,
     asset?.status,
     asset?.fingerprint,
-    transcriptOrigin,
     project?.id,
   ]);
+  useEffect(() => {
+    // New recognition replaces word IDs, but the source and the user's editing
+    // workspace remain the same. Only selections tied to those words expire.
+    setSelection(null);
+    setCorrectionOpen(false);
+  }, [transcriptOrigin]);
   useEffect(() => {
     if (view !== "source" || !asset?.mediaUrl || asset.status !== "ready")
       return;
@@ -511,6 +525,24 @@ function Workbench({ api = window.clipdeck }: { api?: ClipDeckAPI }) {
     return next;
   }
   async function flushDrafts() {
+    const name = projectNameInput.current?.value.trim();
+    const currentProject = workspaceRef.current?.project;
+    if (name === "") throw new Error("Project name cannot be empty.");
+    if (name && currentProject && name !== currentProject.name)
+      accept(await api.applyEdit({ type: "renameProject", name }));
+    if (correctionOpen && transcript) {
+      const changes = Object.entries(corrections)
+        .filter(([id, text]) => transcript.words.find((w) => w.id === id)?.text !== text)
+        .map(([wordId, text]) => {
+          if (!text.trim()) throw new Error("Corrected words cannot be empty.");
+          const prefix = /^\s+/.exec(transcript.words.find((w) => w.id === wordId)?.text ?? "")?.[0] ?? "";
+          return { wordId, text: prefix && !/^\s/.test(text) ? prefix + text : text };
+        });
+      if (changes.length)
+        accept(await api.applyEdit({ type: "correctTranscript", assetId: transcript.assetId,
+          fingerprint: transcript.fingerprint, transcriptRevision: transcript.revision, changes }));
+      setCorrectionOpen(false);
+    }
     for (const [id, draft] of Object.entries(draftsRef.current)) {
       const current = workspaceRef.current;
       const cut = current?.project.cuts.find((c) => c.id === id);
@@ -544,6 +576,32 @@ function Workbench({ api = window.clipdeck }: { api?: ClipDeckAPI }) {
     if (!workspaceRef.current) throw new Error("The workspace is not ready.");
     return workspaceRef.current;
   }
+  closeHandler.current = async (action) => {
+    if (action === "resume") {
+      closingRef.current = false;
+      setClosing(false);
+      return { ready: true, locale };
+    }
+    closingRef.current = true;
+    setClosing(true);
+    if (busyRef.current || !workspaceRef.current)
+      return { ready: false, locale, error: t("Another operation is still running. Wait for it to finish, then close again.") };
+    if (action === "discard") {
+      setDrafts({});
+      setCorrections({});
+      setCorrectionOpen(false);
+      if (projectNameInput.current) projectNameInput.current.value = workspaceRef.current.project.name;
+      return { ready: true, locale };
+    }
+    try {
+      await flushDrafts();
+      return { ready: true, locale };
+    } catch (error) {
+      return { ready: false, locale,
+        canDiscard: Object.keys(draftsRef.current).length > 0 || correctionOpen || projectNameInput.current?.value !== workspaceRef.current.project.name,
+        error: t(message(error)) };
+    }
+  };
   async function reviewExport() {
     await run(
       async () => {
@@ -901,6 +959,7 @@ function Workbench({ api = window.clipdeck }: { api?: ClipDeckAPI }) {
   }
   useEffect(() => {
     const handle = (event: KeyboardEvent) => {
+      if (closingRef.current) { event.preventDefault(); return; }
       const input =
         event.target instanceof HTMLElement &&
         !!event.target.closest(
@@ -973,6 +1032,7 @@ function Workbench({ api = window.clipdeck }: { api?: ClipDeckAPI }) {
   }
   return (
     <div
+      inert={closing || undefined}
       className={`app${sourcesOpen ? " sources-open" : ""}${cuts.length ? " has-cuts" : " empty-assembly"}`}
       onDragOver={(e) => {
         if (e.dataTransfer.types.includes("Files")) {
@@ -1002,6 +1062,7 @@ function Workbench({ api = window.clipdeck }: { api?: ClipDeckAPI }) {
         </div>
         <div className="project-identity">
           <input
+            ref={projectNameInput}
             aria-label={t("Project name")}
             key={`${project?.id}-${project?.name}`}
             defaultValue={project?.name ?? "Loading workspace"}
@@ -1149,6 +1210,11 @@ function Workbench({ api = window.clipdeck }: { api?: ClipDeckAPI }) {
             {t("Choose videos again")}
           </button>
         </section>
+      )}
+      {!!snapshot?.cleanupWarnings?.length && (
+        <div className="error-banner" role="alert">
+          <span>{snapshot.cleanupWarnings.map(t).join(" ")}</span>
+        </div>
       )}
       {snapshot?.save.error && (
         <div className="error-banner save-error" role="alert">

@@ -1,4 +1,10 @@
-const { app, BrowserWindow } = require("electron");
+const { app, BrowserWindow, dialog } = require("electron");
+// This automated sandbox smoke test chooses the recovery option at the new
+// close prompt. Native dialog interaction is verified separately in acceptance.
+dialog.showMessageBox = async (_window, options) => {
+  assert.equal(options.buttons.length, 3);
+  return { response: 1, checkboxChecked: false };
+};
 app.setAppPath(require("node:path").resolve(__dirname, ".."));
 const assert = require("node:assert/strict");
 const expected = [
@@ -18,6 +24,7 @@ const expected = [
   "downloadModel",
   "revealExport",
   "subscribe",
+  "onCloseRequested",
 ].sort();
 let firstWindow = true;
 app.on("browser-window-created", (_event, window) => {

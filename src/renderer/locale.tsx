@@ -1,6 +1,10 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 export type Locale = "en" | "zh";
 const zh: Record<string, string> = {
+  "Some temporary files could not be cleared. Check that your export folder is available and your disk has free space, then restart ClipDeck.": "部分临时文件未能清理。请确认导出文件夹可用且磁盘有剩余空间，再重新打开 ClipDeck。",
+  "Project name cannot be empty.": "项目名称不能为空。",
+  "Corrected words cannot be empty.": "校正后的词不能为空。",
+  "Another operation is still running. Wait for it to finish, then close again.": "还有操作尚未完成，请稍后再关闭。",
   "Source missing": "素材未关联",
   "Source changed": "素材已变化",
   "restoring punctuation": "正在恢复标点",
@@ -207,6 +211,14 @@ const zh: Record<string, string> = {
   "Transcribing…": "正在转写…",
   "Retry transcription": "重试转写",
   "Names and vocabulary": "人名与术语提示",
+  "checking vocabulary": "检查人名与术语提示",
+  "checking local storage": "检查本地可用空间",
+  "Local transcription supports sources up to six hours. Split this source first; time-based editing remains available.": "本地转写支持最长六小时的素材。请先拆分长视频；仍可按时间剪辑。",
+  "Decoded audio exceeds this source's supported length. Split or re-import the source.": "音频实际长度超过素材的支持范围。请拆分或重新导入素材。",
+  "Not enough free space for media processing and audio verification": "磁盘剩余空间不足。请释放空间后重试。",
+  "Up to six hours per source. Transcription tasks run one at a time.": "单个素材最长六小时，多个转写任务依次处理。",
+  "Vocabulary is too long for this model. Keep only the most important names and terms.":
+    "提示词过长，请只保留最重要的人名与术语，再重试转写。",
   "Names, technical terms, places": "人名、术语、地名",
   "Optional comma-separated terms guide recognition; they are not verified words.":
     "可选，用逗号分隔。提示会影响识别，不代表已核实的原话。",

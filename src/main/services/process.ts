@@ -4,6 +4,9 @@ export interface ProcessOptions {
   env?: NodeJS.ProcessEnv;
   input?: string;
   onStdout?: (chunk: string) => void;
+  /** Raw binary transport. Callbacks are synchronous so callers can enforce a
+   * byte ceiling before each write without buffering the entire native output. */
+  onStdoutBytes?: (chunk: Buffer) => void;
   maxBytes?: number;
 }
 /** No shell; cancellation waits for process exit and force-kills after a short grace. */
@@ -14,6 +17,8 @@ export function runProcess(
 ): Promise<{ stdout: string; stderr: string }> {
   return new Promise((resolve, reject) => {
     options.signal?.throwIfAborted();
+    if (options.onStdout && options.onStdoutBytes)
+      throw new Error("Choose one native output transport");
     const child = spawn(executable, argv, {
       stdio: ["pipe", "pipe", "pipe"],
       env: options.env ?? process.env,
@@ -32,11 +37,16 @@ export function runProcess(
     child.on("error", (error) => {
       failure = error;
     });
-    child.stdout.setEncoding("utf8");
+    if (!options.onStdoutBytes) child.stdout.setEncoding("utf8");
     child.stderr.setEncoding("utf8");
-    child.stdout.on("data", (data: string) => {
+    child.stdout.on("data", (data: string | Buffer) => {
+      if (failure) return;
       try {
-        const chunk = data;
+        if (options.onStdoutBytes) {
+          options.onStdoutBytes(data as Buffer);
+          return;
+        }
+        const chunk = data as string;
         if (options.onStdout) options.onStdout(chunk);
         else {
           stdout += chunk;

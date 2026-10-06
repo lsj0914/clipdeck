@@ -51,6 +51,22 @@ const api = {
   downloadModel: (choice) =>
     request("downloadModel", choice === undefined ? [] : [choice]),
   revealExport: (jobId) => request("revealExport", [jobId]),
+  onCloseRequested: (listener) => {
+    if (typeof listener !== "function") throw new Error("Expected close preparation listener");
+    const receive = (_event, action, token) => {
+      if (!["apply", "discard", "resume"].includes(action)) return;
+      if (action !== "resume" && (typeof token !== "string" || !/^[a-f0-9-]{36}$/.test(token))) return;
+      void Promise.resolve().then(() => listener(action)).then((result) => {
+        if (token) ipcRenderer.send("clipdeck:close-response", token, result);
+      }).catch((error) => {
+        if (token) ipcRenderer.send("clipdeck:close-response", token, {
+          ready: false, locale: "en", error: String(error?.message || "Could not prepare edits for closing").slice(0, 500),
+        });
+      });
+    };
+    ipcRenderer.on("clipdeck:close-request", receive);
+    return () => ipcRenderer.removeListener("clipdeck:close-request", receive);
+  },
   subscribe: (listener) => {
     if (typeof listener !== "function")
       throw new Error("Expected snapshot listener");

@@ -7,6 +7,7 @@ import path from "node:path";
 import type { Asset } from "../../shared/contracts";
 import { parseAsset } from "../../domain/project";
 import { fileSignature } from "./media-protocol";
+import { SOURCE_INPUT_OPTIONS } from "./source-input";
 /** Main-only metadata approval; never serialized into a project or renderer snapshot. */
 export interface OriginalPlaybackCandidate {
   file: string;
@@ -19,6 +20,10 @@ interface Inspection {
   asset: Asset;
   signature: string;
   directCodec: OriginalPlaybackCandidate["codec"] | null;
+}
+export interface PreparedRelink {
+  asset: Asset;
+  approve(): void;
 }
 function approvedCodec(
   raw: Record<string, any>,
@@ -227,11 +232,18 @@ export class MediaService {
     const filePath = await realpath(file);
     const signature = fileSignature(filePath);
     const identity = await fingerprintFile(filePath);
-    const { stdout } = await run(
-      this.ffprobe,
-      ["-v", "error", "-show_streams", "-show_format", "-of", "json", filePath],
-      { maxBuffer: 4 * 1024 * 1024, timeout: 30000 },
-    );
+    let stdout: string;
+    try {
+      ({ stdout } = await run(
+        this.ffprobe,
+        ["-v", "error", ...SOURCE_INPUT_OPTIONS, "-show_streams", "-show_format", "-of", "json", filePath],
+        { maxBuffer: 4 * 1024 * 1024, timeout: 30000 },
+      ));
+    } catch (error) {
+      if (String((error as { stderr?: string }).stderr).includes("not on whitelist"))
+        throw new Error("Unsupported video container. Import a self-contained video file.");
+      throw error;
+    }
     const raw = JSON.parse(stdout);
     const streams = raw.streams as Array<Record<string, any>>;
     const video = streams.find(
@@ -286,14 +298,22 @@ export class MediaService {
         "Source content changed; transcript and cuts require review",
       );
   }
-  async relink(asset: Asset, file: string): Promise<Asset> {
+  async prepareRelink(asset: Asset, file: string): Promise<PreparedRelink> {
     const source = await realpath(file);
     const inspected = await this.inspect(source);
     if (inspected.asset.fingerprint !== asset.fingerprint) {
-      this.sources.remove(asset.id);
-      return { ...asset, status: "changed" };
+      return { asset: { ...asset, status: "changed" }, approve: () => this.sources.remove(asset.id) };
     }
-    this.registerInspection(asset.id, source, inspected);
-    return { ...asset, status: "ready" };
+    // Project metadata is untrusted even when the source hash is correct. Keep
+    // the user's stable reference/label, but derive processing from real bytes.
+    return {
+      asset: { ...inspected.asset, id: asset.id, name: asset.name, fileRef: asset.fileRef },
+      approve: () => this.registerInspection(asset.id, source, inspected),
+    };
+  }
+  async relink(asset: Asset, file: string): Promise<Asset> {
+    const pending = await this.prepareRelink(asset, file);
+    pending.approve();
+    return pending.asset;
   }
 }

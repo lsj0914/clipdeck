@@ -13,6 +13,8 @@ import type {
   ClipDeckAPI,
   WorkspaceSnapshot,
   EditCommand,
+  CloseAction,
+  ClosePreparation,
 } from "../../src/shared/contracts";
 import { App } from "../../src/renderer/App";
 
@@ -92,6 +94,7 @@ function fixture(silent = false): WorkspaceSnapshot {
 function bridge(initial = fixture()) {
   let state = initial;
   const listeners = new Set<(s: WorkspaceSnapshot) => void>();
+  let prepareClose: ((action: CloseAction) => Promise<ClosePreparation>) | undefined;
   const emit = (next: WorkspaceSnapshot) => {
     state = next;
     listeners.forEach((l) => l(next));
@@ -142,8 +145,15 @@ function bridge(initial = fixture()) {
     chooseModel: vi.fn(async () => state),
     downloadModel: vi.fn(async () => "model-1"),
     revealExport: vi.fn(async () => {}),
+    onCloseRequested: vi.fn((listener) => {
+      prepareClose = listener;
+      return () => { prepareClose = undefined; };
+    }),
   };
-  return { api, emit, get: () => state };
+  return { api, emit, get: () => state, requestClose: (action: CloseAction) => {
+    if (!prepareClose) throw new Error("Close preparation is not connected");
+    return prepareClose(action);
+  } };
 }
 let autoDecode = true;
 let autoSeek = true;
@@ -1757,6 +1767,63 @@ describe("Task 7 complete editing workflow", () => {
 });
 
 describe("Task 7 readiness and long reading regressions", () => {
+  it("explains excessive vocabulary in Chinese and retains it for correction and retry", async () => {
+    const b = bridge();
+    vi.mocked(b.api.transcribe).mockRejectedValueOnce(new Error(
+      "Vocabulary is too long for this model. Keep only the most important names and terms.",
+    ));
+    render(<App api={b.api} />);
+    await screen.findByRole("button", { name: "今天" });
+    fireEvent.change(screen.getByLabelText("Interface language"), { target: { value: "zh" } });
+    fireEvent.click(screen.getByRole("button", { name: "转写设置" }));
+    const field = screen.getByLabelText("人名与术语提示");
+    fireEvent.change(field, { target: { value: "复杂".repeat(200) } });
+    fireEvent.click(screen.getByRole("button", { name: "重新转写" }));
+    expect((await screen.findByRole("alert")).textContent).toContain("提示词过长，请只保留最重要的人名与术语");
+    expect(field).toHaveProperty("value", "复杂".repeat(200));
+    expect(screen.getByRole("button", { name: "今天" })).toBeTruthy();
+    fireEvent.change(field, { target: { value: "张示例，项目管理" } });
+    fireEvent.click(screen.getByRole("button", { name: "重试转写" }));
+    await waitFor(() => expect(b.api.transcribe).toHaveBeenLastCalledWith("source-one", "zh", { vocabulary: "张示例，项目管理" }));
+  });
+  it("keeps a manual range and source playhead when background transcription finishes", async () => {
+    const initial = fixture();
+    initial.project.transcripts = [];
+    const b = bridge(initial);
+    render(<App api={b.api} />);
+    fireEvent.click(await screen.findByRole("button", { name: "Range" }));
+    fireEvent.change(screen.getByLabelText("Selection in"), { target: { value: "5.125" } });
+    fireEvent.change(screen.getByLabelText("Selection out"), { target: { value: "8.375" } });
+    fireEvent.change(screen.getByLabelText("Source playhead"), { target: { value: "7500" } });
+    const next = structuredClone(b.get());
+    next.project.revision++;
+    next.project.transcripts = fixture().project.transcripts;
+    act(() => b.emit(next));
+    expect(screen.getByRole("button", { name: "Range" }).getAttribute("aria-pressed")).toBe("true");
+    expect(screen.getByLabelText("Selection in")).toHaveProperty("value", "5.125");
+    expect(screen.getByLabelText("Selection out")).toHaveProperty("value", "8.375");
+    expect(screen.getByLabelText("Source playhead")).toHaveProperty("value", "7500");
+    fireEvent.click(screen.getByRole("button", { name: "Add range" }));
+    await waitFor(() => expect(b.get().project.cuts).toHaveLength(1));
+    expect(b.get().project.cuts[0]).toMatchObject({ startMs: 5125, endMs: 8375, wordIds: [] });
+  });
+  it("keeps the assembly workspace when replacement transcription invalidates its preview", async () => {
+    const initial = assemblyFixture();
+    initial.project.transcripts[0]!.originId = "old-recognition";
+    const b = bridge(initial);
+    render(<App api={b.api} />);
+    fireEvent.click(await screen.findByRole("button", { name: "Assembly script" }));
+    expect(screen.getByLabelText("Assembly video")).toBeTruthy();
+    const next = structuredClone(b.get());
+    next.project.revision++;
+    next.project.transcripts[0]!.originId = "replacement-recognition";
+    act(() => b.emit(next));
+    expect(screen.getByRole("region", { name: "Assembly script" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Assembly" }).getAttribute("aria-pressed")).toBe("true");
+    expect(screen.queryByLabelText("Source video")).toBeNull();
+    expect(screen.queryByLabelText("Assembly video")).toBeNull();
+    expect(screen.getByText("Prepare a preview of your current assembly.")).toBeTruthy();
+  });
   it("keeps first-source actions visible while optional vocabulary settings can open and close", async () => {
     const initial = fixture();
     initial.project.transcripts = [];
@@ -1940,6 +2007,55 @@ describe("Task 7 readiness and long reading regressions", () => {
 });
 
 describe("Task 7 recovery and completed delivery", () => {
+  it("shows a local cleanup warning in the selected interface language", async () => {
+    const state = fixture();
+    state.cleanupWarnings = ["Some temporary files could not be cleared. Check that your export folder is available and your disk has free space, then restart ClipDeck."];
+    localStorage.setItem("clipdeck.locale", "zh");
+    render(<App api={bridge(state).api} />);
+    await screen.findByText("部分临时文件未能清理。请确认导出文件夹可用且磁盘有剩余空间，再重新打开 ClipDeck。");
+  });
+  it("flushes a focused project name, cut draft and correction before native close", async () => {
+    const b = bridge(assemblyFixture());
+    render(<App api={b.api} />);
+    fireEvent.click(await screen.findByRole("listitem", { name: /Cut 1:/ }));
+    fireEvent.change(screen.getByRole("textbox", { name: "Cut note" }), { target: { value: "Preserve on close" } });
+    fireEvent.change(screen.getByRole("textbox", { name: "Project name" }), { target: { value: "Named before closing" } });
+    let result: ClosePreparation | undefined;
+    await act(async () => { result = await b.requestClose("apply"); });
+    expect(result).toEqual({ ready: true, locale: "en" });
+    expect(b.get().project.cuts[0]?.note).toBe("Preserve on close");
+    expect(b.api.applyEdit).toHaveBeenCalledWith({ type: "renameProject", name: "Named before closing" });
+    expect(document.querySelector(".app")?.hasAttribute("inert")).toBe(true);
+    await act(async () => { await b.requestClose("resume"); });
+    expect(document.querySelector(".app")?.hasAttribute("inert")).toBe(false);
+  });
+  it("keeps invalid close drafts available for correction or explicit discard", async () => {
+    const b = bridge(assemblyFixture());
+    render(<App api={b.api} />);
+    fireEvent.click(await screen.findByRole("listitem", { name: /Cut 1:/ }));
+    fireEvent.change(screen.getByRole("textbox", { name: "Cut out" }), { target: { value: "00:00.100" } });
+    let result: ClosePreparation | undefined;
+    await act(async () => { result = await b.requestClose("apply"); });
+    expect(result).toMatchObject({ ready: false, canDiscard: true });
+    expect(b.api.applyEdit).not.toHaveBeenCalled();
+    await act(async () => { await b.requestClose("resume"); });
+    expect((screen.getByRole("textbox", { name: "Cut out" }) as HTMLInputElement).value).toBe("00:00.100");
+    await act(async () => { result = await b.requestClose("discard"); await b.requestClose("resume"); });
+    expect(result?.ready).toBe(true);
+    expect((screen.getByRole("textbox", { name: "Cut out" }) as HTMLInputElement).value).toBe("00:01.101");
+  });
+  it("preserves unapplied word corrections during native close", async () => {
+    const b = bridge();
+    render(<App api={b.api} />);
+    fireEvent.click(await screen.findByRole("button", { name: "今天" }));
+    fireEvent.click(screen.getByRole("button", { name: "Correct text" }));
+    fireEvent.change(screen.getByRole("textbox", { name: "Word 1" }), { target: { value: "明天" } });
+    await act(async () => { expect((await b.requestClose("apply")).ready).toBe(true); });
+    expect(b.api.applyEdit).toHaveBeenCalledWith({
+      type: "correctTranscript", assetId: "source-one", fingerprint: "sha256:a", transcriptRevision: 3,
+      changes: [{ wordId: "w1", text: "明天" }],
+    });
+  });
   it("falls back once when no decoded frame arrives before the deadline", async () => {
     autoDecode = false;
     let timeout: TimerHandler | undefined;

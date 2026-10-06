@@ -1,4 +1,4 @@
-import { it, expect, describe, beforeEach, afterEach } from "vitest";
+import { it, expect, describe, beforeEach, afterEach, vi } from "vitest";
 import { promisify } from "node:util";
 import { execFile } from "node:child_process";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
@@ -14,6 +14,25 @@ import { JobManager } from "../../src/main/services/jobs";
 import { TranscriptionService } from "../../src/main/services/transcription";
 import { createProject } from "../../src/domain/project";
 import type { Project, TranscriptionDraft } from "../../src/shared/contracts";
+import { asset as durationAsset } from "../domain/fixtures";
+it("an unsupported source length is rejected before hashing, model verification or decoding", async () => {
+  const media = new MediaService("/unavailable/ffprobe", new SourceRegistry());
+  const models = new ModelRegistry("/unavailable/settings", "/unavailable/models", () => {});
+  const sourceCheck = vi.spyOn(media, "verifyAssetIdentity").mockResolvedValue(undefined);
+  const modelCheck = vi.spyOn(models, "verify").mockResolvedValue({ id: "fixture", digest: "fixture", directory: "/unavailable/model", choice: "small" });
+  const jobs = new JobManager(() => {});
+  const service = new TranscriptionService({
+    ffmpeg: "/unavailable/ffmpeg", python: "/unavailable/python", worker: "/unavailable/worker", tempRoot: "/unavailable/jobs",
+    media, models, jobs, getProject: () => ({ ...createProject(), assets: [{ ...durationAsset, durationMs: 21600001 }] }),
+    onDraft: () => {}, onTranscript: () => {},
+  });
+  try {
+    await expect(service.start(durationAsset.id, "en")).rejects.toThrow(/six hours/);
+    expect(sourceCheck).not.toHaveBeenCalled();
+    expect(modelCheck).not.toHaveBeenCalled();
+    expect(jobs.list()).toEqual([]);
+  } finally { await jobs.cancelAll(); vi.restoreAllMocks(); }
+});
 const root = process.env.CLIPDECK_ACCEPTANCE_ROOT;
 const model = path.join(
   process.env.HOME!,
@@ -148,6 +167,39 @@ describe.runIf(!!root)(
     }, 30000);
   },
 );
+describe.runIf(!!root)("vocabulary preflight", () => {
+  it("rejects excessive hints before audio decoding and completes a shortened retry", async () => {
+    const sources = new SourceRegistry();
+    const media = new MediaService(path.resolve(".runtime/bin/ffprobe"), sources);
+    const asset = await media.probeAsset(await videoFixture("en-synthetic.wav"));
+    let project: Project = { ...createProject(), assets: [asset] };
+    const models = new ModelRegistry(path.join(dir, "settings"), path.join(dir, "model"), () => {});
+    await models.choose(model);
+    const stages: string[] = [];
+    const jobs = new JobManager(() => stages.push(...jobs.list().map((job) => job.stage)));
+    const service = new TranscriptionService({
+      ffmpeg: path.resolve(".runtime/bin/ffmpeg"),
+      python: path.resolve(".runtime/worker/bin/python3.12"),
+      worker: path.resolve("worker/transcribe.py"),
+      tempRoot: dir, media, models, jobs,
+      getProject: () => project,
+      onDraft: () => {},
+      onTranscript: (transcript) => { project = { ...project, transcripts: [transcript] }; },
+    });
+    const rejected = await service.start(asset.id, "auto", { vocabulary: "复杂".repeat(200) });
+    await jobs.wait(rejected);
+    expect(jobs.list().find((job) => job.id === rejected)).toMatchObject({
+      status: "failed", error: "Vocabulary is too long for this model. Keep only the most important names and terms.",
+    });
+    expect(stages).not.toContain("decoding audio");
+    expect(project.transcripts).toEqual([]);
+    const retry = await service.start(asset.id, "en", { vocabulary: "computer, video" });
+    await jobs.wait(retry);
+    expect(jobs.list().find((job) => job.id === retry)?.status).toBe("completed");
+    expect(project.transcripts[0]?.parameters.vocabulary).toBe("computer, video");
+    expect(project.transcripts[0]?.words.length).toBeGreaterThan(10);
+  }, 30000);
+});
 describe.runIf(!!root)("queued ASR cancellation", () => {
   it("cancelled queued source can be retried without a leaked active reservation", async () => {
     const sources = new SourceRegistry();
@@ -282,7 +334,7 @@ it.each([
   const script = path.join(dir, "protocol.py");
   await writeFile(
     script,
-    `import sys,json\nrequest=json.loads(sys.stdin.readline())\nassert request.get("vocabulary")=="editing"\nprint(${JSON.stringify(events.map((event) => JSON.stringify(event)).join("\n"))},flush=True)\n`,
+    `import sys,json\nrequest=json.loads(sys.stdin.readline())\nassert request.get("vocabulary")=="editing"\nif request.get("mode")=="validate-options":\n print(json.dumps({"type":"options-validated"}),flush=True)\n sys.exit(0)\nprint(${JSON.stringify(events.map((event) => JSON.stringify(event)).join("\n"))},flush=True)\n`,
   );
   const sources = new SourceRegistry(),
     media = new MediaService(path.resolve(".runtime/bin/ffprobe"), sources),

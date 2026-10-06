@@ -16,6 +16,8 @@ import {
   createProject,
   applyProjectEdit,
   reconcileCut,
+  validateProject,
+  serializeProject,
 } from "../../domain/project";
 import { safeSnapshot, type IpcServices } from "../ipc";
 import { MediaService, SourceRegistry } from "./media";
@@ -26,6 +28,7 @@ import { TranscriptionService, checkWorker } from "./transcription";
 import type { RuntimePaths } from "./runtime";
 import { RenderService } from "./render";
 import { buildAssemblyPlan } from "../../domain/assembly";
+import { cleanupLocalTransient } from "./transient";
 export interface NativeDialogs {
   media(): Promise<string[]>;
   open(): Promise<string | null>;
@@ -59,6 +62,40 @@ export class WorkspaceService {
   private sourceAccessPending = false;
   private projectEpoch = 0;
   private importFailures: Array<{ name: string; message: string }> = [];
+  private closing = false;
+  private cleanupWarnings: string[] = [];
+  private admittedStarts = new Set<{ cancelled: boolean; done: Promise<void>; finish: () => void }>();
+  beginClose(): void { this.closing = true; }
+  resumeAfterClose(): void { this.closing = false; }
+  hasRunningWork(): boolean {
+    return this.admittedStarts.size > 0 || this.transcription.hasPendingStarts || this.jobs.list().some((job) => ["queued", "running", "cancelling"].includes(job.status));
+  }
+  private assertWorkAllowed(): void {
+    if (this.closing) throw new Error("The workspace is closing; keep editing before starting another task");
+  }
+  async cancelWork(): Promise<void> {
+    const admitted = [...this.admittedStarts];
+    for (const start of admitted) start.cancelled = true;
+    await this.transcription.cancelPendingStarts();
+    await Promise.all(admitted.map((start) => start.done));
+    await this.jobs.cancelAll();
+  }
+  private async admitWork(start: () => Promise<string>): Promise<string> {
+    this.assertWorkAllowed();
+    let finish!: () => void;
+    const ticket = { cancelled: false, done: new Promise<void>((resolve) => { finish = resolve; }), finish: () => finish() };
+    this.admittedStarts.add(ticket);
+    try {
+      const id = await start();
+      if (ticket.cancelled) {
+        // JobManager pumps on setImmediate. Settle a late registration in this
+        // promise turn before it can launch a native process.
+        await this.jobs.cancel(id);
+        throw new Error("Task was cancelled before starting");
+      }
+      return id;
+    } finally { this.admittedStarts.delete(ticket); ticket.finish(); }
+  }
   constructor(readonly options: WorkspaceOptions) {
     const notify = () => this.emit();
     this.media = new MediaService(options.runtime.ffprobe, this.sources);
@@ -98,6 +135,7 @@ export class WorkspaceService {
   }
   async initialize(): Promise<void> {
     await mkdir(this.options.dataRoot, { recursive: true });
+    this.cleanupWarnings = await cleanupLocalTransient(this.options.dataRoot);
     await this.rendering.initialize();
     try {
       await Promise.all([
@@ -132,6 +170,7 @@ export class WorkspaceService {
   }
   snapshot(): WorkspaceSnapshot {
     const result = safeSnapshot(this.project);
+    result.cleanupWarnings = [...new Set([...this.cleanupWarnings, ...this.rendering.cleanupWarnings])];
     result.model = { ...this.models.status };
     result.jobs = this.jobs
       .list()
@@ -187,7 +226,7 @@ export class WorkspaceService {
       throw new Error(this.recoveryError);
     }
   }
-  private externalUpdate(assets: Asset[]): void {
+  private externalUpdate(assets: Asset[], approve?: () => void): void {
     const transcripts = this.project.transcripts.filter((t) =>
       assets.some(
         (a) =>
@@ -197,7 +236,7 @@ export class WorkspaceService {
       ),
     );
     const cache = new Map<Transcript, Set<string>>();
-    this.project = {
+    const next = {
       ...this.project,
       assets,
       transcripts,
@@ -206,6 +245,9 @@ export class WorkspaceService {
       ),
       revision: this.project.revision + 1,
     };
+    validateProject(serializeProject(next));
+    approve?.();
+    this.project = next;
     this.emit();
   }
   private commitTranscript(transcript: Transcript): void {
@@ -341,26 +383,26 @@ export class WorkspaceService {
     language: Language,
     options?: TranscriptionRequestOptions,
   ): Promise<string> {
-    if (!this.workerReady)
-      throw new Error("Pinned offline worker runtime has not been prepared");
-    try {
-      return await this.transcription.start(assetId, language, options);
-    } catch (error) {
-      await this.refreshSources();
-      throw error;
-    }
+    return this.admitWork(async () => {
+      if (!this.workerReady) throw new Error("Pinned offline worker runtime has not been prepared");
+      try { return await this.transcription.start(assetId, language, options); }
+      catch (error) { if (!this.closing) await this.refreshSources(); throw error; }
+    });
   }
   async prepareSourcePreview(assetId: string): Promise<string> {
-    if (!this.mediaReady)
-      throw new Error("Native media runtime has not been prepared");
-    return this.rendering.prepareSourcePreview(assetId);
+    return this.admitWork(async () => {
+      if (!this.mediaReady) throw new Error("Native media runtime has not been prepared");
+      return this.rendering.prepareSourcePreview(assetId);
+    });
   }
   async preparePreview(): Promise<string> {
-    if (!this.mediaReady)
-      throw new Error("Native media runtime has not been prepared");
-    return this.rendering.preview(buildAssemblyPlan(this.project));
+    return this.admitWork(async () => {
+      if (!this.mediaReady) throw new Error("Native media runtime has not been prepared");
+      return this.rendering.preview(buildAssemblyPlan(this.project));
+    });
   }
   async exportVideo(): Promise<string> {
+    return this.admitWork(async () => {
     if (!this.mediaReady || !this.options.dialogs.export)
       throw new Error("Native export is unavailable");
     const plan = buildAssemblyPlan(this.project),
@@ -379,6 +421,7 @@ export class WorkspaceService {
     return this.rendering.export(plan, {
       path: target,
       overwriteConfirmed: true,
+    });
     });
   }
   async revealExport(id: string): Promise<void> {
@@ -431,11 +474,12 @@ export class WorkspaceService {
   }
   async relinkMedia(assetId: string): Promise<WorkspaceSnapshot> {
     const initial = this.project;
+    const epoch = this.projectEpoch;
     const asset = initial.assets.find((a) => a.id === assetId);
     if (!asset) throw new Error("Unknown source");
     const file = await this.options.dialogs.relink(asset);
     if (!file) return this.snapshot();
-    if (initial.id !== this.project.id)
+    if (epoch !== this.projectEpoch || initial.id !== this.project.id)
       throw new Error("Project changed while choosing source");
     for (const job of this.jobs.list())
       if (
@@ -443,13 +487,14 @@ export class WorkspaceService {
         ["queued", "running", "cancelling"].includes(job.status)
       )
         await this.jobs.cancel(job.id);
-    const linked = await this.media.relink(asset, file);
-    if (initial.id !== this.project.id) {
-      this.sources.remove(assetId);
+    const linked = await this.media.prepareRelink(asset, file);
+    if (epoch !== this.projectEpoch || initial.id !== this.project.id ||
+        !this.project.assets.some((current) => current.id === assetId && current.fingerprint === asset.fingerprint)) {
       throw new Error("Project changed during relink");
     }
     this.externalUpdate(
-      this.project.assets.map((a) => (a.id === assetId ? linked : a)),
+      this.project.assets.map((a) => (a.id === assetId ? linked.asset : a)),
+      linked.approve,
     );
     await this.persistRecovery();
     return this.snapshot();
@@ -469,6 +514,7 @@ export class WorkspaceService {
     return this.snapshot();
   }
   async downloadModel(choice: ModelChoice = "small"): Promise<string> {
+    return this.admitWork(async () => {
     if (!this.workerReady)
       throw new Error("Prepare the pinned offline worker runtime first");
     if (
@@ -486,6 +532,7 @@ export class WorkspaceService {
       ctx.update({ stage: "downloading model", progress: 0 });
       await this.models.download(ctx.signal, ctx.commit, choice);
       ctx.throwIfCancelled();
+    });
     });
   }
   services(): IpcServices {
@@ -508,7 +555,13 @@ export class WorkspaceService {
     };
   }
   async close(): Promise<void> {
-    await this.jobs.cancelAll();
-    await this.persistRecovery();
+    this.beginClose();
+    try {
+      await this.cancelWork();
+      await this.persistRecovery();
+    } catch (error) {
+      this.resumeAfterClose();
+      throw error;
+    }
   }
 }

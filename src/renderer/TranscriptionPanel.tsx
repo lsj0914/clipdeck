@@ -167,7 +167,7 @@ export function TranscriptionPanel({
       )}
       {error && (
         <p role="alert" className="field-error">
-          {error}
+          {t(error)}
           <button
             disabled={active || !modelReady}
             onClick={() => void transcribe()}
@@ -231,6 +231,7 @@ export function TranscriptionPanel({
               "Recognition can make mistakes. Listen and correct important names.",
             )}
           </p>}
+          {opened && <p className="muted">{t("Up to six hours per source. Transcription tasks run one at a time.")}</p>}
           {opened && <div className="vocabulary-settings"><label>
             {t("Names and vocabulary")}
             <textarea

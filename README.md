@@ -2,7 +2,7 @@
 
 Build a rough cut by choosing the words you want to keep from your own videos.
 
-[简体中文](README.zh-CN.md) · [Contributing](CONTRIBUTING.md) · [Verification](docs/verification/benchmarks.md)
+[简体中文](README.zh-CN.md) · [Contributing](CONTRIBUTING.md) · [Local data](docs/local-data.md) · [Verification](docs/verification/benchmarks.md)
 
 ClipDeck is a local desktop editor for interviews, lessons and spoken recordings. Import several videos, read their transcripts, select passages, arrange them into one story, check the assembled preview, and export an MP4. Files and transcription stay on your computer after explicit model setup.
 
@@ -24,6 +24,7 @@ The core is multi-source speech editing rather than a traditional effects timeli
 - Landscape 16:9, portrait 9:16 and square output. The whole source image fits inside the selected frame; padding preserves its edges. Output is H.264/AAC, 30 fps, 48 kHz stereo.
 - Compatible originals can be tried immediately; media that the browser cannot decode uses a normalized preview. Export always processes the original source.
 - Choose Small (486 MB) or the optional Large v3 turbo (1.62 GB) model explicitly. Vocabulary hints and anchored text corrections help check recognition while retaining source timing. Names, accents and specialist vocabulary still need review; there is no claimed word-error benchmark. See [models and correction evidence](docs/asr-models.md).
+- Local transcription supports individual sources up to six hours. Jobs run one transcription at a time, decode with an explicit size ceiling, and read five-minute audio windows. Overlap timing remains marked for review; split longer sources before requesting transcription.
 - Full-source preview and the assembled output are limited to six hours. Longer sources can still be imported and edited, with shorter selections exported; split the source if you need full-source playback. Preview cache: eight owned artifacts and 4 GiB; assembly staging: 16 GiB. Text editing remains available when preview is unavailable.
 - No cloud account, automatic highlight scoring, subtitles, effects, collaboration or professional project-format export in this first release.
 

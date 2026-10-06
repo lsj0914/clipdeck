@@ -12,7 +12,10 @@ import { pathToFileURL } from "node:url";
 import { createDispatcher } from "./ipc";
 import { WorkspaceService } from "./services/workspace";
 import { resolveRuntime } from "./services/runtime";
-import { IPC_REQUEST, IPC_SNAPSHOT } from "../shared/contracts";
+import { CloseCoordinator } from "./services/close";
+import { RendererCloseBridge } from "./renderer-close";
+import { publicErrorMessage } from "./errors";
+import { IPC_REQUEST, IPC_SNAPSHOT, IPC_CLOSE_REQUEST, IPC_CLOSE_RESPONSE } from "../shared/contracts";
 protocol.registerSchemesAsPrivileged([
   {
     scheme: "clipdeck-media",
@@ -37,6 +40,7 @@ app.on("second-instance", () => {
 });
 let workspace: WorkspaceService | null = null;
 let ownerWebContentsId: number | null = null;
+let quitAllowed = false;
 export function getWorkspace(): WorkspaceService {
   if (!workspace) throw new Error("Desktop workspace has not initialized");
   return workspace;
@@ -47,7 +51,7 @@ const rendererResourcePrefix = pathToFileURL(
   path.join(__dirname, "../renderer/"),
 ).href;
 export function isTrustedSender(
-  event: Electron.IpcMainInvokeEvent,
+  event: Electron.IpcMainInvokeEvent | Electron.IpcMainEvent,
   window: BrowserWindow,
 ): boolean {
   return (
@@ -149,14 +153,94 @@ export function createDesktopWindow(): BrowserWindow {
     },
   });
   const activeWorkspace = workspace;
+  let locale: "en" | "zh" = app.getLocale().startsWith("zh") ? "zh" : "en";
+  const translated = (en: string, zh: string) => locale === "zh" ? zh : en;
+  const closeBridge = new RendererCloseBridge((action, token) => {
+    if (window.isDestroyed()) throw new Error("The editor is unavailable.");
+    window.webContents.send(IPC_CLOSE_REQUEST, action, token);
+  });
+  const acknowledgeClose = (event: Electron.IpcMainEvent, token: unknown, result: unknown) => {
+    if (isTrustedSender(event, window)) closeBridge.receive(token, result);
+  };
+  ipcMain.on(IPC_CLOSE_RESPONSE, acknowledgeClose);
+  const closer = new CloseCoordinator({
+    prepare: async (mode) => {
+      const result = await closeBridge.prepare(mode);
+      locale = result.locale;
+      if (result.ready) activeWorkspace.beginClose();
+      return result;
+    },
+    confirmDiscard: async (error) => {
+      const result = await dialog.showMessageBox(window, {
+        type: "warning",
+        message: translated("Unapplied edits need attention", "未应用的编辑需要处理"),
+        detail: error,
+        buttons: [translated("Keep editing", "继续编辑"), translated("Discard unapplied edits", "放弃未应用的编辑")],
+        defaultId: 0, cancelId: 0,
+      });
+      return result.response === 1;
+    },
+    hasRunningJobs: () => activeWorkspace.hasRunningWork(),
+    confirmCancelJobs: async () => {
+      const result = await dialog.showMessageBox(window, {
+        type: "question", message: translated("Tasks are still running", "还有任务正在处理"),
+        detail: translated("Keep ClipDeck open to finish them, or cancel the unfinished tasks before closing. Original videos are kept.", "可继续等待完成，或取消未完成的任务后关闭。原视频会保留。"),
+        buttons: [translated("Keep working", "继续处理"), translated("Cancel tasks and close", "取消任务并关闭")],
+        defaultId: 0, cancelId: 0,
+      });
+      return result.response === 1;
+    },
+    cancelJobs: () => activeWorkspace.cancelWork(),
+    hasUnsavedChanges: () => {
+      const p = activeWorkspace.project, s = activeWorkspace.snapshot().save;
+      const untouched = p.revision === 0 && p.name === "Untitled project" && !p.assets.length && !p.cuts.length && !p.transcripts.length && p.savedAt === null && !s.recovered;
+      return !!s.error || (!untouched && s.dirty);
+    },
+    chooseSave: async () => {
+      const result = await dialog.showMessageBox(window, {
+        type: "question", message: translated("Save this project before closing?", "关闭前保存项目吗？"),
+        detail: translated("Save a project file, or keep a local recovery draft for the next launch. Project files reference original media; keep those videos too.", "可保存项目文件，也可保留本地恢复草稿供下次继续。项目文件引用原素材，请同时保管原视频。"),
+        buttons: [translated("Save project", "保存项目"), translated("Keep local draft and close", "保留本地草稿并关闭"), translated("Cancel", "取消")],
+        defaultId: 0, cancelId: 2,
+      });
+      return result.response === 0 ? "save" : result.response === 1 ? "recovery" : "cancel";
+    },
+    save: async () => {
+      const saved = await activeWorkspace.saveProject();
+      return !saved.save.dirty && !saved.save.error && !!saved.save.displayName;
+    },
+    preserveRecovery: () => activeWorkspace.close(),
+    reportFailure: async (error) => {
+      await dialog.showMessageBox(window, {
+        type: "error", message: translated("ClipDeck could not safely close", "暂时无法安全关闭 ClipDeck"),
+        detail: translated("Your window will stay open. ", "窗口将保持打开。") + publicErrorMessage(error),
+        buttons: [translated("Back to editing", "返回编辑")],
+      });
+    },
+    resume: () => { activeWorkspace.resumeAfterClose(); closeBridge.resume(); },
+  });
+  let closeAllowed = false;
+  window.on("close", (event) => {
+    if (closeAllowed) return;
+    event.preventDefault();
+    void closer.request().then((allowed) => {
+      if (!allowed || window.isDestroyed()) return;
+      closeAllowed = true;
+      quitAllowed = true;
+      window.close();
+    });
+  });
   const dispatch = createDispatcher(activeWorkspace.services());
   ipcMain.removeHandler(IPC_REQUEST);
   ipcMain.handle(IPC_REQUEST, (event, input) =>
     dispatch(input, isTrustedSender(event, window)),
   );
   window.on("closed", () => {
+    closeBridge.dispose();
+    ipcMain.removeListener(IPC_CLOSE_RESPONSE, acknowledgeClose);
     ipcMain.removeHandler(IPC_REQUEST);
-    void activeWorkspace.close().catch(() => {});
+    if (workspace === activeWorkspace) workspace = null;
+    ownerWebContentsId = null;
   });
   void activeWorkspace.initialize().then(() => window.loadFile(rendererPath));
   return window;
@@ -189,12 +273,10 @@ app.whenReady().then(() => {
     if (BrowserWindow.getAllWindows().length === 0) createDesktopWindow();
   });
 });
-let quitting = false;
 app.on("before-quit", (event) => {
-  if (workspace && !quitting) {
+  if (!quitAllowed && workspace) {
     event.preventDefault();
-    quitting = true;
-    void workspace.close().finally(() => app.quit());
+    BrowserWindow.getAllWindows()[0]?.close();
   }
 });
 app.on("window-all-closed", () => app.quit());

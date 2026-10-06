@@ -1,11 +1,12 @@
-import { it, expect, beforeEach, afterEach } from "vitest";
-import { mkdtemp, rm, writeFile, copyFile, readFile } from "node:fs/promises";
+import { it, expect, beforeEach, afterEach, vi } from "vitest";
+import { mkdtemp, rm, writeFile, copyFile, readFile, mkdir, symlink, stat, realpath } from "node:fs/promises";
 import path from "node:path";
 import { tmpdir } from "node:os";
 import { promisify } from "node:util";
 import { execFile } from "node:child_process";
 import { WorkspaceService } from "../../src/main/services/workspace";
 import { validateProject, serializeProject } from "../../src/domain/project";
+import { asset as admissionAsset } from "../domain/fixtures";
 let dir: string;
 const run = promisify(execFile);
 const runtime = {
@@ -18,7 +19,117 @@ beforeEach(async () => {
   dir = await mkdtemp(path.join(tmpdir(), "clipdeck-workspace-"));
 });
 afterEach(async () => {
+  vi.restoreAllMocks();
   await rm(dir, { recursive: true, force: true });
+});
+it("startup removes abandoned owned audio/model partials while preserving originals, projects and ready models", async () => {
+  const dataRoot = path.join(dir, "data"), job = path.join(dataRoot, "jobs/transcription-Ab12Cd"),
+    modelRoot = path.join(dataRoot, "models"), token = "12345678-1234-1234-1234-123456789abc",
+    partial = path.join(modelRoot, `faster-whisper-small-536b066.partial-${token}`),
+    ready = path.join(modelRoot, "faster-whisper-small-536b066"),
+    outside = path.join(dir, "originals"), notes = path.join(dataRoot, "jobs/manual-notes");
+  for (const folder of [job, partial, ready, outside, notes]) await mkdir(folder, { recursive: true });
+  await writeFile(path.join(job, "audio.wav"), "neutral abandoned PCM");
+  await writeFile(path.join(partial, "model.bin"), "incomplete download");
+  await writeFile(path.join(ready, "model.bin"), "ready cache sentinel");
+  await writeFile(path.join(outside, "original.mp4"), "original sentinel");
+  await writeFile(path.join(notes, "notes.txt"), "user notes sentinel");
+  await symlink(outside, path.join(dataRoot, "jobs/transcription-LiNk12"));
+  const prepared = path.join(dataRoot, `model-settings.json.prepared-${token}`);
+  await writeFile(prepared, "uncommitted settings");
+  await writeFile(path.join(dataRoot, "saved.clipdeck"), "saved project sentinel");
+  const workspace = new WorkspaceService({
+    runtime: { ffmpeg: "/unavailable/ffmpeg", ffprobe: "/unavailable/ffprobe", python: "/unavailable/python", worker: "/unavailable/worker" },
+    dataRoot, notify: () => {},
+    dialogs: { media: async () => [], open: async () => null, save: async () => null, relink: async () => null, model: async () => null },
+  });
+  await workspace.initialize();
+  for (const owned of [job, partial, prepared]) await expect(stat(owned)).rejects.toMatchObject({ code: "ENOENT" });
+  expect(await readFile(path.join(ready, "model.bin"), "utf8")).toBe("ready cache sentinel");
+  expect(await readFile(path.join(outside, "original.mp4"), "utf8")).toBe("original sentinel");
+  expect(await readFile(path.join(notes, "notes.txt"), "utf8")).toBe("user notes sentinel");
+  expect(await readFile(path.join(dataRoot, "saved.clipdeck"), "utf8")).toBe("saved project sentinel");
+});
+it("close cancels an admitted transcription preflight before it can register a late job", async () => {
+  const workspace = new WorkspaceService({ runtime, dataRoot: path.join(dir, "data"), notify: () => {},
+    dialogs: { media: async () => [], open: async () => null, save: async () => null, relink: async () => null, model: async () => null } });
+  await workspace.initialize();
+  workspace.project.assets = [{ ...admissionAsset }];
+  vi.spyOn(workspace.media, "verifyAssetIdentity").mockResolvedValue(undefined);
+  let release!: () => void, entered!: () => void;
+  const gate = new Promise<void>((r) => (release = r)), waiting = new Promise<void>((r) => (entered = r));
+  vi.spyOn(workspace.models, "verify").mockImplementation(async () => {
+    entered(); await gate;
+    return { id: "fixture", digest: "fixture", directory: dir, choice: "small" };
+  });
+  const starting = workspace.transcribe(admissionAsset.id, "en");
+  await waiting;
+  const outcome = starting.then((accepted) => ({ accepted, error: undefined }), (error) => ({ accepted: undefined, error }));
+  const closing = workspace.close();
+  release();
+  try {
+    await closing;
+    expect((await outcome).error?.message).toMatch(/cancel/i);
+    expect(workspace.jobs.list()).toEqual([]);
+    await expect(workspace.transcribe(admissionAsset.id, "en")).rejects.toThrow(/closing/i);
+  } finally { await workspace.jobs.cancelAll(); }
+});
+it("a failed durable close reopens transcription admission for retry", async () => {
+  const workspace = new WorkspaceService({ runtime, dataRoot: path.join(dir, "data"), notify: () => {},
+    dialogs: { media: async () => [], open: async () => null, save: async () => null, relink: async () => null, model: async () => null } });
+  await workspace.initialize();
+  workspace.project.assets = [{ ...admissionAsset }];
+  vi.spyOn(workspace.media, "verifyAssetIdentity").mockResolvedValue(undefined);
+  vi.spyOn(workspace.models, "verify").mockResolvedValue({ id: "fixture", digest: "fixture", directory: dir, choice: "small" });
+  vi.spyOn(workspace.store, "autosave").mockRejectedValueOnce(new Error("unavailable storage"));
+  await expect(workspace.close()).rejects.toThrow(/recovery/i);
+  const id = await workspace.transcribe(admissionAsset.id, "en");
+  expect(workspace.jobs.list().some((job) => job.id === id)).toBe(true);
+  await workspace.jobs.cancel(id);
+});
+it("close settles an already-admitted source preview before its late job can run", async () => {
+  const source = path.join(dir, "late-preview.mp4");
+  await run(runtime.ffmpeg, ["-v", "error", "-f", "lavfi", "-i", "color=c=blue:s=64x48:r=30:d=1", "-c:v", "libx264", source]);
+  const workspace = new WorkspaceService({ runtime, dataRoot: path.join(dir, "data"), notify: () => {},
+    dialogs: { media: async () => [source], open: async () => null, save: async () => null, relink: async () => null, model: async () => null } });
+  await workspace.initialize();
+  const asset = (await workspace.importMedia()).project.assets[0]!;
+  let release!: () => void, entered!: () => void;
+  const gate = new Promise<void>((r) => (release = r)), waiting = new Promise<void>((r) => (entered = r));
+  const original = (workspace.rendering as any).target.bind(workspace.rendering);
+  vi.spyOn(workspace.rendering as any, "target").mockImplementation(async (...args) => {
+    const target = await original(...args); entered(); await gate; return target;
+  });
+  const starting = workspace.prepareSourcePreview(asset.id);
+  const outcome = starting.then((id) => ({ id, error: undefined }), (error) => ({ id: undefined, error }));
+  await waiting;
+  const closing = workspace.close();
+  release();
+  try {
+    await closing;
+    expect((await outcome).error?.message).toMatch(/cancel/i);
+    expect(workspace.jobs.list().every((job) => job.status === "cancelled")).toBe(true);
+  } finally { await workspace.jobs.cancelAll(); }
+});
+it("queued transcription cancellation releases its source for an immediate retry", async () => {
+  const workspace = new WorkspaceService({ runtime, dataRoot: path.join(dir, "data"), notify: () => {},
+    dialogs: { media: async () => [], open: async () => null, save: async () => null, relink: async () => null, model: async () => null } });
+  await workspace.initialize();
+  workspace.project.assets = [{ ...admissionAsset }];
+  vi.spyOn(workspace.media, "verifyAssetIdentity").mockResolvedValue(undefined);
+  vi.spyOn(workspace.models, "verify").mockResolvedValue({ id: "fixture", digest: "fixture", directory: dir, choice: "small" });
+  for (let i = 0; i < 2; i++) workspace.jobs.start("preview", {}, async (ctx) => {
+    await new Promise<void>((resolve) => ctx.signal.addEventListener("abort", () => resolve(), { once: true }));
+  });
+  await new Promise<void>((resolve) => setImmediate(resolve));
+  try {
+    const first = await workspace.transcribe(admissionAsset.id, "en");
+    expect(workspace.jobs.list().find((job) => job.id === first)?.status).toBe("queued");
+    await workspace.cancelJob(first);
+    const retry = await workspace.transcribe(admissionAsset.id, "en");
+    expect(retry).not.toBe(first);
+    expect(workspace.jobs.list().find((job) => job.id === retry)?.status).toBe("queued");
+  } finally { await workspace.jobs.cancelAll(); }
 });
 it("rejects cumulative oversized correction before publishing or overwriting valid saved and recovery bytes", async () => {
   const source = path.join(dir, "correction.mp4"),
@@ -178,6 +289,64 @@ it("real import, edit, native save target, and reopen retain source identity wit
   expect(reopened.project.assets[0]?.status).toBe("ready");
   expect(reopened.save.dirty).toBe(false);
   expect(JSON.stringify(reopened)).not.toContain(dir);
+});
+it("rejected native relink preserves source authority and a saveable missing-source project", async () => {
+  const source = path.join(dir, "actual-one-second.mp4"), projectFile = path.join(dir, "missing.clipdeck"),
+    savedFile = path.join(dir, "preserved.clipdeck");
+  await run(runtime.ffmpeg, ["-v", "error", "-f", "lavfi", "-i", "color=c=red:s=64x48:r=30:d=1", "-c:v", "libx264", source]);
+  const workspace = new WorkspaceService({ runtime, dataRoot: path.join(dir, "data"), notify: () => {},
+    dialogs: { media: async () => [], open: async () => projectFile, save: async () => savedFile,
+      relink: async () => source, model: async () => null } });
+  await workspace.initialize();
+  const actual = await workspace.media.probeAsset(source);
+  const missing = { ...actual, fileRef: "missing-source.mp4", durationMs: 5000, status: "missing" as const };
+  const project = { ...workspace.project, assets: [missing],
+    cuts: [{ id: "outside-actual", assetId: actual.id, fingerprint: actual.fingerprint, transcriptRevision: null,
+      startMs: 2000, endMs: 3000, wordIds: [], text: "Existing selection", note: "", needsReview: false }],
+    cutOrder: ["outside-actual"] };
+  await writeFile(projectFile, JSON.stringify(serializeProject(project)));
+  await workspace.openProject();
+  const before = structuredClone(workspace.project);
+  expect(workspace.sources.ids()).toEqual([]);
+  await expect(workspace.relinkMedia(actual.id)).rejects.toThrow("Invalid source interval");
+  expect(workspace.sources.ids()).toEqual([]);
+  expect(workspace.project).toEqual(before);
+  expect(workspace.store.currentPath).toBe(await realpath(projectFile));
+  await workspace.saveProject(true);
+  const saved = JSON.parse(await readFile(savedFile, "utf8"));
+  expect(saved.assets[0]).toMatchObject({ fileRef: "missing-source.mp4", durationMs: 5000, status: "missing" });
+  const reopened = await workspace.store.open(savedFile);
+  expect(reopened.assets[0]?.status).toBe("missing");
+  expect(reopened.cuts[0]).toMatchObject({ startMs: 2000, endMs: 3000 });
+});
+it("reopening the same project supersedes a pending native relink without granting its source", async () => {
+  const source = path.join(dir, "actual-one-second.mp4"), projectFile = path.join(dir, "missing.clipdeck");
+  await run(runtime.ffmpeg, ["-v", "error", "-f", "lavfi", "-i", "color=c=red:s=64x48:r=30:d=1", "-c:v", "libx264", source]);
+  const workspace = new WorkspaceService({ runtime, dataRoot: path.join(dir, "data"), notify: () => {},
+    dialogs: { media: async () => [], open: async () => projectFile, save: async () => null,
+      relink: async () => source, model: async () => null } });
+  await workspace.initialize();
+  const actual = await workspace.media.probeAsset(source);
+  await writeFile(projectFile, JSON.stringify(serializeProject({ ...workspace.project,
+    assets: [{ ...actual, fileRef: "missing-source.mp4", status: "missing" as const }] })));
+  await workspace.openProject();
+  const prepare = workspace.media.prepareRelink.bind(workspace.media);
+  let entered!: () => void, release!: () => void;
+  const waiting = new Promise<void>((resolve) => { entered = resolve; }), gate = new Promise<void>((resolve) => { release = resolve; });
+  vi.spyOn(workspace.media, "prepareRelink").mockImplementation(async (asset, file) => {
+    const inspected = await prepare(asset, file); entered(); await gate; return inspected;
+  });
+  const relinking = workspace.relinkMedia(actual.id);
+  await waiting;
+  try {
+    await workspace.openProject();
+    const before = structuredClone(workspace.project);
+    release();
+    await expect(relinking).rejects.toThrow("Project changed during relink");
+    expect(workspace.sources.ids()).toEqual([]);
+    expect(workspace.project).toEqual(before);
+    expect(workspace.store.currentPath).toBe(await realpath(projectFile));
+  } finally { release(); await relinking.catch(() => {}); }
 });
 it("equal-duration relink invalidates transcripts and marks dependent cuts for review without changing expected metadata", async () => {
   const a = path.join(dir, "a.mp4"),
@@ -492,15 +661,12 @@ it("a pending verification of an old path cannot revoke a newly authorized same-
       throw error;
     }
   };
-  const relink = workspace.media.relink.bind(workspace.media);
-  let registered!: () => void, resumeRelink!: () => void;
-  const linked = new Promise<void>((r) => (registered = r)),
-    relinkGate = new Promise<void>((r) => (resumeRelink = r));
-  workspace.media.relink = async (selected, file) => {
-    const value = await relink(selected, file);
-    registered();
-    await relinkGate;
-    return value;
+  const prepare = workspace.media.prepareRelink.bind(workspace.media);
+  let registered!: () => void;
+  const linked = new Promise<void>((r) => (registered = r));
+  workspace.media.prepareRelink = async (selected, file) => {
+    const value = await prepare(selected, file);
+    return { ...value, approve: () => { value.approve(); registered(); } };
   };
   const refresh = workspace.refreshSources();
   await checked;
@@ -511,7 +677,6 @@ it("a pending verification of an old path cannot revoke a newly authorized same-
   expect(workspace.sources.resolve(asset.id)).toBe(
     await (await import("node:fs/promises")).realpath(b),
   );
-  resumeRelink();
   await relinking;
   expect(workspace.snapshot().project.assets[0]?.status).toBe("ready");
 });

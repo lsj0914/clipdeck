@@ -171,6 +171,7 @@ export interface TranscriptionDraft {
   segments: TranscriptSegment[];
 }
 export interface WorkspaceSnapshot {
+  cleanupWarnings?: string[];
   importFailures?: Array<{ name: string; message: string }>;
   transcriptionDrafts?: Record<string, TranscriptionDraft>;
   project: Omit<ProjectData, "assets"> & { assets: SafeAsset[] };
@@ -190,6 +191,13 @@ export interface WorkspaceSnapshot {
     rendering: boolean;
     persistence: boolean;
   };
+}
+export type CloseAction = "apply" | "discard" | "resume";
+export interface ClosePreparation {
+  ready: boolean;
+  locale: "en" | "zh";
+  canDiscard?: boolean;
+  error?: string;
 }
 export interface ClipDeckAPI {
   getSnapshot(): Promise<WorkspaceSnapshot>;
@@ -212,8 +220,9 @@ export interface ClipDeckAPI {
   downloadModel(choice?: ModelChoice): Promise<string>;
   revealExport(jobId: string): Promise<void>;
   subscribe(listener: (snapshot: WorkspaceSnapshot) => void): () => void;
+  onCloseRequested(listener: (action: CloseAction) => Promise<ClosePreparation>): () => void;
 }
-export type IpcMethod = Exclude<keyof ClipDeckAPI, "subscribe">;
+export type IpcMethod = Exclude<keyof ClipDeckAPI, "subscribe" | "onCloseRequested">;
 export interface IpcRequest {
   method: IpcMethod;
   args: unknown[];
@@ -226,6 +235,8 @@ export type IpcResponse =
   { ok: true; value: unknown } | { ok: false; error: ServiceError };
 export const IPC_REQUEST = "clipdeck:request";
 export const IPC_SNAPSHOT = "clipdeck:snapshot";
+export const IPC_CLOSE_REQUEST = "clipdeck:close-request";
+export const IPC_CLOSE_RESPONSE = "clipdeck:close-response";
 declare global {
   interface Window {
     clipdeck: ClipDeckAPI;

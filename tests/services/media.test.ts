@@ -1,16 +1,18 @@
 import { beforeAll, afterAll, describe, it, expect } from "vitest";
-import { mkdtemp, writeFile, copyFile, rm } from "node:fs/promises";
+import { mkdtemp, writeFile, copyFile, rm, mkdir, symlink, realpath } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import { MediaService, SourceRegistry } from "../../src/main/services/media";
+import { MediaService, SourceRegistry, fingerprintFile } from "../../src/main/services/media";
+import { ProjectStore } from "../../src/main/services/storage";
+import { createProject, serializeProject } from "../../src/domain/project";
 const run = promisify(execFile);
 const ffmpeg = path.resolve(".runtime/bin/ffmpeg");
 const ffprobe = path.resolve(".runtime/bin/ffprobe");
 let dir: string, a: string, b: string;
 beforeAll(async () => {
-  dir = await mkdtemp(path.join(tmpdir(), "clipdeck-media-"));
+  dir = await realpath(await mkdtemp(path.join(tmpdir(), "clipdeck-media-")));
   a = path.join(dir, "中文 interview with spaces.mp4");
   b = path.join(dir, "replacement.mp4");
   for (const [target, color] of [
@@ -64,6 +66,50 @@ describe("real source probing and identities", () => {
     const media = new MediaService(ffprobe, registry);
     await expect(media.probeAsset(bad)).rejects.toThrow();
     expect(registry.ids()).toEqual([]);
+  });
+  it("rejects a concat manifest disguised as MP4 before approving its external dependency", async () => {
+    const projectDir = path.join(dir, "manifest-project");
+    await mkdir(projectDir);
+    await symlink(a, path.join(projectDir, "linked.mp4"));
+    const disguised = path.join(projectDir, "recording.mp4");
+    await writeFile(disguised, "ffconcat version 1.0\nfile 'linked.mp4'\nduration 1.0\n");
+    const registry = new SourceRegistry();
+    const media = new MediaService(ffprobe, registry);
+    await expect(media.probeAsset(disguised)).rejects.toThrow(/self-contained video/i);
+    expect(registry.ids()).toEqual([]);
+  });
+  it("relinks matching bytes using probed metadata rather than project-supplied media parameters", async () => {
+    const media = new MediaService(ffprobe, new SourceRegistry());
+    const asset = await media.probeAsset(a);
+    const untrusted = { ...asset, durationMs: 5000, width: 320, height: 180,
+      hasAudio: false, rotation: 90, fps: 15, sampleAspectRatio: 2 };
+    const restored = await media.relink(untrusted, a);
+    expect(restored).toMatchObject({ id: asset.id, name: asset.name, fileRef: asset.fileRef,
+      status: "ready", fingerprint: asset.fingerprint, durationMs: 1000, width: 64, height: 48,
+      hasAudio: true, rotation: 0, fps: 30, sampleAspectRatio: 1 });
+    await expect(media.verifyAssetIdentity(restored)).resolves.toBeUndefined();
+    expect(media.approvedOriginal(restored)).not.toBeNull();
+  });
+  it("keeps the current project's authorized sources when probed bounds invalidate an incoming project", async () => {
+    const registry = new SourceRegistry();
+    const media = new MediaService(ffprobe, registry);
+    const oldAsset = await media.probeAsset(b);
+    const store = new ProjectStore(path.join(dir, "recovery.json"), registry, media);
+    const oldPath = path.join(dir, "current.clipdeck");
+    await store.save({ ...createProject(), assets: [oldAsset] }, oldPath);
+    const incomingAsset = { ...oldAsset, id: "incoming-asset", fileRef: path.basename(a),
+      fingerprint: await fingerprintFile(a), durationMs: 5000 };
+    const incoming = { ...createProject(), assets: [incomingAsset],
+      cuts: [{ id: "incoming-cut", assetId: incomingAsset.id, fingerprint: incomingAsset.fingerprint,
+        transcriptRevision: null, wordIds: [], startMs: 2000, endMs: 3000,
+        text: "Outside real duration", note: "", needsReview: false }], cutOrder: ["incoming-cut"] };
+    const incomingPath = path.join(dir, "invalid-metadata.clipdeck");
+    await writeFile(incomingPath, JSON.stringify(serializeProject(incoming)));
+    await expect(store.open(incomingPath)).rejects.toThrow(/Invalid source interval/);
+    expect(store.currentPath).toBe(oldPath);
+    expect(registry.ids()).toEqual([oldAsset.id]);
+    expect(registry.resolve(oldAsset.id)).toBe(b);
+    await expect(media.verifyAssetIdentity(oldAsset)).resolves.toBeUndefined();
   });
   it("same bytes relink as ready but equal-duration different bytes preserve expected identity and invalidate", async () => {
     const registry = new SourceRegistry();

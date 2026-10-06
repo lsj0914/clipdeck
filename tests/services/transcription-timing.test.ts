@@ -17,6 +17,17 @@ const transport = vi.hoisted(() => ({ packets: [] as unknown[], punctuation: [] 
 vi.mock("../../src/main/services/process", async importOriginal => ({
   ...(await importOriginal<typeof import("../../src/main/services/process")>()),
   runProcess: vi.fn(async (_file: string, _args: string[], options: ProcessOptions) => {
+    if (options.onStdoutBytes) {
+      // Neutral external decoder packet: a standard mono16k/s16 RIFF file.
+      const wav = Buffer.alloc(48);
+      wav.write("RIFF", 0); wav.writeUInt32LE(40, 4); wav.write("WAVEfmt ", 8);
+      wav.writeUInt32LE(16, 16); wav.writeUInt16LE(1, 20); wav.writeUInt16LE(1, 22);
+      wav.writeUInt32LE(16000, 24); wav.writeUInt32LE(32000, 28);
+      wav.writeUInt16LE(2, 32); wav.writeUInt16LE(16, 34);
+      wav.write("data", 36); wav.writeUInt32LE(4, 40);
+      options.onStdoutBytes(wav);
+      return { stdout: "", stderr: "" };
+    }
     const punctuate = options.input && JSON.parse(options.input).mode === "punctuate";
     if (options?.onStdout) for (const packet of punctuate ? transport.punctuation : transport.packets) options.onStdout(JSON.stringify(packet) + "\n");
     if (punctuate && transport.punctuation.some(packet => packet.type === "error"))

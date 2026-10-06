@@ -26,6 +26,7 @@ export class JobManager {
   private entries = new Map<string, Entry>();
   private heavyRunning = 0;
   private downloadRunning = 0;
+  private transcriptionRunning = 0;
   private pumpPending = false;
   constructor(readonly notify: () => void) {}
   list(): Job[] {
@@ -90,10 +91,13 @@ export class JobManager {
     for (const entry of this.entries.values()) {
       if (entry.job.status !== "queued") continue;
       const download = entry.job.kind === "modelDownload";
+      if (entry.job.kind === "transcription" && this.transcriptionRunning >= 1)
+        continue;
       if (download ? this.downloadRunning >= 1 : this.heavyRunning >= 2)
         continue;
       if (download) this.downloadRunning++;
       else this.heavyRunning++;
+      if (entry.job.kind === "transcription") this.transcriptionRunning++;
       entry.started = true;
       void this.execute(entry, download);
     }
@@ -153,6 +157,7 @@ export class JobManager {
       entry.started = false;
       if (download) this.downloadRunning--;
       else this.heavyRunning--;
+      if (job.kind === "transcription") this.transcriptionRunning--;
       entry.finish();
       this.notify();
       this.schedule();
@@ -183,6 +188,10 @@ export class JobManager {
     await entry.done;
   }
   async cancelAll(): Promise<void> {
-    await Promise.all([...this.entries.keys()].map((id) => this.cancel(id)));
+    const entries = [...this.entries.values()];
+    await Promise.all(entries.map((entry) => this.cancel(entry.job.id)));
+    // Published results stay completed, but their task can still be cleaning
+    // staging and releasing reservations. Shutdown must await that work too.
+    await Promise.all(entries.map((entry) => entry.done));
   }
 }

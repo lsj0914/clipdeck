@@ -413,7 +413,7 @@ export function JobList({
                 {t(job.status)}
               </span>
             </div>
-            <p>{job.error ?? job.stage}</p>
+            <p>{t(job.error ?? job.stage)}</p>
             {["queued", "running", "cancelling"].includes(job.status) && (
               <>
                 <progress

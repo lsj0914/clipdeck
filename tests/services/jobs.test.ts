@@ -76,6 +76,22 @@ it("only two heavy jobs run; cancelling third queued job prevents all task side 
   expect(starts).toBe(2);
   expect(jobs.list().find((j) => j.id === third)?.status).toBe("cancelled");
 });
+it("transcriptions run one at a time while a render can use the second heavy slot", async () => {
+  const jobs = new JobManager(() => {});
+  let release!: () => void;
+  const gate = new Promise<void>((r) => (release = r));
+  const starts: string[] = [];
+  const first = jobs.start("transcription", {}, async () => { starts.push("first"); await gate; });
+  const second = jobs.start("transcription", {}, async () => { starts.push("second"); });
+  const rendering = jobs.start("export", {}, async () => { starts.push("render"); });
+  await new Promise((r) => setImmediate(r));
+  try {
+    expect(starts).toEqual(["first", "render"]);
+    expect(jobs.list().find((j) => j.id === second)?.status).toBe("queued");
+    await jobs.cancel(second);
+  } finally { release(); await Promise.all([jobs.wait(first), jobs.wait(second), jobs.wait(rendering)]); }
+  expect(starts).toEqual(["first", "render"]);
+});
 it("an atomic commit boundary makes late cancellation completed rather than cancelled", async () => {
   const jobs = new JobManager(() => {});
   let committed = false;
@@ -92,6 +108,37 @@ it("an atomic commit boundary makes late cancellation completed rather than canc
   release();
   await jobs.wait(id);
   expect(committed).toBe(true);
+  expect(jobs.list()[0]?.status).toBe("completed");
+});
+it("bulk shutdown waits for post-commit cleanup without cancelling the published output", async () => {
+  const jobs = new JobManager(() => {});
+  let release!: () => void;
+  const cleanupGate = new Promise<void>((resolve) => { release = resolve; });
+  let cleanupFinished = false;
+  let aborted = false;
+  const id = jobs.start("export", {}, async (ctx) => {
+    ctx.signal.addEventListener("abort", () => { aborted = true; });
+    ctx.commit(() => {});
+    await cleanupGate;
+    cleanupFinished = true;
+  });
+  await new Promise((resolve) => setImmediate(resolve));
+  expect(jobs.list()[0]?.status).toBe("completed");
+  let shutdownFinished = false;
+  const shutdown = jobs.cancelAll().then(() => { shutdownFinished = true; });
+  try {
+    await new Promise((resolve) => setImmediate(resolve));
+    expect(shutdownFinished).toBe(false);
+    expect(cleanupFinished).toBe(false);
+    expect(aborted).toBe(false);
+    expect(jobs.list()[0]?.cancelRequested).toBe(false);
+  } finally {
+    release();
+    await shutdown;
+    await jobs.wait(id);
+  }
+  expect(cleanupFinished).toBe(true);
+  expect(shutdownFinished).toBe(true);
   expect(jobs.list()[0]?.status).toBe("completed");
 });
 it("asynchronous filesystem failures use the same public path-safe error as IPC", async () => {

@@ -18,6 +18,9 @@ import { JobManager } from "./jobs";
 import { offlineWorkerCommand, runProcess } from "./process";
 import { groupSentences } from "./sentences";
 import { PUNCTUATION_MODEL, restorePunctuation } from "./punctuation";
+import { decodeTranscriptionAudio } from "./audio";
+import { transcriptionPcmBytes } from "../../shared/capacity";
+import { mediaDiskReservations } from "./capacity";
 export interface TranscriptionOptions {
   ffmpeg: string;
   python: string;
@@ -46,9 +49,43 @@ export async function checkWorker(
   if (event.type !== "ready")
     throw new Error(event.message ?? "Worker runtime failed preflight");
 }
+async function checkVocabulary(
+  options: TranscriptionOptions,
+  directory: string,
+  language: Language,
+  vocabulary: string,
+  signal: AbortSignal,
+): Promise<void> {
+  const command = offlineWorkerCommand(options.python, options.worker);
+  let packet = "";
+  await runProcess(command.executable, command.argv, {
+    signal,
+    env: command.env,
+    input: JSON.stringify({ mode: "validate-options", modelDirectory: directory, language, vocabulary }) + "\n",
+    onStdout: (chunk) => {
+      packet += chunk;
+      if (Buffer.byteLength(packet) > 16384)
+        throw new Error("Vocabulary validation output limit exceeded");
+      if (packet.includes("\n")) {
+        const event = record(JSON.parse(packet.trim()), ["type", "message", "errorType"]);
+        if (event.type === "error") throw new Error(text(event.message, 10000));
+      }
+    },
+  });
+  const event = record(JSON.parse(packet.trim()), ["type"]);
+  if (event.type !== "options-validated")
+    throw new Error("Invalid vocabulary validation response");
+}
 export class TranscriptionService {
   private active = new Set<string>();
+  private preparing = new Map<string, { controller: AbortController; done: Promise<void>; finish: () => void }>();
   constructor(readonly options: TranscriptionOptions) {}
+  get hasPendingStarts(): boolean { return this.preparing.size > 0; }
+  async cancelPendingStarts(): Promise<void> {
+    const pending = [...this.preparing.values()];
+    for (const request of pending) request.controller.abort();
+    await Promise.all(pending.map((request) => request.done));
+  }
   async start(
     assetId: string,
     language: Language,
@@ -60,18 +97,27 @@ export class TranscriptionService {
     const initial = o.getProject();
     const asset = initial.assets.find((a) => a.id === assetId);
     if (!asset) throw new Error("Unknown source");
+    const pcmBytes = transcriptionPcmBytes(asset.durationMs);
     if (!asset.hasAudio)
       throw new Error("This source has no audio; create a manual cut");
     if (this.active.has(assetId))
       throw new Error("Transcription already queued for this source");
     this.active.add(assetId);
+    let finish!: () => void;
+    const preparation = { controller: new AbortController(), done: new Promise<void>((resolve) => { finish = resolve; }), finish: () => finish() };
+    this.preparing.set(assetId, preparation);
     let model;
     try {
       await o.media.verifyAssetIdentity(asset);
+      if (preparation.controller.signal.aborted) throw new Error("Transcription was cancelled before starting");
       model = await o.models.verify();
+      if (preparation.controller.signal.aborted) throw new Error("Transcription was cancelled before starting");
     } catch (error) {
       this.active.delete(assetId);
       throw error;
+    } finally {
+      this.preparing.delete(assetId);
+      preparation.finish();
     }
     let jobId = "";
     jobId = o.jobs.start(
@@ -84,6 +130,7 @@ export class TranscriptionService {
       },
       async (ctx) => {
         let temporary: string | undefined;
+        let releaseDisk: (() => void) | undefined;
         const words: TimedWord[] = [];
         const segments: TranscriptSegment[] = [];
         let detected: Language = language;
@@ -95,37 +142,23 @@ export class TranscriptionService {
         try {
           ctx.throwIfCancelled();
           await o.media.verifyAssetIdentity(asset);
+          if (requestOptions.vocabulary) {
+            ctx.update({ stage: "checking vocabulary", progress: null, processedMs: 0 });
+            await checkVocabulary(o, model.directory, language, requestOptions.vocabulary, ctx.signal);
+            ctx.throwIfCancelled();
+          }
           await mkdir(o.tempRoot, { recursive: true });
+          ctx.update({ stage: "checking local storage", progress: null });
+          releaseDisk = await mediaDiskReservations.reserve(o.tempRoot, pcmBytes);
+          ctx.throwIfCancelled();
           temporary = await mkdtemp(path.join(o.tempRoot, "transcription-"));
-          const pcm = path.join(temporary, "audio.wav");
+          const pcm = path.join(temporary, "audio.pcm");
           ctx.update({
             stage: "decoding audio",
             progress: null,
             processedMs: 0,
           });
-          await runProcess(
-            o.ffmpeg,
-            [
-              "-v",
-              "error",
-              "-nostdin",
-              "-i",
-              o.media.sources.resolve(assetId),
-              "-map",
-              "0:a:0",
-              "-vn",
-              "-ac",
-              "1",
-              "-ar",
-              "16000",
-              "-c:a",
-              "pcm_s16le",
-              "-f",
-              "wav",
-              pcm,
-            ],
-            { signal: ctx.signal },
-          );
+          await decodeTranscriptionAudio(o.ffmpeg, o.media.sources.resolve(assetId), pcm, asset.durationMs, ctx);
           await o.media.verifyAssetIdentity(asset);
           ctx.throwIfCancelled();
           ctx.update({
@@ -144,6 +177,7 @@ export class TranscriptionService {
                 modelChoice: model.choice,
                 vocabulary: requestOptions.vocabulary ?? "",
                 audioPath: pcm,
+                audioFormat: "s16le",
                 durationMs: asset.durationMs,
                 language,
               }) + "\n",
@@ -170,6 +204,12 @@ export class TranscriptionService {
                     throw new Error("Worker word timing review provenance mismatch");
                   wordTimingReviewReady = true;
                   ctx.update({ stage: "transcribing", progress: null });
+                  continue;
+                }
+                if (event.type === "progress") {
+                  const progress = record(event, ["type", "processedMs"]);
+                  const processed = integer(progress.processedMs, 0, asset.durationMs);
+                  ctx.update({ stage: "transcribing", processedMs: processed, progress: processed / asset.durationMs });
                   continue;
                 }
                 if (event.type === "segment") {
@@ -358,7 +398,8 @@ export class TranscriptionService {
         } finally {
           this.active.delete(assetId);
           o.onDraft(assetId, undefined);
-          if (temporary) await rm(temporary, { recursive: true, force: true });
+          try { if (temporary) await rm(temporary, { recursive: true, force: true }); }
+          finally { releaseDisk?.(); }
         }
       },
     );
