@@ -1082,7 +1082,9 @@ function Workbench({ api = window.clipdeck }: { api?: ClipDeckAPI }) {
               : Object.keys(drafts).length
                 ? t("Unapplied edits \u00b7 save to apply")
                 : snapshot?.save.recovered
-                  ? t("Recovered project")
+                  ? snapshot.save.dirty
+                    ? `${t("Recovered project")} · ${t("Unsaved changes")}`
+                    : t("Recovered project")
                   : snapshot?.save.dirty
                     ? t("Unsaved changes")
                     : snapshot?.save.displayName
@@ -1294,7 +1296,7 @@ function Workbench({ api = window.clipdeck }: { api?: ClipDeckAPI }) {
                                 j.kind === "transcription" &&
                                 j.assetId === source.id,
                             )?.status !== "completed"
-                              ? `${t(snapshot.jobs.findLast((j) => j.kind === "transcription" && j.assetId === source.id)?.status ?? "")} · ${snapshot.jobs.findLast((j) => j.kind === "transcription" && j.assetId === source.id)?.stage}`
+                              ? `${t(snapshot.jobs.findLast((j) => j.kind === "transcription" && j.assetId === source.id)?.status ?? "")} · ${t(snapshot.jobs.findLast((j) => j.kind === "transcription" && j.assetId === source.id)?.stage ?? "Waiting for local processing")}`
                               : source.status !== "ready"
                                 ? t(source.status === "missing" ? "Source missing" : "Source changed")
                                 : project.transcripts.some(
@@ -1825,13 +1827,13 @@ function Workbench({ api = window.clipdeck }: { api?: ClipDeckAPI }) {
                         <p>
                           {sourceVideoError
                             ? t(sourceVideoError)
-                            : (sourcePreview.error ??
+                            : (sourcePreview.error ? t(sourcePreview.error) :
                               (asset.mediaUrl
                                 ? t("Decoding source video\u2026")
                                 : sourcePreview.job?.status === "cancelled"
                                   ? t("Source preview cancelled.")
-                                  : (sourcePreview.job?.stage ??
-                                    t("Preparing source preview\u2026"))))}
+                                  : t(sourcePreview.job?.stage ??
+                                    "Preparing source preview\u2026")))}
                         </p>
                         {sourcePreview.pending && (
                           <progress
@@ -2244,8 +2246,8 @@ function Workbench({ api = window.clipdeck }: { api?: ClipDeckAPI }) {
           <section className="model-setup">
             <h3>{t("Local transcription model")}</h3>
             <p>
-              {snapshot.model.message ||
-                "Prepare a multilingual model once, then transcribe offline."}
+              {t(snapshot.model.message ||
+                "Prepare a multilingual model once, then transcribe offline.")}
             </p>
             <p>
               {snapshot.model.status === "ready"

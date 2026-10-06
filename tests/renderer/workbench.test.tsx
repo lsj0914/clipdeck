@@ -2510,6 +2510,53 @@ describe("Task 7 first-run Open guard", () => {
 });
 
 describe("Task 7 natural derived text and localized assembly", () => {
+  it("keeps recovered edits visibly unsaved until a successful save", async () => {
+    localStorage.setItem("clipdeck.locale", "zh");
+    const initial = fixture();
+    initial.save.recovered = true;
+    const b = bridge(initial);
+    render(<App api={b.api} />);
+    await screen.findByText("已恢复项目");
+    fireEvent.click(screen.getByRole("button", { name: "今天" }));
+    fireEvent.click(screen.getByRole("button", { name: "加入成片" }));
+    await waitFor(() => expect(b.get().project.cuts).toHaveLength(1));
+    expect(screen.getByText("已恢复项目 · 有未保存修改")).toBeTruthy();
+    b.api.saveProject = vi.fn(async () => {
+      b.emit({ ...b.get(), save: {
+        dirty: false, recovered: false, displayName: "recovered.clipdeck",
+      } });
+      return b.get();
+    });
+    fireEvent.click(screen.getByRole("button", { name: "保存项目" }));
+    await screen.findByText("已保存到本地");
+    expect(screen.queryByText("已恢复项目 · 有未保存修改")).toBeNull();
+  });
+
+  it("localizes live transcription stages in the source, settings and task queue", async () => {
+    localStorage.setItem("clipdeck.locale", "zh");
+    const initial = fixture();
+    initial.jobs = [{
+      id: "live-transcription", kind: "transcription", assetId: "source-one",
+      status: "running", stage: "loading local model", processedMs: 0,
+      totalMs: 10000, progress: null, error: null, cancelRequested: false,
+      outputUrl: null,
+    }];
+    const b = bridge(initial);
+    const { container } = render(<App api={b.api} />);
+    await screen.findByText("进行中 · 正在加载本地模型");
+    fireEvent.click(screen.getByRole("button", { name: /^任务进度/ }));
+    for (const [stage, translated] of [
+      ["decoding audio", "正在读取音频"],
+      ["transcribing", "正在识别语音"],
+      ["restoring punctuation", "正在恢复标点"],
+    ]) {
+      act(() => b.emit({ ...b.get(), jobs: [{ ...b.get().jobs[0]!, stage: stage! }] }));
+      expect(screen.getByText(`进行中 · ${translated}`)).toBeTruthy();
+      expect(screen.getByLabelText("素材转写").textContent).toContain(translated);
+      expect(screen.getByLabelText("任务进度").textContent).toContain(translated);
+      expect(container.textContent).not.toContain(stage);
+    }
+  });
   it.each([
     [
       ["我", "是", "张", "示", "例", ",", "今", "天", "好"],

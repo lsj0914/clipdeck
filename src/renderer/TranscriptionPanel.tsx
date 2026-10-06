@@ -277,7 +277,7 @@ export function TranscriptionPanel({
                       ? {}
                       : { value: snapshot.model.progress })}
                   />
-                  <p>{snapshot.model.message}</p>
+                  <p>{t(snapshot.model.message)}</p>
                   {snapshot.jobs
                     .filter(
                       (j) => j.kind === "modelDownload" && working(j.status),
@@ -301,7 +301,7 @@ export function TranscriptionPanel({
               {(modelAttempt.current.error ||
                 snapshot.model.status === "failed") && (
                 <p role="alert">
-                  {modelAttempt.current.error ?? snapshot.model.message}
+                  {t(modelAttempt.current.error ?? snapshot.model.message)}
                 </p>
               )}
             </div>

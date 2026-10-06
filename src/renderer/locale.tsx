@@ -213,6 +213,26 @@ const zh: Record<string, string> = {
   "Names and vocabulary": "人名与术语提示",
   "checking vocabulary": "检查人名与术语提示",
   "checking local storage": "检查本地可用空间",
+  starting: "正在启动任务",
+  complete: "已完成",
+  "decoding audio": "正在读取音频",
+  "loading local model": "正在加载本地模型",
+  transcribing: "正在识别语音",
+  "checking source identity": "正在核对原素材",
+  "preparing source video": "正在准备可播放的素材预览",
+  "checking sources": "正在核对素材是否变化",
+  committing: "正在保存处理结果",
+  "encoding assembly": "正在生成成片",
+  "validating decode": "正在检查视频能否完整播放",
+  "validating presentation": "正在检查画面与时间",
+  "validating samples": "正在检查音画边界",
+  "downloading model": "正在下载本地模型",
+  "Choose a verified local model or explicitly download it": "请选择本地模型，或下载所选模型",
+  "Local model needs preparation": "需要先准备本地模型",
+  "Verified local model ready": "本地模型已校验，可开始转写",
+  "Downloading explicitly requested local model": "正在下载你选择的本地模型",
+  "Model download cancelled": "模型下载已取消",
+  "Prepare a multilingual model once, then transcribe offline.": "首次准备多语言模型，之后可离线转写。",
   "Local transcription supports sources up to six hours. Split this source first; time-based editing remains available.": "本地转写支持最长六小时的素材。请先拆分长视频；仍可按时间剪辑。",
   "Decoded audio exceeds this source's supported length. Split or re-import the source.": "音频实际长度超过素材的支持范围。请拆分或重新导入素材。",
   "Not enough free space for media processing and audio verification": "磁盘剩余空间不足。请释放空间后重试。",
@@ -356,7 +376,12 @@ export function LocaleProvider({ children }: { children: React.ReactNode }) {
       localStorage.setItem("clipdeck.locale", locale);
     } catch {}
   }, [locale]);
-  const t = (value: string) => (locale === "zh" ? (zh[value] ?? value) : value);
+  const t = (value: string) => {
+    if (locale !== "zh") return value;
+    if (zh[value] !== undefined) return zh[value];
+    const cut = /^rendering cut ([1-9]\d*) of ([1-9]\d*)$/.exec(value);
+    return cut ? `正在处理片段 ${cut[1]} / ${cut[2]}` : value;
+  };
   return (
     <Context.Provider value={{ locale, setLocale, t }}>
       {children}
