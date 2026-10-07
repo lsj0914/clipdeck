@@ -1,0 +1,178 @@
+{
+  "formatVersion": 1,
+  "testedApplicationSource": "b4069a9138997d0207788abfdd2f3b9797553ce3",
+  "ci": "https://github.com/lsj0914/clipdeck/actions/runs/37614768344",
+  "application": {
+    "name": "ClipDeck-0.1.0-preview-b4069a9-macos-arm64.zip",
+    "bytes": 498844585,
+    "sha256": "8dfe1b4f20a34b2714b2fc264a9a3fd5073b9c50252d1a2b337d87301d26d83f"
+  },
+  "applicationSource": {
+    "name": "clipdeck-application-source-b4069a9.tar.gz",
+    "bytes": 1294138,
+    "sha256": "ffa87c2050a3bea258de351318792176b3f65647ea7faffb0b40a6670e3d10ad"
+  },
+  "demoArchive": {
+    "name": "ClipDeck-USGS-demo-20261007.zip",
+    "bytes": 253373545,
+    "sha256": "6b46f562e8b09cf6ca810371f2aa38c49c3165463692029caf808da57735a211"
+  },
+  "historicalPreview2Walkthrough": {
+    "name": "ClipDeck-desktop-walkthrough.mp4",
+    "bytes": 1642511,
+    "sha256": "3760e4e53acb4e7ab05c932485d8f1fe2f98ef86dfc424004a50faa5e3c037ad"
+  },
+  "previewLatency": {
+    "workload": "Three unmodified USGS camera-footage originals, twelve interleaved selected cuts, 116.8 seconds, 960x540/30fps preview; no ASR performed by this diagnostic",
+    "baselineSourceTree": "96e014f624456ee20f6aaff951ebf5751e654edd",
+    "baselineEquivalentPublicSource": "71de86018d51e2d2d1fbccb3ec4d5dc0a320d34f",
+    "candidateSourceTree": "a8c2bf53c4a96c61629c36c020567c06c4e3bddf",
+    "baselineElapsedMs": [
+      32752.013583,
+      32807.472167
+    ],
+    "threeProductionElapsedMs": [
+      18443.620584,
+      18332.922375000002,
+      18209.12
+    ],
+    "otherRetainedObservations": [
+      {
+        "condition": "ffprobe-threads4",
+        "elapsedMs": 18087.667292
+      },
+      {
+        "condition": "production-1",
+        "elapsedMs": 18602.202042
+      },
+      {
+        "condition": "production-2",
+        "elapsedMs": 18468.086708000003
+      }
+    ],
+    "allEightOutputsByteIdentical": true,
+    "outputSHA256": "d0f4056bc72256136e44f5ab598676d0cbaea1b38dac101afbc4785611c222db",
+    "outputBytes": 20980048,
+    "receipt": {
+      "frames": 3504,
+      "samples": 5606400,
+      "width": 960,
+      "height": 540,
+      "durationSeconds": 116.8,
+      "audioPresentationSamples": 5606400
+    },
+    "sampledNativeProcessTreePeaksKiB": [
+      406096,
+      402032,
+      400864
+    ],
+    "machine": {
+      "platform": "darwin",
+      "arch": "arm64",
+      "cpu": "Apple M5 Pro",
+      "cores": 18,
+      "memoryBytes": 51539607552
+    },
+    "node": "24.19.0",
+    "ffmpeg": "9.0.2",
+    "limits": [
+      "Separate fresh Node process and RenderService/cache per run; source probing/hashing warmed filesystem; no OS page-cache eviction",
+      "Includes forwarding native-process/FF timing and 100ms RSS sampler instrumentation; not a desktop click-to-visible benchmark",
+      "production-1 and production-2 retained as diagnostics, with possible concurrent reviewer native test workload; not members of the quiet three-run cohort",
+      "Baseline source 106307248906d57c990ee03a4c30206b778fbcc8; the initial option experiment retained separately",
+      "Four threads is per decoder context, not a four-thread cap on FFprobe/FFmpeg/the app; other worker and encoding limits unchanged"
+    ]
+  },
+  "threeMarkerRuns": [
+    {
+      "run": 0,
+      "elapsedMs": 4063.7817079999995,
+      "receipt": {
+        "frames": 780,
+        "samples": 1248000,
+        "width": 1920,
+        "height": 1080,
+        "durationSeconds": 26,
+        "audioPresentationSamples": 1248000
+      },
+      "checkedBoundaryFrames": 180,
+      "checkedToneWindows": 60
+    },
+    {
+      "run": 1,
+      "elapsedMs": 3835.9654169999994,
+      "receipt": {
+        "frames": 780,
+        "samples": 1248000,
+        "width": 1920,
+        "height": 1080,
+        "durationSeconds": 26,
+        "audioPresentationSamples": 1248000
+      },
+      "checkedBoundaryFrames": 180,
+      "checkedToneWindows": 60
+    },
+    {
+      "run": 2,
+      "elapsedMs": 3959.8532080000004,
+      "receipt": {
+        "frames": 780,
+        "samples": 1248000,
+        "width": 1920,
+        "height": 1080,
+        "durationSeconds": 26,
+        "audioPresentationSamples": 1248000
+      },
+      "checkedBoundaryFrames": 180,
+      "checkedToneWindows": 60
+    }
+  ],
+  "nativeChecks": {
+    "portableRealThreeSourceTwelveCutProjectOpened": true,
+    "uncachedAssemblyPreviewCompleted": true,
+    "assemblyCut2StartMs": 4167,
+    "assemblyChristmasWordMs": 7400,
+    "sourceCut2StartMs": 0,
+    "sourceChristmasWordMs": 3240,
+    "previewExpandedPlaybackCrossedSourceBoundary": true,
+    "pauseEscapeRetains14196ms": true,
+    "cachedPreviewRetains14196ms": true,
+    "nativeExportCompletedOpenedExpandedPlayedPaused": true,
+    "normalCmdQExitCode": 0
+  },
+  "exportedMedia": {
+    "name": "USGS-first-response-final.mp4",
+    "bytes": 69708907,
+    "sha256": "95ae7a85c750a4e889548951fdf2bf97689e06b55924ec47cf2646a1e5563e31",
+    "receipt": {
+      "frames": 3504,
+      "samples": 5606400,
+      "width": 1920,
+      "height": 1080,
+      "durationSeconds": 116.8,
+      "audioPresentationSamples": 5606400
+    },
+    "byteIdenticalToPreview2DemoFinalOutput": true
+  },
+  "packagePostWorkflow": {
+    "filesAndLinksChecked": 4364,
+    "directoriesChecked": 752,
+    "unexpectedOrChangedPaths": [],
+    "signatureExitCode": 0,
+    "normalExit": {
+      "exitCode": 0
+    },
+    "afterNativePreviewExportPlayback": true
+  },
+  "limits": {
+    "fullR01ToR18AcceptanceClaim": false,
+    "currentRendererPerformanceRerun": false,
+    "humanListeningAndLipSyncReview": false,
+    "recognitionQualityOrUniversalPunctuationGuarantee": false,
+    "wholeElectronKernelNetworkDenialClaim": false,
+    "newFirstModelDownloadRecoveryClaim": false,
+    "developerIDOrNotarization": false,
+    "macOS14Execution": false,
+    "otherPlatforms": false
+  }
+}

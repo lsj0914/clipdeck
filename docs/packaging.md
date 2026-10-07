@@ -6,7 +6,7 @@ The intended binary deployment floor is macOS 14 on Apple Silicon. Native tests 
 
 ## Current experimental application
 
-[Preview 2](https://github.com/lsj0914/clipdeck/releases/tag/v0.1.0-preview.2) supplies the application ZIP and matching source archive for `ded3e4d812cd77ad014d0290bbbf4ac052c81e8b`, with a portable real-interview project and actual exported MP4. [The preview record](verification/preview-2.md) separates performed native checks from remaining full-acceptance requirements. This experimental publication does not claim Developer ID signing, notarization or complete R01–R18 acceptance.
+[Preview 3](https://github.com/lsj0914/clipdeck/releases/tag/v0.1.0-preview.3) supplies the application ZIP and matching source archive for `b4069a9138997d0207788abfdd2f3b9797553ce3`, with a portable real-interview project and actual exported MP4. [The preview record](verification/preview-3.md) separates the measured first-preparation improvement and performed native checks from remaining full-acceptance requirements. The unchanged demo and explicitly historical Preview 2 walkthrough retain their original hashes. This experimental publication does not claim Developer ID signing, notarization or complete R01–R18 acceptance.
 
 ## Inputs and release assets
 

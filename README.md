@@ -6,11 +6,11 @@ Build a rough cut by choosing the words you want to keep from your own videos.
 
 ClipDeck is a local desktop editor for interviews, lessons and spoken recordings. Import several videos, read their transcripts, select passages, arrange them into one story, check the assembled preview, and export an MP4. Files and transcription stay on your computer after explicit model setup.
 
-**Status:** [experimental Apple Silicon Mac preview](https://github.com/lsj0914/clipdeck/releases/tag/v0.1.0-preview.2). Download the exact app, an editable real-interview project and its exported film. The [preview verification record](docs/verification/preview-2.md) describes the actual desktop checks and remaining limits. The app is not Developer ID signed or notarized.
+**Status:** [experimental Apple Silicon Mac Preview 3](https://github.com/lsj0914/clipdeck/releases/tag/v0.1.0-preview.3). Download the exact app, an editable real-interview project and its exported film. First preparation of the 116.8-second real demo took 18.44 / 18.33 / 18.21 seconds in three fresh service runs on the measured Mac, compared with 32.75 / 32.81 seconds before the validation-decoding fix. The [preview verification record](docs/verification/preview-3.md) defines the workload, actual native checks and remaining limits. The app is not Developer ID signed or notarized.
 
-![Actual ClipDeck desktop with a real interview project](docs/images/clipdeck-preview-2.png)
+![Actual Preview 3 ClipDeck desktop with a real interview project](docs/images/clipdeck-preview-3.png)
 
-[Watch the 50-second desktop walkthrough](https://github.com/lsj0914/clipdeck/releases/download/v0.1.0-preview.2/ClipDeck-desktop-walkthrough.mp4) · [Download the editable interview demo](https://github.com/lsj0914/clipdeck/releases/download/v0.1.0-preview.2/ClipDeck-USGS-demo-20261007.zip)
+[Watch the historical Preview 2 desktop walkthrough (same renderer)](https://github.com/lsj0914/clipdeck/releases/download/v0.1.0-preview.3/ClipDeck-desktop-walkthrough.mp4) · [Download the editable interview demo](https://github.com/lsj0914/clipdeck/releases/download/v0.1.0-preview.3/ClipDeck-USGS-demo-20261007.zip)
 
 ## The workflow
 

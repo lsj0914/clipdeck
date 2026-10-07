@@ -6,11 +6,11 @@
 
 ClipDeck 是一个本地文字剪辑工具，面向访谈、课程、播客和其他讲话视频。导入多个视频，阅读转写文字，选中想保留的段落，调整顺序，预览成片，再导出 MP4。模型需要明确下载或选择；准备完成后，视频处理与转写在本机进行。
 
-**当前状态：[Apple Silicon Mac 实验性预览](https://github.com/lsj0914/clipdeck/releases/tag/v0.1.0-preview.2)。** 已提供对应程序、可继续编辑的真实访谈工程和实际导出的成片。[预览验证记录](docs/verification/preview-2.md) 说明已走通的桌面操作与剩余边界；程序尚无开发者签名和公证。
+**当前状态：[Apple Silicon Mac 实验性预览 3](https://github.com/lsj0914/clipdeck/releases/tag/v0.1.0-preview.3)。** 已提供对应程序、可继续编辑的真实访谈工程和实际导出的成片。116.8 秒真实示例的三次独立首次预览准备用时为 18.44 / 18.33 / 18.21 秒，修复前的两次记录为 32.75 / 32.81 秒；数据只对应已测电脑与该工作负载。[预览验证记录](docs/verification/preview-3.md) 说明测量条件、桌面操作与剩余边界；程序尚无开发者签名和公证。
 
-![真实访谈项目在 ClipDeck 桌面程序中的界面](docs/images/clipdeck-preview-2.png)
+![真实访谈项目在 ClipDeck 预览 3 桌面程序中的界面](docs/images/clipdeck-preview-3.png)
 
-[观看 50 秒真实操作演示](https://github.com/lsj0914/clipdeck/releases/download/v0.1.0-preview.2/ClipDeck-desktop-walkthrough.mp4) · [下载可编辑的访谈工程](https://github.com/lsj0914/clipdeck/releases/download/v0.1.0-preview.2/ClipDeck-USGS-demo-20261007.zip)
+[观看预览 2 的 50 秒真实操作演示（同一界面）](https://github.com/lsj0914/clipdeck/releases/download/v0.1.0-preview.3/ClipDeck-desktop-walkthrough.mp4) · [下载可编辑的访谈工程](https://github.com/lsj0914/clipdeck/releases/download/v0.1.0-preview.3/ClipDeck-USGS-demo-20261007.zip)
 
 ## 怎么用
 

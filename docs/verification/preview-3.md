@@ -1,0 +1,30 @@
+# Experimental Preview 3 verification
+
+The Apple Silicon application archive is built from `b4069a9138997d0207788abfdd2f3b9797553ce3`. Its [exact-source CI](https://github.com/lsj0914/clipdeck/actions/runs/37614768344) completed the unit and native jobs successfully. This is a scoped follow-up to [Preview 2](preview-2.md), with unchanged renderer/worker/runtime/model-lock files. The production change sets four decoder threads per applicable FFprobe decoder context at the three existing complete validation reads. It retains all frame/sample/duration/PTS/source/cancellation/publication checks and the original encoding arguments.
+
+## First assembly preparation
+
+A real-camera-footage workload uses the three unmodified USGS originals from the portable demo, twelve interleaved selections and 116.8 seconds of output. The preview is 960×540 at 30 fps, with 3,504 frames and 5,606,400 presented/decoded audio samples. On one Apple M5 Pro Mac with 48 GB RAM, Node 24.19.0 and FFmpeg 9.0.2, the two baseline observations were **32.752 / 32.807 seconds**. Three fresh production service/process/cache observations after the native review workload stopped were **18.444 / 18.333 / 18.209 seconds**. The median is approximately 44% shorter than the baseline observations for this defined workload.
+
+Source probing and hashing warm the filesystem before timing; no OS page-cache eviction occurred. Timings include forwarding process observers and 100 ms RSS sampling. They are service preparation times, not native click-to-visible-frame measurements or a universal speed guarantee. All eight retained baseline/experiment/production outputs were byte-identical: 20,980,048 bytes, SHA-256 `d0f4056bc72256136e44f5ab598676d0cbaea1b38dac101afbc4785611c222db`. Two production diagnostics possibly overlapping the independent reviewer’s short native tests (18.602 / 18.468 seconds) and the option experiment (18.088 seconds) remain explicitly separate from the quiet three-run cohort. Sampled production Node-and-descendant peaks were 406,096 / 402,032 / 400,864 KiB; they are not whole-app or kernel high-water marks.
+
+The baseline was measured at a root checkout whose committed tree is identical to public source `71de860`; the production measurements used a root checkout whose committed tree is identical to the public application source `b4069a9`. These source identities and timing limits are retained in [preview-3.json](preview-3.json). Four is a decoder-context request, not a total process/app thread or CPU cap.
+
+## Media and native desktop checks
+
+The exact public candidate reran the 60-marker reverse-order matrix three times, including mixed 24/25/30 fps, geometry, rotation, sample aspect ratio and one silent source. Each non-frame-aligned selection owns 13 frames and 20,800 samples. All outputs contained 780 frames and 1,248,000 presented/decoded samples; all 540 first/middle/last boundary-frame observations and 180 tone/silence windows passed. Export times were 4.064 / 3.836 / 3.960 seconds. These are synthetic correctness inputs, not natural-scene or human audio judgments. The frozen compiled harness and full raw observations are retained privately.
+
+The new packaged application was launched with an isolated data profile, an empty Hugging Face cache and a restricted PATH without developer Python/Node executables. Previously explicitly prepared test model settings were copied; this is not a new model-download test. Actual open file descriptors and staging/cache paths confirmed the isolated profile. A native project picker loaded the portable real three-source/twelve-cut story. Fresh preparation completed, and native controls verified:
+
+- Assembly mode: cut 2 seeks to 4.167 seconds; its Christmas word seeks to 7.400 seconds. Source mode: the same cut seeks to 0 and the same word to 3.240 seconds.
+- Expanded assembly playback crossed into the next source; pause/Escape returned to the editor with 14.196 seconds retained. Preparing the same committed preview again reused the cache and retained that position.
+- A system Save panel exported the actual story to a new file; its completed native viewer opened, expanded, played, paused and returned to the editor. Normal CmdQ exited with code 0.
+
+A separate fresh production RenderEngine validation of that actual export checked every video timestamp, complete frame/sample counts and canonical geometry/audio presentation: 3,504 frames, 5,606,400 samples, 1920×1080, 30 fps, stereo 48 kHz AAC, 116.8 seconds. Its 69,708,907 bytes hash to `95ae7a85c750a4e889548951fdf2bf97689e06b55924ec47cf2646a1e5563e31`, matching the unchanged Preview 2 demo output. All package file/link and directory entries still matched the frozen package after the native workflow; strict deep ad-hoc signature verification passed. No private profile, raw AX trace, cache, model or user footage is included in the public artifacts.
+
+## Scope
+
+The independent scoped code review found no Critical or Important issue and separately ran 32 actual native render/process tests, all passing without skips. Root source tests passed 432 with 16 fixture-gated skips; the public CI provides its own exact-source results. The reused 50-second walkthrough is explicitly historical Preview 2 native capture footage; it demonstrates the unchanged renderer, not this version’s speed measurements.
+
+This experimental preview does not establish full R01–R18 acceptance, a fresh current large-project renderer campaign, human listening/lip sync, universal punctuation/recognition accuracy, new first-model-download recovery, whole-Electron kernel network denial, Developer ID/notarization, macOS 14 execution or other-platform support. [Historical benchmarks](benchmarks.md) retain their original source identities. The application remains an ad-hoc preview; the [exact source build instructions](https://github.com/lsj0914/clipdeck/tree/b4069a9138997d0207788abfdd2f3b9797553ce3#develop-and-verify) are an alternative. Download/public readback is checked separately from these local measurements.
+
