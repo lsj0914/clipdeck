@@ -6,11 +6,11 @@ Build a rough cut by choosing the words you want to keep from your own videos.
 
 ClipDeck is a local desktop editor for interviews, lessons and spoken recordings. Import several videos, read their transcripts, select passages, arrange them into one story, check the assembled preview, and export an MP4. Files and transcription stay on your computer after explicit model setup.
 
-**Status:** [experimental Apple Silicon Mac Preview 3](https://github.com/lsj0914/clipdeck/releases/tag/v0.1.0-preview.3). Download the exact app, an editable real-interview project and its exported film. First preparation of the 116.8-second real demo took 18.44 / 18.33 / 18.21 seconds in three fresh service runs on the measured Mac, compared with 32.75 / 32.81 seconds before the validation-decoding fix. The [preview verification record](docs/verification/preview-3.md) defines the workload, actual native checks and remaining limits. The app is not Developer ID signed or notarized.
+**Status:** [experimental Apple Silicon Mac Preview 4](https://github.com/lsj0914/clipdeck/releases/tag/v0.1.0-preview.4). This update clarifies first-use transcription, cancellation and replacement-job feedback. The packaged app completed a new real-interview import-to-export workflow, including a separately restricted-network run, mode-aware word/cut navigation, expanded playback and save/reopen. Missing and replaced source files were checked through native pickers. Download the app, its matching source and a [Chinese getting-started guide](docs/getting-started.zh-CN.md). The [versioned verification record](docs/verification/preview-4.md) explains exactly what was checked. The app is not Developer ID signed or notarized.
 
-![Actual Preview 3 ClipDeck desktop with a real interview project](docs/images/clipdeck-preview-3.png)
+![Actual Preview 4 ClipDeck desktop: a real interview, punctuated transcript and reversed cuts](docs/images/clipdeck-preview-4.png)
 
-[Watch the historical Preview 2 desktop walkthrough (same renderer)](https://github.com/lsj0914/clipdeck/releases/download/v0.1.0-preview.3/ClipDeck-desktop-walkthrough.mp4) · [Download the editable interview demo](https://github.com/lsj0914/clipdeck/releases/download/v0.1.0-preview.3/ClipDeck-USGS-demo-20261007.zip)
+[Watch the unchanged Preview 3 116.8-second story](https://github.com/lsj0914/clipdeck/releases/download/v0.1.0-preview.4/USGS-first-response-final.mp4) · [Download its retained three-source interview demo](https://github.com/lsj0914/clipdeck/releases/download/v0.1.0-preview.3/ClipDeck-USGS-demo-20261007.zip) · [Historical Preview 2 desktop walkthrough](https://github.com/lsj0914/clipdeck/releases/download/v0.1.0-preview.3/ClipDeck-desktop-walkthrough.mp4)
 
 ## The workflow
 
@@ -34,7 +34,7 @@ Choose **Source** or **Assembly** above the player to control navigation. Clicki
 - Full-source preview and the assembled output are limited to six hours. Longer sources can still be imported and edited, with shorter selections exported; split the source if you need full-source playback. Preview cache: eight owned artifacts and 4 GiB; assembly staging: 16 GiB. Text editing remains available when preview is unavailable.
 - No cloud account, automatic highlight scoring, subtitles, effects, collaboration or professional project-format export in this first release.
 
-The intended binary floor is macOS 14 on ARM64. Native tests and sandboxed startup have run on macOS 15.7.9 in GitHub Actions and macOS 27.0.1 locally; macOS 14 execution and Intel/Windows/Linux are unverified. These checks do not establish the complete packaged desktop workflow. Preview packaging is ad-hoc signed, without Developer ID signing or notarization. See [packaging and distribution status](docs/packaging.md).
+The intended binary floor is macOS 14 on ARM64. Native tests and sandboxed startup have run on macOS 15.7.9 in GitHub Actions and macOS 27.0.1 locally; the scoped packaged workflows were performed on the local Mac. macOS 14 execution and Intel/Windows/Linux are unverified. These checks do not establish full product acceptance or universal recognition accuracy. Preview packaging is ad-hoc signed, without Developer ID signing or notarization. See [packaging and distribution status](docs/packaging.md).
 
 ## Develop and verify
 

@@ -1,0 +1,141 @@
+{
+  "schema": 1,
+  "recordedAt": "2026-10-07T14:50:29.106089+00:00",
+  "release": "v0.1.0-preview.4",
+  "sourceCommit": "8b057f9e716861a2f01a6bb3f76d42d75a00e03d",
+  "sourceTree": "db7ed3368533b08fa70523809791dd6dbbd84fb1",
+  "sourceAndPackageIdentity": {
+    "compiledFiles": 120,
+    "frozenPackageEntries": 5116,
+    "frozenPackageManifestSHA256": "666bf30b3645222ebd0a90dd6cacaf273fb4e969e27f1c5d26d5408925d911e1",
+    "normalRawReceiptOldSourceLabelPreserved": true,
+    "attributionUsesSourceSnapshotAndManifest": true
+  },
+  "assets": {
+    "ClipDeck-0.1.0-preview.4-macos-arm64.zip": {
+      "bytes": 499338938,
+      "sha256": "955a60ecb0308de8291a881f4d33c229faf7a399d12e7a2f3748c506b9d860e8"
+    },
+    "clipdeck-application-source-preview.4.tar.gz": {
+      "bytes": 1787485,
+      "sha256": "9661488d3bb21fac4383e3460b1166492ccfc0e2d653ea58c9383491926e9330"
+    },
+    "USGS-first-response-final.mp4": {
+      "bytes": 69708907,
+      "sha256": "95ae7a85c750a4e889548951fdf2bf97689e06b55924ec47cf2646a1e5563e31"
+    },
+    "getting-started.zh-CN.md": {
+      "bytes": 4150,
+      "sha256": "2294eb0c089ec73ab2ee8fa32ae468996330eff548c5c572247b3bd3089b80d6"
+    }
+  },
+  "checks": {
+    "localTestsPassed": 444,
+    "fixtureGatedSkips": 16,
+    "targetedRendererCases": 12,
+    "independentBoundaryCases": 2,
+    "typecheckAndCoherentBuildPassed": true,
+    "exactSourceCI": "https://github.com/lsj0914/clipdeck/actions/runs/37631664913"
+  },
+  "newNativeWorkflows": {
+    "sourceCommit": "8b057f9e716861a2f01a6bb3f76d42d75a00e03d",
+    "model": "Previously explicitly downloaded pinned Small folder; selected through native UI in each new profile",
+    "freshModelDownloadClaim": false,
+    "englishTimedWordsPerRun": 116,
+    "reversedCutCount": 2,
+    "nativePickersSaveExportReopen": true,
+    "wordAndCutNavigation": {
+      "assemblyCut2StartMs": 9067,
+      "assemblyChristmasWordMs": 12467,
+      "sourceCut2StartMs": 0,
+      "sourceChristmasWordMs": 3420,
+      "chosenModeRetained": true
+    },
+    "expandedPlaybackAndEscape": true,
+    "firstAttemptCancellationWithoutPriorTranscriptObserved": true,
+    "previewCancellationAccepted": false,
+    "missingAndSameContentRelinkObserved": true,
+    "sameDurationDifferentBytesInvalidateTranscriptAndDisableExport": true,
+    "normalFinalSavedRevision": 11,
+    "restrictedNetworkSavedRevision": 6,
+    "saveReopenCoreExactMatches": true,
+    "saveReopenNormalizationOnly": [
+      "assets.fileRef",
+      "assets.mediaUrl"
+    ],
+    "newOutput": {
+      "bytes": 11973857,
+      "sha256": "40c69317ae99f92c325dfb4de1c6ec5e608df1c263e15415674bf74b47d3a5f5",
+      "fullNativeValidation": {
+        "frames": 650,
+        "samples": 1040000,
+        "width": 1920,
+        "height": 1080,
+        "durationSeconds": 21.666667,
+        "audioPresentationSamples": 1040000
+      },
+      "bothRunOutputsByteIdentical": true
+    },
+    "normalObservation": {
+      "samples": 285,
+      "screenshots": 49,
+      "capturedMarkers": 1
+    },
+    "restrictedNetworkObservation": {
+      "samples": 123,
+      "screenshots": 23,
+      "capturedMarkers": 6
+    },
+    "normalEarlierMarkersMissedWrongControlPath": true,
+    "bothSessionsClosedNormallyCode0": true,
+    "bothPackageManifestsUnchangedAndDeepSignaturesPassed": true
+  },
+  "restrictedNetwork": {
+    "scope": "Node API guards, Electron session controls/rejecting proxy and sandboxed workflow child commands; canaries checked before and after",
+    "workflowChildLaunches": 28,
+    "naturalWorkflowNetworkAttempts": 0,
+    "wholeApplicationKernelDenial": false,
+    "harnessMethodProofIsNotAutomaticProductAcceptance": true
+  },
+  "historicalDemo": {
+    "validationVersion": "v0.1.0-preview.3",
+    "sourceCommit": "b4069a9138997d0207788abfdd2f3b9797553ce3",
+    "portableProjectAndOriginals": "https://github.com/lsj0914/clipdeck/releases/download/v0.1.0-preview.3/ClipDeck-USGS-demo-20261007.zip",
+    "demoZipSHA256": "6b46f562e8b09cf6ca810371f2aa38c49c3165463692029caf808da57735a2119",
+    "sources": 3,
+    "interleavedCuts": 12,
+    "suppliedFilm": {
+      "name": "USGS-first-response-final.mp4",
+      "bytes": 69708907,
+      "sha256": "95ae7a85c750a4e889548951fdf2bf97689e06b55924ec47cf2646a1e5563e31",
+      "frames": 3504,
+      "samples": 5606400,
+      "width": 1920,
+      "height": 1080,
+      "durationSeconds": 116.8
+    },
+    "unchangedFilmAndDemo": true,
+    "preparationTimingReference": "docs/verification/preview-3.md",
+    "timingsRerunAtPreview4": false,
+    "walkthroughIsHistoricalPreview2": true
+  },
+  "limits": {
+    "fullR01ToR18Acceptance": false,
+    "universalPunctuationOrRecognitionAccuracy": false,
+    "humanListeningAndLipSyncCertification": false,
+    "freshPreview4ChineseAccuracyRun": false,
+    "freshPreview4ModelDownloadRecovery": false,
+    "currentLargeProjectPerformanceCampaign": false,
+    "wholeElectronKernelNetworkDenial": false,
+    "developerIDOrNotarization": false,
+    "macOS14Execution": false,
+    "otherPlatforms": false
+  },
+  "privacy": {
+    "noPrivateRecordingsTranscriptsProjectsProfilesOrTracesPublished": true,
+    "publicDemoContainsPublicUSGSFootageOnly": true,
+    "renameReplaceTestUsedOwnedPublicInterviewCopyOnly": true,
+    "secondPrivateSourceReadThroughAuthorizedNativePickers": true,
+    "namedNeedleArchiveScansAreNotUniversalSecretScans": true
+  }
+}

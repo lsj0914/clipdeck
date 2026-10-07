@@ -6,11 +6,11 @@
 
 ClipDeck 是一个本地文字剪辑工具，面向访谈、课程、播客和其他讲话视频。导入多个视频，阅读转写文字，选中想保留的段落，调整顺序，预览成片，再导出 MP4。模型需要明确下载或选择；准备完成后，视频处理与转写在本机进行。
 
-**当前状态：[Apple Silicon Mac 实验性预览 3](https://github.com/lsj0914/clipdeck/releases/tag/v0.1.0-preview.3)。** 已提供对应程序、可继续编辑的真实访谈工程和实际导出的成片。116.8 秒真实示例的三次独立首次预览准备用时为 18.44 / 18.33 / 18.21 秒，修复前的两次记录为 32.75 / 32.81 秒；数据只对应已测电脑与该工作负载。[预览验证记录](docs/verification/preview-3.md) 说明测量条件、桌面操作与剩余边界；程序尚无开发者签名和公证。
+**当前状态：[Apple Silicon Mac 实验性预览 4](https://github.com/lsj0914/clipdeck/releases/tag/v0.1.0-preview.4)。** 这版修正了首次转写、取消和重新转写的状态反馈。安装包已重新完成真实访谈从导入到导出的桌面操作，另跑了一次限制网络的流程，检查了文字与片段定位、放大播放、保存重开，以及素材丢失和内容被替换时的保护。下载对应程序、源码和 [中文使用说明](docs/getting-started.zh-CN.md) 即可开始。[本版验证记录](docs/verification/preview-4.md) 写明具体条件和边界；程序尚无 Apple 开发者签名与公证。
 
-![真实访谈项目在 ClipDeck 预览 3 桌面程序中的界面](docs/images/clipdeck-preview-3.png)
+![ClipDeck 预览 4 实际桌面：真实访谈、带断句的原文与倒序片段](docs/images/clipdeck-preview-4.png)
 
-[观看预览 2 的 50 秒真实操作演示（同一界面）](https://github.com/lsj0914/clipdeck/releases/download/v0.1.0-preview.3/ClipDeck-desktop-walkthrough.mp4) · [下载可编辑的访谈工程](https://github.com/lsj0914/clipdeck/releases/download/v0.1.0-preview.3/ClipDeck-USGS-demo-20261007.zip)
+[观看保留的预览 3、116.8 秒真实成片](https://github.com/lsj0914/clipdeck/releases/download/v0.1.0-preview.4/USGS-first-response-final.mp4) · [下载对应的既有三素材访谈工程](https://github.com/lsj0914/clipdeck/releases/download/v0.1.0-preview.3/ClipDeck-USGS-demo-20261007.zip) · [历史预览 2 操作录像](https://github.com/lsj0914/clipdeck/releases/download/v0.1.0-preview.3/ClipDeck-desktop-walkthrough.mp4)
 
 ## 怎么用
 
@@ -34,7 +34,7 @@ ClipDeck 是一个本地文字剪辑工具，面向访谈、课程、播客和�
 - 完整原片预览与成片输出最长六小时。更长的素材仍能导入、编辑并导出较短选段；如需完整原片播放，请先拆分。预览缓存最多八份、4 GiB；成片处理中间文件上限 16 GiB。预览不可用时仍可以继续文字编辑。
 - 首版不包含云账号、自动爆款评分、字幕、特效、协作或专业剪辑工程格式导出。
 
-预期二进制最低版本是 macOS 14、ARM64。原生测试与沙箱启动已在 GitHub Actions 的 macOS 15.7.9 和本地 macOS 27.0.1 运行；macOS 14、Intel Mac、Windows、Linux 尚未验证。这些检查不代表完整安装包操作流程已通过。预览安装包使用临时签名，尚无 Developer ID 签名与公证。[安装包说明](docs/packaging.md) 记录具体边界。
+预期二进制最低版本是 macOS 14、ARM64。原生测试与沙箱启动已在 GitHub Actions 的 macOS 15.7.9 和本地 macOS 27.0.1 运行；这版限定范围的安装包操作在本地 Mac 完成。macOS 14、Intel Mac、Windows、Linux 尚未验证。这些检查不代表全量产品验收或通用识别准确率达标。预览安装包使用临时签名，尚无 Developer ID 签名与公证。[安装包说明](docs/packaging.md) 记录具体边界。
 
 ## 开发
 
