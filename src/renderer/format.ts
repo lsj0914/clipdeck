@@ -33,13 +33,21 @@ export function parseSeconds(text: string): number {
   if (!Number.isSafeInteger(result)) throw new Error("Enter a valid time.");
   return result;
 }
+export class RangeInputError extends Error {
+  constructor(readonly field: "start" | "end", message: string) {
+    super(message);
+  }
+}
 export function range(start: string, end: string, duration: number) {
-  const startMs = parseSeconds(start),
-    endMs = parseSeconds(end);
+  let startMs: number, endMs: number;
+  try { startMs = parseSeconds(start); }
+  catch (error) { throw new RangeInputError("start", message(error)); }
+  try { endMs = parseSeconds(end); }
+  catch (error) { throw new RangeInputError("end", message(error)); }
   if (endMs <= startMs)
-    throw new Error("The out point must be after the in point.");
+    throw new RangeInputError("end", "The out point must be after the in point.");
   if (endMs > duration)
-    throw new Error(
+    throw new RangeInputError("end",
       `The out point must be within the source (${seconds(duration)} seconds).`,
     );
   return { startMs, endMs };

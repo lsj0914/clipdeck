@@ -37,7 +37,7 @@
 body {
   margin: 0;
   min-width: 800px;
-  min-height: 600px;
+  min-height: 0;
 }
 button,
 input,
@@ -159,7 +159,7 @@ svg {
 }
 .app {
   height: 100dvh;
-  min-height: 600px;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   position: relative;
@@ -1607,6 +1607,8 @@ progress::-webkit-progress-value {
 .save-error > span {
   min-width: 0;
 }
+
+
 .transcript-timing-note,
 .selection-timing-note {
   flex: none;
@@ -2312,4 +2314,81 @@ progress::-webkit-progress-value {
 .untimed-review button {
   font-size: 12px;
   flex-shrink: 0;
+}
+
+/* Keep reading space in the native content area, including short windows. */
+.project-identity {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+.project-identity input { grid-column: 1 / -1; }
+.draft-link {
+  grid-column: 2;
+  grid-row: 2;
+  min-height: 0;
+  padding: 0 4px;
+  font-size: 11px;
+  color: var(--select);
+}
+.save-state {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.reading-heading { min-height: 60px; padding-block: 10px; }
+.reading-views { padding-bottom: 4px; }
+.reading-views button { min-height: 28px; padding-block: 4px; }
+.transcription-summary > button { min-height: 28px; }
+.transcription-panel { padding-block: 6px; }
+.transcript-timing-note { padding: 4px 24px; }
+.transcript-timing-note summary { cursor: pointer; color: var(--select); }
+.transcript-timing-note p { margin: 6px 0; }
+.selection-tray > div > span { max-width: none; overflow: visible; }
+.selection-tray > div > span b { margin-left: 4px; }
+.cut-draft-marker { color: var(--select); font-size: 10px; flex-shrink: 0; }
+.feedback.saved-feedback {
+  display: block;
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+}
+.range-fields input, .note-label input, .note-label textarea,
+.correction-words input, .search-field { border-color: #80878c; }
+input[aria-invalid="true"] { border-color: var(--error); }
+@media (max-width: 1040px) {
+  .selection-tray > div { min-width: 210px; flex: 1; }
+  .selection-tray > div > span { font-size: 11px; }
+  .selection-tray button { flex: 0 0 auto; }
+}
+@media (max-height: 720px) {
+  .project-toolbar { height: 48px; }
+  .status-bar { height: 28px; }
+  .status-bar button { min-height: 24px; padding-block: 2px; }
+  .reading-heading { min-height: 40px; padding-block: 4px; }
+  .reading-heading p { display: none; }
+  .reading-heading h1 { font-size: 18px; }
+  .reading-views { padding-bottom: 0; }
+  .transcription-panel { padding-block: 4px; }
+  .transcript-tools { min-height: 0; padding-block: 4px; }
+  .search-field { min-height: 30px; }
+  .transcript-tools > button { min-height: 30px; }
+  .reading-hint { display: none; }
+  .transcript-timing-note { padding-block: 2px; font-size: 11px; }
+  .selection-tray { min-height: 48px; padding-block: 6px; }
+  .selection-tray > div { gap: 2px; }
+  .selection-tray button { min-height: 32px; padding-block: 4px; }
+  .selection-tray kbd { display: none; }
+  .assembly { height: 110px; }
+  .empty-assembly .assembly { height: 78px; }
+  .assembly-cut { min-height: 60px; gap: 3px; padding: 6px 10px; }
+  .assembly-cut .cut-text { -webkit-line-clamp: 1; max-height: 1.4em; }
+  .assembly-strip { padding-bottom: 4px; }
+  .monitor-heading { min-height: 44px; padding-block: 6px; }
+  .cut-inspector .section-heading { min-height: 36px; }
+  .correction-panel, .export-summary { top: 56px; max-height: calc(100% - 92px); }
 }

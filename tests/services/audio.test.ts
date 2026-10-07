@@ -24,11 +24,13 @@ it("the bounded WAV transport survives every split point in an actual native hea
   const { stdout } = await run(ffmpeg, ["-v", "error", "-i", source, "-vn", "-ac", "1", "-ar", "16000", "-c:a", "pcm_s16le", "-f", "wav", "pipe:1"], { encoding: "buffer" });
   const dataStart = stdout.indexOf(Buffer.from("data")) + 8;
   expect(dataStart).toBeGreaterThan(40);
+  const expectedPcm = stdout.subarray(dataStart);
   for (let split = 1; split < dataStart; split++) {
     const samples: Buffer[] = [], decoder = new PcmWaveDecoder((packet) => samples.push(packet));
     decoder.push(stdout.subarray(0, split)); decoder.push(stdout.subarray(split));
     expect(decoder.complete).toBe(true);
-    expect(Buffer.concat(samples)).toEqual(stdout.subarray(dataStart));
+    // Compare every decoded byte without the generic object walk over a Buffer.
+    expect(Buffer.concat(samples).equals(expectedPcm), `WAV header split ${split}`).toBe(true);
   }
   const forged = Buffer.from(stdout.subarray(0, 20));
   forged.writeUInt32LE(0xffffff00, 16);

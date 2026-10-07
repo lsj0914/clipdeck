@@ -34,6 +34,7 @@ import { Icon } from "./Icon";
 import { useSourcePreview } from "./useSourcePreview";
 import {
   range,
+  RangeInputError,
   assemblyDuration,
   assemblyPosition,
   excerpt,
@@ -41,7 +42,11 @@ import {
   time,
 } from "./format";
 
-type Failure = { message: string; retry: (() => void) | null };
+type DraftProblem = { cutId: string; assetId: string; ordinal: number; field: "start" | "end"; message: string };
+class CutDraftFailure extends Error {
+  constructor(readonly problem: DraftProblem) { super(problem.message); }
+}
+type Failure = { message: string; retry: (() => void) | null; retryLabel?: string; cutOrdinal?: number };
 type ExportReview = {
   projectId: string;
   revision: number;
@@ -107,7 +112,8 @@ function Workbench({ api = window.clipdeck }: { api?: ClipDeckAPI }) {
     [settingsRequest, setSettingsRequest] = useState(0),
     [correctionOpen, setCorrectionOpen] = useState(false),
     [corrections, setCorrections] = useState<Record<string, string>>({}),
-    [closing, setClosing] = useState(false);
+    [closing, setClosing] = useState(false),
+    [draftProblem, setDraftProblem] = useState<(DraftProblem & { request: number }) | null>(null);
   const closingRef = useRef(false);
   const projectNameInput = useRef<HTMLInputElement>(null);
   const closeHandler = useRef<(action: CloseAction) => Promise<ClosePreparation>>(async () => ({ ready: false, locale: "en" }));
@@ -116,6 +122,7 @@ function Workbench({ api = window.clipdeck }: { api?: ClipDeckAPI }) {
   function setDrafts(update: React.SetStateAction<Record<string, CutDraft>>) {
     const next =
       typeof update === "function" ? update(draftsRef.current) : update;
+    if (next !== draftsRef.current) setAnnouncement("");
     draftsRef.current = next;
     setDraftsState(next);
   }
@@ -136,7 +143,18 @@ function Workbench({ api = window.clipdeck }: { api?: ClipDeckAPI }) {
     pendingSeek = useRef<number | null>(null),
     pendingPlay = useRef(false),
     busyRef = useRef(false);
+  const revealDraft = useCallback((problem: DraftProblem) => {
+    setSourceId(problem.assetId);
+    setCutId(problem.cutId);
+    setView("source");
+    setReadingMode("source");
+    setRangeMode(false);
+    setPanel("inspector");
+    setDraftProblem((previous) => ({ ...problem, request: (previous?.request ?? 0) + 1 }));
+  }, []);
   const accept = useCallback((next: WorkspaceSnapshot) => {
+    if (workspaceRef.current && (next.project.id !== workspaceRef.current.project.id || next.project.revision !== workspaceRef.current.project.revision))
+      setAnnouncement("");
     workspaceRef.current = next;
     setSnapshot(next);
   }, []);
@@ -166,11 +184,14 @@ function Workbench({ api = window.clipdeck }: { api?: ClipDeckAPI }) {
         }
         return result;
       } catch (error) {
-        setFailure({
+        setFailure(error instanceof CutDraftFailure ? {
+          message: "Review this cut's range before saving.",
+          cutOrdinal: error.problem.ordinal,
+          retryLabel: "Review edit",
+          retry: () => revealDraft(error.problem),
+        } : {
           message: message(error),
-          retry: () => {
-            void run(task, options);
-          },
+          retry: () => { void run(task, options); },
         });
         return undefined;
       } finally {
@@ -181,7 +202,7 @@ function Workbench({ api = window.clipdeck }: { api?: ClipDeckAPI }) {
         }
       }
     },
-    [accept],
+    [accept, revealDraft],
   );
   useEffect(() => {
     if (!api) {
@@ -221,7 +242,7 @@ function Workbench({ api = window.clipdeck }: { api?: ClipDeckAPI }) {
     if (api) return api.onCloseRequested((action) => closeHandler.current(action));
   }, [api]);
   useEffect(() => {
-    if (failure) errorRef.current?.focus({ preventScroll: true });
+    if (failure && !failure.cutOrdinal) errorRef.current?.focus({ preventScroll: true });
   }, [failure]);
   const project = snapshot?.project;
   const asset =
@@ -301,6 +322,12 @@ function Workbench({ api = window.clipdeck }: { api?: ClipDeckAPI }) {
   const selectionDuration = selectedWords.length
     ? selectionEnd - selectedWords[0]!.startMs
     : 0;
+  const inspectingSelection = !!selectedCut && selectedCut.assetId === asset?.id &&
+    selectedCut.transcriptRevision === transcript?.revision && selectedWords.length > 0 &&
+    selectedCut.wordIds.length === selectedWords.length &&
+    selectedCut.wordIds.every((id, index) => id === selectedWords[index]?.id);
+  const selectionAction = inspectingSelection ? "Add another cut" : "Add selection";
+  const savedAnnouncement = announcement === "Project saved." || announcement === "Project copy saved.";
   const selectionTimingUnsafe = selectionBoundaryNeedsTimingReview(selectedWords);
   const selectionHasTimingIssues = selectedWords.some((w) => w.timingNeedsReview);
   const currentTimingRange = timingRange?.assetId === asset?.id ? timingRange : null;
@@ -467,6 +494,20 @@ function Workbench({ api = window.clipdeck }: { api?: ClipDeckAPI }) {
     if (snapshot?.save.error) setAnnouncement("");
   }, [snapshot?.save.error]);
   useEffect(() => {
+    if (!announcement) return;
+    const timer = window.setTimeout(() => setAnnouncement(""), 5000);
+    return () => window.clearTimeout(timer);
+  }, [announcement]);
+  const overlay = helpOpen ? ".shortcuts-panel" : exportReview ? ".export-summary:not(.completed-export)" :
+    completedExport ? ".completed-export" : correctionOpen ? ".correction-panel" : null;
+  useEffect(() => {
+    if (!overlay) return;
+    const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const element = document.querySelector<HTMLElement>(overlay);
+    (element?.querySelector<HTMLElement>("input:not(:disabled)") ?? element?.querySelector<HTMLElement>("button:not(:disabled),[tabindex='0']"))?.focus();
+    return () => { if (previous?.isConnected) previous.focus({ preventScroll: true }); };
+  }, [overlay]);
+  useEffect(() => {
     if (view === "assembly" && !previewUrl) {
       video.current?.pause();
       setPlaying(false);
@@ -554,7 +595,15 @@ function Workbench({ api = window.clipdeck }: { api?: ClipDeckAPI }) {
       const source = current?.project.assets.find((a) => a.id === cut.assetId);
       if (!source)
         throw new Error("Relink this source before applying its draft.");
-      const bounds = range(draft.start, draft.end, source.durationMs);
+      let bounds: ReturnType<typeof range>;
+      try { bounds = range(draft.start, draft.end, source.durationMs); }
+      catch (error) {
+        if (!(error instanceof RangeInputError)) throw error;
+        const problem = { cutId: id, assetId: source.id, ordinal: current!.project.cutOrder.indexOf(id) + 1,
+          field: error.field, message: error.message };
+        revealDraft(problem);
+        throw new CutDraftFailure(problem);
+      }
       accept(
         await api.applyEdit({
           type: "updateCut",
@@ -964,6 +1013,17 @@ function Workbench({ api = window.clipdeck }: { api?: ClipDeckAPI }) {
   useEffect(() => {
     const handle = (event: KeyboardEvent) => {
       if (closingRef.current) { event.preventDefault(); return; }
+      if (event.key === "Escape") {
+        event.preventDefault();
+        if (helpOpen) setHelpOpen(false);
+        else if (exportReview) setExportReview(null);
+        else if (completedExport) setCompletedExport(null);
+        else if (correctionOpen) { if (!busyRef.current) setCorrectionOpen(false); }
+        else if (queueOpen) setQueueOpen(false);
+        else if (sourcesOpen) setSourcesOpen(false);
+        else setSelection(null);
+        return;
+      }
       const input =
         event.target instanceof HTMLElement &&
         !!event.target.closest(
@@ -975,6 +1035,8 @@ function Workbench({ api = window.clipdeck }: { api?: ClipDeckAPI }) {
           blocking: true,
           success: "Project saved.",
         });
+      } else if (overlay) {
+        return;
       } else if (
         !input &&
         (event.metaKey || event.ctrlKey) &&
@@ -1000,11 +1062,6 @@ function Workbench({ api = window.clipdeck }: { api?: ClipDeckAPI }) {
       ) {
         event.preventDefault();
         togglePlayback();
-      } else if (event.key === "Escape") {
-        setHelpOpen(false);
-        setQueueOpen(false);
-        setSourcesOpen(false);
-        setSelection(null);
       }
     };
     window.addEventListener("keydown", handle);
@@ -1095,6 +1152,13 @@ function Workbench({ api = window.clipdeck }: { api?: ClipDeckAPI }) {
                       ? t("Saved locally")
                       : t("Local project")}
           </span>
+          {Object.keys(drafts).length > 0 && (
+            <button className="draft-link" onClick={() => {
+              const id = Object.keys(drafts)[0]!;
+              const cut = project?.cuts.find((cut) => cut.id === id);
+              if (cut) inspectCut(cut);
+            }}>{t("Review edit")}</button>
+          )}
         </div>
         <div className="toolbar-actions">
           <select
@@ -1179,9 +1243,9 @@ function Workbench({ api = window.clipdeck }: { api?: ClipDeckAPI }) {
       </header>
       {failure && (
         <div className="error-banner" role="alert" tabIndex={-1} ref={errorRef}>
-          <span>{t(failure.message)}</span>
+          <span>{failure.cutOrdinal ? `${t("Cut")} ${failure.cutOrdinal} · ` : ""}{t(failure.message)}</span>
           {failure.retry && (
-            <button onClick={failure.retry}>{t("Retry")}</button>
+            <button onClick={failure.retry}>{t(failure.retryLabel ?? "Retry")}</button>
           )}
           <button
             aria-label={t("Dismiss error")}
@@ -1579,12 +1643,8 @@ function Workbench({ api = window.clipdeck }: { api?: ClipDeckAPI }) {
                       {selectedWords.length > 0 ? (
                         <>
                           <strong>
-                            {selectedWords.length}{" "}
-                            {t(
-                              selectedWords.length === 1
-                                ? "word selected"
-                                : "words selected",
-                            )}
+                            {inspectingSelection ? `${t("Viewing cut")} ${cuts.indexOf(selectedCut!) + 1}` : selectedWords.length}{" "}
+                            {!inspectingSelection && t(selectedWords.length === 1 ? "word selected" : "words selected")}
                           </strong>
                           <span>
                             {time(selectedWords[0]!.startMs, true)} —{" "}
@@ -1629,6 +1689,8 @@ function Workbench({ api = window.clipdeck }: { api?: ClipDeckAPI }) {
                     </button>
                     <button
                       disabled={!selectedWords.length || !sourceReady || selectionTimingUnsafe}
+                      aria-label={t("Audition")}
+                      title={t("Audition")}
                       onClick={auditionSelection}
                     >
                       <Icon name="play" />
@@ -1641,8 +1703,8 @@ function Workbench({ api = window.clipdeck }: { api?: ClipDeckAPI }) {
                     )}
                     <button
                       className="primary"
-                      aria-label={t("Add selection")}
-                      title={t("Add selection (E)")}
+                      aria-label={t(selectionAction)}
+                      title={t(inspectingSelection ? "Add another cut (E)" : "Add selection (E)")}
                       disabled={
                         busy ||
                         !selectedWords.length ||
@@ -1652,7 +1714,7 @@ function Workbench({ api = window.clipdeck }: { api?: ClipDeckAPI }) {
                       onClick={() => void addSelection()}
                     >
                       <Icon name="plus" />
-                      <span>{t("Add selection")}</span>
+                      <span>{t(selectionAction)}</span>
                       <kbd>{t("E")}</kbd>
                     </button>
                   </div>
@@ -1966,9 +2028,11 @@ function Workbench({ api = window.clipdeck }: { api?: ClipDeckAPI }) {
                   cut={selectedCut}
                   ordinal={cuts.indexOf(selectedCut) + 1}
                   draft={drafts[selectedCut.id] ?? cutDraft(selectedCut)}
-                  onDraft={(draft) =>
-                    setDrafts((old) => ({ ...old, [selectedCut.id]: draft }))
-                  }
+                  validation={draftProblem?.cutId === selectedCut.id ? draftProblem : undefined}
+                  onDraft={(draft) => {
+                    setDraftProblem(null);
+                    setDrafts((old) => ({ ...old, [selectedCut.id]: draft }));
+                  }}
                   currentMs={
                     view === "source" && asset?.id === selectedCut.assetId
                       ? currentMs
@@ -1977,7 +2041,7 @@ function Workbench({ api = window.clipdeck }: { api?: ClipDeckAPI }) {
                   asset={project?.assets.find(
                     (a) => a.id === selectedCut.assetId,
                   )}
-                  busy={busy}
+                  busy={busy || closing}
                   onUpdate={(changes) => {
                     const appliedDraft = drafts[selectedCut.id];
                     void (async () => {
@@ -2171,6 +2235,7 @@ function Workbench({ api = window.clipdeck }: { api?: ClipDeckAPI }) {
                       <span className="cut-source" title={source?.name}>
                         {source?.name ?? t("Missing source")}
                       </span>
+                      {drafts[cut.id] && <span className="cut-draft-marker">{t("Unapplied")}</span>}
                       <Icon name="grip" />
                     </span>
                     <span className="cut-text">
@@ -2496,11 +2561,11 @@ function Workbench({ api = window.clipdeck }: { api?: ClipDeckAPI }) {
       )}
       <div
         role="status"
-        className={`feedback ${announcement ? "visible" : ""}`}
+        className={`feedback ${savedAnnouncement ? "saved-feedback" : announcement ? "visible" : ""}`}
         aria-live="polite"
       >
         {t(announcement)}
-        {announcement && snapshot?.canUndo && (
+        {announcement && !savedAnnouncement && snapshot?.canUndo && (
           <button
             onClick={() => {
               void edit({ type: "undo" });
@@ -2510,7 +2575,7 @@ function Workbench({ api = window.clipdeck }: { api?: ClipDeckAPI }) {
             {t("Undo last edit")}
           </button>
         )}
-        {announcement && (
+        {announcement && !savedAnnouncement && (
           <button
             aria-label={t("Dismiss feedback")}
             onClick={() => setAnnouncement("")}

@@ -1,6 +1,12 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 export type Locale = "en" | "zh";
 const zh: Record<string, string> = {
+  "Review edit": "查看编辑",
+  "Review this cut's range before saving.": "请修改此片段的时间范围后再保存。",
+  "Viewing cut": "正在查看片段",
+  "Add another cut": "另加一段",
+  "Add another cut (E)": "另加一段 (E)",
+  Unapplied: "未应用",
   "Some temporary files could not be cleared. Check that your export folder is available and your disk has free space, then restart ClipDeck.": "部分临时文件未能清理。请确认导出文件夹可用且磁盘有剩余空间，再重新打开 ClipDeck。",
   "Project name cannot be empty.": "项目名称不能为空。",
   "Opening…": "正在打开项目…",

@@ -265,11 +265,12 @@ export function TranscriptView({
         </span>
       </div>
       {(hasTimingIssues || (!draft && !timingProvenanceKnown)) && (
-        <p id={timingNoteId} className="transcript-timing-note" role="note">
-          {hasTimingIssues
+        <details id={timingNoteId} className="transcript-timing-note" role="note">
+          <summary>{t("Timing needs review")}</summary>
+          <p>{hasTimingIssues
             ? t("Underlined passages have uncertain word timing. Use a time range to check them.")
-            : t("This saved transcript does not identify uncertain word timing. Listen before cutting, or transcribe again.")}
-        </p>
+            : t("This saved transcript does not identify uncertain word timing. Listen before cutting, or transcribe again.")}</p>
+        </details>
       )}
       <div
         ref={scroller}

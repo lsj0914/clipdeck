@@ -18,6 +18,58 @@ import type {
 } from "../../src/shared/contracts";
 import { App } from "../../src/renderer/App";
 
+describe("reviewed editing workflow", () => {
+  it("takes a failed save back to the invalid retained draft and its field", async () => {
+    const b = bridge(assemblyFixture());
+    render(<App api={b.api} />);
+    fireEvent.click(await screen.findByRole("listitem", { name: /Cut 1:/ }));
+    fireEvent.change(screen.getByLabelText("Cut out"), { target: { value: "00:00.000" } });
+    fireEvent.click(screen.getByRole("listitem", { name: /Cut 2:/ }));
+    fireEvent.keyDown(window, { key: "s", metaKey: true });
+    const input = await screen.findByLabelText("Cut out");
+    await waitFor(() => expect(input).toHaveProperty("value", "00:00.000"));
+    await waitFor(() => expect(document.activeElement).toBe(input));
+    expect(input.getAttribute("aria-invalid")).toBe("true");
+    expect(input.getAttribute("aria-describedby")).toBeTruthy();
+    expect(screen.getByText("Cut 1 · Review this cut's range before saving.")).toBeTruthy();
+    expect(screen.getAllByRole("button", { name: "Review edit" })).toHaveLength(2);
+    expect(b.api.saveProject).not.toHaveBeenCalled();
+    expect(b.get().project.cuts[0]?.endMs).toBe(1101);
+    fireEvent.change(input, { target: { value: "00:03.125" } });
+    fireEvent.keyDown(window, { key: "s", metaKey: true });
+    await waitFor(() => expect(b.api.saveProject).toHaveBeenCalledTimes(1));
+    expect(b.get().project.cuts[0]?.endMs).toBe(3125);
+  });
+  it("distinguishes inspecting an existing passage from adding a fresh selection", async () => {
+    const state = assemblyFixture();
+    Object.assign(state.project.cuts[0]!, { wordIds: ["w1", "w2", "w3"], transcriptRevision: 3, endMs: 2600 });
+    const b = bridge(state);
+    render(<App api={b.api} />);
+    fireEvent.click(await screen.findByRole("listitem", { name: /Cut 1:/ }));
+    await screen.findByRole("button", { name: "Add another cut" });
+    expect(screen.getByText("Viewing cut 1")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "一起" }));
+    expect(screen.getByRole("button", { name: "Add selection" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Add another cut" })).toBeNull();
+  });
+  it("closes word correction with Escape, preserving selection and returning focus", async () => {
+    const b = bridge();
+    render(<App api={b.api} />);
+    fireEvent.click(await screen.findByRole("button", { name: "今天" }));
+    const trigger = screen.getByRole("button", { name: "Correct text" });
+    trigger.focus();
+    fireEvent.click(trigger);
+    const input = screen.getByLabelText("Word 1");
+    await waitFor(() => expect(document.activeElement).toBe(input));
+    fireEvent.change(input, { target: { value: "明天" } });
+    fireEvent.keyDown(input, { key: "Escape" });
+    expect(screen.queryByLabelText("Correct transcript")).toBeNull();
+    expect(screen.getByRole("button", { name: "今天" }).getAttribute("aria-pressed")).toBe("true");
+    expect(document.activeElement).toBe(trigger);
+    expect(b.api.applyEdit).not.toHaveBeenCalled();
+  });
+});
+
 function fixture(silent = false): WorkspaceSnapshot {
   return {
     project: {
@@ -367,7 +419,7 @@ describe("actual bridge workbench interactions", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "Add selection" }));
     await waitFor(() => expect(b.get().project.cuts).toHaveLength(1));
-    fireEvent.click(screen.getByRole("button", { name: "Add selection" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add another cut" }));
     await waitFor(() => expect(b.get().project.cuts).toHaveLength(2));
     const [first, second] = b.get().project.cuts;
     expect(first).toMatchObject({
@@ -494,7 +546,7 @@ describe("actual bridge workbench interactions", () => {
       });
     });
     expect(await screen.findByLabelText("Assembly video")).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "Add selection" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add another cut" }));
     await waitFor(() => expect(b.get().project.cuts).toHaveLength(2));
     await waitFor(() =>
       expect(screen.queryByLabelText("Assembly video")).toBeNull(),

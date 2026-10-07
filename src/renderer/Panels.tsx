@@ -1,7 +1,7 @@
 import { useLocale } from "./locale";
 import React, { useEffect, useId, useRef, useState } from "react";
 import type { Cut, Job, SafeAsset } from "../shared/contracts";
-import { excerpt, range, seconds, time, parseSeconds } from "./format";
+import { excerpt, range, seconds, time, parseSeconds, RangeInputError } from "./format";
 import { Icon } from "./Icon";
 export function RangeEditor({
   asset,
@@ -135,12 +135,14 @@ export function CutInspector({
   ordinal,
   onDraft,
   currentMs = 0,
+  validation,
 }: {
   cut: Cut;
   ordinal: number;
   draft: CutDraft;
   onDraft: (draft: CutDraft) => void;
   currentMs?: number;
+  validation?: { field: "start" | "end"; message: string; request: number } | undefined;
   asset: SafeAsset | undefined;
   busy: boolean;
   canAudition: boolean;
@@ -157,17 +159,27 @@ export function CutInspector({
   const { t } = useLocale();
   const { start, end, note } = draft;
   const text = draft.text === draft.baseText ? cut.text : draft.text;
-  const setStart = (start: string) => onDraft({ ...draft, start });
-  const setEnd = (end: string) => onDraft({ ...draft, end });
+  const setStart = (start: string) => { setError(""); setErrorField(null); onDraft({ ...draft, start }); };
+  const setEnd = (end: string) => { setError(""); setErrorField(null); onDraft({ ...draft, end }); };
   const setText = (text: string) => onDraft({ ...draft, text });
   const setNote = (note: string) => onDraft({ ...draft, note });
   const [editingFullText, setEditingFullText] = useState(false),
-    [error, setError] = useState("");
+    [error, setError] = useState(""),
+    [errorField, setErrorField] = useState<"start" | "end" | null>(null);
   const fullTextId = useId();
+  const errorId = useId();
+  const startInput = useRef<HTMLInputElement>(null), endInput = useRef<HTMLInputElement>(null);
   useEffect(() => {
     setEditingFullText(false);
     setError("");
+    setErrorField(null);
   }, [cut.id]);
+  useEffect(() => {
+    if (!validation || busy) return;
+    setError(validation.message);
+    setErrorField(validation.field);
+    (validation.field === "start" ? startInput : endInput).current?.focus();
+  }, [validation, busy]);
   const dirty =
     start !== time(cut.startMs, true) ||
     end !== time(cut.endMs, true) ||
@@ -185,6 +197,8 @@ export function CutInspector({
       (which === "start" ? setStart : setEnd)(time(value, true));
     } catch (e) {
       setError((e as Error).message);
+      setErrorField(which);
+      (which === "start" ? startInput : endInput).current?.focus();
     }
   }
   function save() {
@@ -193,9 +207,13 @@ export function CutInspector({
         throw new Error("Relink this source before changing its range.");
       const r = range(start, end, asset.durationMs);
       setError("");
+      setErrorField(null);
       onUpdate({ ...r, note, text });
     } catch (e) {
       setError((e as Error).message);
+      const field = e instanceof RangeInputError ? e.field : null;
+      setErrorField(field);
+      if (field) (field === "start" ? startInput : endInput).current?.focus();
     }
   }
   return (
@@ -228,6 +246,9 @@ export function CutInspector({
           <input
             disabled={busy}
             aria-label={t("Cut in")}
+            ref={startInput}
+            aria-invalid={errorField === "start" || undefined}
+            aria-describedby={errorField === "start" ? errorId : undefined}
             inputMode="decimal"
             value={start}
             onChange={(e) => setStart(e.target.value)}
@@ -256,6 +277,9 @@ export function CutInspector({
           <input
             disabled={busy}
             aria-label={t("Cut out")}
+            ref={endInput}
+            aria-invalid={errorField === "end" || undefined}
+            aria-describedby={errorField === "end" ? errorId : undefined}
             inputMode="decimal"
             value={end}
             onChange={(e) => setEnd(e.target.value)}
@@ -338,7 +362,7 @@ export function CutInspector({
         />
       </label>
       {error && (
-        <p role="alert" className="field-error">
+        <p id={errorId} role="alert" className="field-error">
           {t(error)}
         </p>
       )}
