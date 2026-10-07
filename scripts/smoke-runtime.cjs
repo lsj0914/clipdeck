@@ -12,6 +12,7 @@ const expected = [
   "importMedia",
   "importDroppedFiles",
   "applyEdit",
+  "applyEditUpdate",
   "transcribe",
   "prepareSourcePreview",
   "preparePreview",
@@ -24,6 +25,7 @@ const expected = [
   "downloadModel",
   "revealExport",
   "subscribe",
+  "subscribeUpdates",
   "onCloseRequested",
 ].sort();
 let firstWindow = true;
