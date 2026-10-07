@@ -20,6 +20,9 @@ export interface RenderReceipt {
   audioPresentationSamples: number;
 }
 const seconds = (ms: number) => (ms / 1000).toFixed(6);
+// FFprobe defaults to one decoder thread. Bound full validation reads so they
+// use parallel decoding without each queued render taking every CPU core.
+const VALIDATION_DECODE_OPTIONS = ["-threads", "4"];
 /** MP4/MOV may retain an intact front index after their media payload is cut off.
  * Check top-level box bounds without reading or decoding the media payload. */
 async function verifyMovieBounds(file: string, signal: AbortSignal): Promise<void> {
@@ -230,6 +233,7 @@ export class RenderEngine {
         [
           "-v",
           "error",
+          ...VALIDATION_DECODE_OPTIONS,
           "-count_frames",
           "-select_streams",
           "v:0",
@@ -353,6 +357,7 @@ export class RenderEngine {
       [
         "-v",
         "error",
+        ...VALIDATION_DECODE_OPTIONS,
         "-count_frames",
         "-show_streams",
         "-show_format",
@@ -410,6 +415,7 @@ export class RenderEngine {
       [
         "-v",
         "error",
+        ...VALIDATION_DECODE_OPTIONS,
         "-select_streams",
         "v:0",
         "-show_frames",

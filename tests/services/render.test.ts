@@ -157,6 +157,44 @@ it("stops the native source-presence scan at its first usable frame while preser
     expect(s.render.receipt(id)).toMatchObject({ frames: 26, samples: 41600 });
   } finally { observed.mockRestore(); }
 }, 30000);
+it("bounds parallel decoding for every frame-count and timestamp validation while preserving the complete presentation", async () => {
+  const actualRun = nativeProcess.runProcess;
+  const decoded: { args: string[]; stdout: string }[] = [];
+  const observed = vi.spyOn(nativeProcess, "runProcess").mockImplementation(async (...args) => {
+    const [executable, command, options] = args;
+    const readsFrames = executable === ffprobe && (command.includes("-count_frames") || command.includes("-show_frames"));
+    let streamed = "";
+    const onStdout = options?.onStdout;
+    const result = await actualRun(executable, command, readsFrames && onStdout ? {
+      ...options,
+      onStdout: chunk => { streamed += chunk; onStdout(chunk); },
+    } : options);
+    if (readsFrames) decoded.push({ args: [...command], stdout: result.stdout + streamed });
+    return result;
+  });
+  try {
+    const s = await setup();
+    const id = await s.render.preview(buildAssemblyPlan(s.project));
+    const job = await finish(s, id);
+    expect(job.status, job.error ?? "").toBe("completed");
+    expect(decoded).toHaveLength(4);
+    for (const probe of decoded) {
+      const threadsAt = probe.args.indexOf("-threads");
+      expect(threadsAt, "Full decode must opt out of FFprobe's single-thread default").toBeGreaterThanOrEqual(0);
+      const threads = Number(probe.args[threadsAt + 1]);
+      expect(threads).toBeGreaterThan(1);
+      expect(threads).toBeLessThanOrEqual(4);
+    }
+    const counts = decoded.filter(p => p.args.includes("-count_frames"))
+      .map(p => Number(JSON.parse(p.stdout).streams.find((stream: any) => stream.nb_read_frames !== undefined).nb_read_frames));
+    expect(counts).toEqual([13, 13, 26]);
+    const timestamps = decoded.find(p => p.args.includes("-show_frames"))!.stdout
+      .split("\n").filter(line => line.split(",")[0]!.trim()).map(line => Number(line.split(",")[0]));
+    expect(timestamps).toHaveLength(26);
+    timestamps.forEach((timestamp, frame) => expect(timestamp).toBeCloseTo(frame / 30, 5));
+    expect(s.render.receipt(id)).toMatchObject({ frames: 26, samples: 41600, audioPresentationSamples: 41600 });
+  } finally { observed.mockRestore(); }
+}, 30000);
 it("rejects an interval containing no selected frame and leaves no published file", async () => {
   const s = await setup([red]);
   s.project.cuts[0]!.startMs = 1;
