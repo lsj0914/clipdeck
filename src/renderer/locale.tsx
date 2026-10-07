@@ -3,6 +3,10 @@ export type Locale = "en" | "zh";
 const zh: Record<string, string> = {
   "Some temporary files could not be cleared. Check that your export folder is available and your disk has free space, then restart ClipDeck.": "部分临时文件未能清理。请确认导出文件夹可用且磁盘有剩余空间，再重新打开 ClipDeck。",
   "Project name cannot be empty.": "项目名称不能为空。",
+  "Opening…": "正在打开项目…",
+  "Enter MM:SS.MMM or seconds with up to three decimal places.": "请输入分:秒.毫秒，或最多三位小数的秒数。",
+  "Enter a valid time.": "请输入有效的时间。",
+  "The out point must be after the in point.": "出点必须晚于入点。",
   "Corrected words cannot be empty.": "校正后的词不能为空。",
   "Another operation is still running. Wait for it to finish, then close again.": "还有操作尚未完成，请稍后再关闭。",
   "Source missing": "素材未关联",
@@ -378,9 +382,11 @@ export function LocaleProvider({ children }: { children: React.ReactNode }) {
   }, [locale]);
   const t = (value: string) => {
     if (locale !== "zh") return value;
-    if (zh[value] !== undefined) return zh[value];
+    if (Object.hasOwn(zh, value)) return zh[value]!;
     const cut = /^rendering cut ([1-9]\d*) of ([1-9]\d*)$/.exec(value);
-    return cut ? `正在处理片段 ${cut[1]} / ${cut[2]}` : value;
+    if (cut) return `正在处理片段 ${cut[1]} / ${cut[2]}`;
+    const duration = /^The out point must be within the source \((\d+\.\d{3}) seconds\)\.$/.exec(value);
+    return duration ? `出点不能超过原素材时长（${duration[1]} 秒）。` : value;
   };
   return (
     <Context.Provider value={{ locale, setLocale, t }}>

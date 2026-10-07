@@ -103,6 +103,12 @@ export function useSourcePreview(
       fallbackAttempts.current.delete(key);
       return;
     }
+    const publishedAttempt = attempts.current.get(key);
+    if (publishedAttempt?.jobId && job?.id === publishedAttempt.jobId) {
+      publishedAttempt.seenJobId = job.id;
+      publishedAttempt.pending = false;
+      refresh();
+    }
     if (asset.mediaUrl) {
       urls.current.set(key, asset.mediaUrl);
       return;
@@ -114,11 +120,6 @@ export function useSourcePreview(
     if (seenJobId && !snapshot?.jobs.some((j) => j.id === seenJobId)) {
       attempts.current.delete(key);
       attempt = undefined;
-    }
-    if (attempt?.jobId && job?.id === attempt.jobId) {
-      attempt.seenJobId = job.id;
-      attempt.pending = false;
-      refresh();
     }
     if (!attempt && job) {
       attempts.current.set(key, {

@@ -401,6 +401,26 @@ describe("actual bridge workbench interactions", () => {
       transcriptRevision: null,
     });
   });
+  it("explains invalid time ranges in Chinese and retains them for correction", async () => {
+    localStorage.setItem("clipdeck.locale", "zh");
+    const b = bridge(fixture(true));
+    render(<App api={b.api} />);
+    const start = await screen.findByLabelText("选区入点");
+    const end = screen.getByLabelText("选区出点");
+    fireEvent.change(start, { target: { value: "2.000" } });
+    fireEvent.change(end, { target: { value: "1.000" } });
+    fireEvent.click(screen.getByRole("button", { name: "加入时间段" }));
+    expect(screen.getByRole("alert").textContent).toBe("出点必须晚于入点。");
+    expect(end).toHaveProperty("value", "1.000");
+    expect(b.api.applyEdit).not.toHaveBeenCalled();
+    fireEvent.change(end, { target: { value: "11.000" } });
+    fireEvent.click(screen.getByRole("button", { name: "加入时间段" }));
+    expect(screen.getByRole("alert").textContent).toBe("出点不能超过原素材时长（10.000 秒）。");
+    fireEvent.change(end, { target: { value: "3.000" } });
+    fireEvent.click(screen.getByRole("button", { name: "加入时间段" }));
+    await waitFor(() => expect(b.get().project.cuts).toHaveLength(1));
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
   it("reorders cuts with keyboard alternatives and invokes undo", async () => {
     const b = bridge();
     render(<App api={b.api} />);
@@ -1088,6 +1108,49 @@ describe("native source preview lifecycle", () => {
       outputUrl: null,
     };
   }
+  it("keeps the active fallback message when the original decoder deadline arrives", async () => {
+    autoDecode = false;
+    let deadline: (() => void) | undefined;
+    const original = window.setTimeout.bind(window);
+    vi.spyOn(window, "setTimeout").mockImplementation((handler, delay, ...args) => {
+      if (delay === 15000) {
+        deadline = handler as () => void;
+        return 12345 as unknown as ReturnType<typeof window.setTimeout>;
+      }
+      return original(handler, delay, ...args) as unknown as ReturnType<typeof window.setTimeout>;
+    });
+    const b = bridge();
+    render(<App api={b.api} />);
+    fireEvent.error(await screen.findByLabelText("Source video"));
+    await waitFor(() => expect(b.api.prepareSourcePreview).toHaveBeenCalledTimes(1));
+    act(() => b.emit({ ...b.get(), jobs: [job()] }));
+    expect(deadline).toBeTypeOf("function");
+    act(() => deadline!());
+    expect(screen.getByText("Preparing a compatible preview. Text editing stays available.")).toBeTruthy();
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(screen.getByRole("button", { name: "Cancel source preview" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Retry source preview" })).toBeNull();
+    expect(b.api.prepareSourcePreview).toHaveBeenCalledTimes(1);
+  });
+  it.each(["failed", "cancelled"] as const)("clears direct fallback progress after its matching job is %s", async (status) => {
+    autoDecode = false;
+    const b = bridge();
+    render(<App api={b.api} />);
+    fireEvent.error(await screen.findByLabelText("Source video"));
+    await waitFor(() => expect(b.api.prepareSourcePreview).toHaveBeenCalledTimes(1));
+    act(() => b.emit({ ...b.get(), jobs: [job()] }));
+    expect(screen.getByRole("progressbar", { name: "Source preview preparation" })).toBeTruthy();
+    act(() => b.emit({ ...b.get(), jobs: [job(status)] }));
+    expect(screen.queryByRole("progressbar", { name: "Source preview preparation" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Retry source preview" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Cancel source preview" })).toBeNull();
+    expect(b.api.prepareSourcePreview).toHaveBeenCalledTimes(1);
+    if (status === "failed") expect(screen.getByRole("alert").textContent).toContain("Source conversion failed");
+    else {
+      expect(screen.getByText("Source preview cancelled.")).toBeTruthy();
+      expect(screen.queryByRole("alert")).toBeNull();
+    }
+  });
   it("prepares once through delayed job publication, exposes cancellation and retries a failed job only explicitly", async () => {
     const b = bridge(withoutProxy());
     render(
@@ -1309,7 +1372,10 @@ describe("native source preview lifecycle", () => {
         }) as HTMLButtonElement
       ).disabled,
     ).toBe(true);
-    expect(screen.getByText(/could not be decoded/)).toBeTruthy();
+    expect(screen.getByText("Preparing a compatible preview. Text editing stays available.")).toBeTruthy();
+    await waitFor(() => expect(b.api.prepareSourcePreview).toHaveBeenCalledTimes(1));
+    act(() => b.emit({ ...b.get(), jobs: [job("failed")] }));
+    expect(screen.getByRole("alert").textContent).toContain("Source conversion failed");
     fireEvent.click(
       screen.getByRole("button", { name: "Retry source preview" }),
     );
@@ -1763,6 +1829,28 @@ describe("Task 7 complete editing workflow", () => {
     act(() => b.emit(next));
     fireEvent.error(screen.getByLabelText("Source video"));
     expect(b.api.prepareSourcePreview).toHaveBeenCalledTimes(1);
+  });
+  it("describes a live compatible-preview recovery before offering a terminal retry", async () => {
+    autoDecode = false;
+    const b = bridge();
+    render(<App api={b.api} />);
+    const direct = await screen.findByLabelText("Source video");
+    fireEvent.error(direct);
+    fireEvent.error(direct);
+    await waitFor(() => expect(b.api.prepareSourcePreview).toHaveBeenCalledTimes(1));
+    const job: WorkspaceSnapshot["jobs"][number] = {
+      id: "source-preview-1", kind: "sourcePreview", assetId: "source-one",
+      status: "running", stage: "preparing source video", processedMs: 0,
+      totalMs: 10000, progress: 0, error: null, outputUrl: null,
+      cancelRequested: false,
+    };
+    act(() => b.emit({ ...b.get(), jobs: [job] }));
+    expect(screen.getByText("Preparing a compatible preview. Text editing stays available.")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Cancel source preview" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Retry source preview" })).toBeNull();
+    act(() => b.emit({ ...b.get(), jobs: [{ ...job, status: "failed", error: "Neutral preview failure" }] }));
+    expect(screen.getByRole("alert").textContent).toContain("Neutral preview failure");
+    expect(screen.getByRole("button", { name: "Retry source preview" })).toBeTruthy();
   });
 });
 
@@ -2451,6 +2539,20 @@ describe("Task 7 first-run Open guard", () => {
     state.save = { dirty: true, displayName: null, recovered: false };
     return state;
   }
+  it("shows Opening rather than Importing while loading a saved project", async () => {
+    const b = bridge(untouchedWorkspace());
+    let resolveOpen!: (snapshot: WorkspaceSnapshot) => void;
+    vi.mocked(b.api.openProject).mockImplementation(() => new Promise(resolve => { resolveOpen = resolve; }));
+    render(<App api={b.api} />);
+    fireEvent.click(await screen.findByRole("button", { name: "Open project" }));
+    await waitFor(() => expect(b.api.openProject).toHaveBeenCalledTimes(1));
+    expect(screen.getByRole("button", { name: "Open project" }).textContent).toContain("Opening…");
+    expect(screen.getByRole("button", { name: "Choose videos" })).toHaveProperty("disabled", true);
+    expect(screen.queryByText("Importing…")).toBeNull();
+    expect(b.api.importMedia).not.toHaveBeenCalled();
+    await act(async () => resolveOpen(fixture()));
+    await screen.findByRole("button", { name: "今天" });
+  });
   it("opens the native project picker directly from an untouched new empty workspace", async () => {
     const b = bridge(untouchedWorkspace());
     let resolveInitial!: (snapshot: WorkspaceSnapshot) => void;
@@ -2510,6 +2612,18 @@ describe("Task 7 first-run Open guard", () => {
 });
 
 describe("Task 7 natural derived text and localized assembly", () => {
+  it.each(["__proto__", "constructor", "toString"])(
+    "preserves an unknown model error %s as literal text",
+    async (message) => {
+      localStorage.setItem("clipdeck.locale", "zh");
+      const initial = fixture();
+      initial.model = { ...initial.model, status: "failed", message };
+      const b = bridge(initial);
+      render(<App api={b.api} />);
+      fireEvent.click(await screen.findByRole("button", { name: /^任务进度/ }));
+      expect(screen.getByLabelText("任务进度").textContent).toContain(message);
+    },
+  );
   it("keeps recovered edits visibly unsaved until a successful save", async () => {
     localStorage.setItem("clipdeck.locale", "zh");
     const initial = fixture();

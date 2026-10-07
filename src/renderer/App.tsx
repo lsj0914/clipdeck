@@ -69,6 +69,7 @@ function Workbench({ api = window.clipdeck }: { api?: ClipDeckAPI }) {
   const [snapshot, setSnapshot] = useState<WorkspaceSnapshot | null>(null),
     [failure, setFailure] = useState<Failure | null>(null),
     [busy, setBusy] = useState(false),
+    [activity, setActivity] = useState<"import" | "open" | null>(null),
     [sourceId, setSourceId] = useState(""),
     [selection, setSelection] = useState<WordSelection | null>(null),
     [cutId, setCutId] = useState(""),
@@ -142,12 +143,13 @@ function Workbench({ api = window.clipdeck }: { api?: ClipDeckAPI }) {
   const run = useCallback(
     async <T,>(
       task: () => Promise<T>,
-      options: { blocking?: boolean; success?: string } = {},
+      options: { blocking?: boolean; success?: string; activity?: "import" | "open" } = {},
     ): Promise<T | undefined> => {
       if (closingRef.current || (options.blocking && busyRef.current)) return;
       if (options.blocking) {
         busyRef.current = true;
         setBusy(true);
+        setActivity(options.activity ?? null);
       }
       setFailure(null);
       try {
@@ -175,6 +177,7 @@ function Workbench({ api = window.clipdeck }: { api?: ClipDeckAPI }) {
         if (options.blocking) {
           busyRef.current = false;
           setBusy(false);
+          setActivity(null);
         }
       }
     },
@@ -338,7 +341,8 @@ function Workbench({ api = window.clipdeck }: { api?: ClipDeckAPI }) {
       probeStarted = false;
     let restoreTime = 0;
     const fail = () => {
-      if (!live || video.current !== element) return;
+      if (!live || video.current !== element || rejectedVideoKey.current === sourceVideoKey)
+        return;
       rejectedVideoKey.current = sourceVideoKey;
       stopAudition(true);
       setPendingAudition(null);
@@ -1050,7 +1054,7 @@ function Workbench({ api = window.clipdeck }: { api?: ClipDeckAPI }) {
           setDropActive(false);
           void run(
             () => api.importDroppedFiles(Array.from(e.dataTransfer.files)),
-            { blocking: true },
+            { blocking: true, activity: "import" },
           );
         }
       }}
@@ -1106,10 +1110,10 @@ function Workbench({ api = window.clipdeck }: { api?: ClipDeckAPI }) {
             aria-label={t("Open project")}
             title={t("Open project")}
             disabled={busy || !snapshot?.capabilities.persistence}
-            onClick={() => void run(() => openProject(), { blocking: true })}
+            onClick={() => void run(() => openProject(), { blocking: true, activity: "open" })}
           >
             <Icon name="folder" />
-            <span className="wide-label">{t("Open")}</span>
+            <span className="wide-label">{t(activity === "open" ? "Opening…" : "Open")}</span>
           </button>
           <button
             aria-label={t("Save project")}
@@ -1206,7 +1210,7 @@ function Workbench({ api = window.clipdeck }: { api?: ClipDeckAPI }) {
           <button
             disabled={busy || !snapshot.capabilities.media}
             onClick={() =>
-              void run(() => api.importMedia(), { blocking: true })
+              void run(() => api.importMedia(), { blocking: true, activity: "import" })
             }
           >
             {t("Choose videos again")}
@@ -1260,7 +1264,7 @@ function Workbench({ api = window.clipdeck }: { api?: ClipDeckAPI }) {
                   title={t("Import videos")}
                   disabled={busy || !snapshot.capabilities.media}
                   onClick={() =>
-                    void run(() => api.importMedia(), { blocking: true })
+                    void run(() => api.importMedia(), { blocking: true, activity: "import" })
                   }
                 >
                   <Icon name="plus" />
@@ -1457,11 +1461,11 @@ function Workbench({ api = window.clipdeck }: { api?: ClipDeckAPI }) {
                       className="primary"
                       disabled={busy || !snapshot.capabilities.media}
                       onClick={() =>
-                        void run(() => api.importMedia(), { blocking: true })
+                        void run(() => api.importMedia(), { blocking: true, activity: "import" })
                       }
                     >
                       <Icon name="plus" />
-                      {busy ? t("Importing\u2026") : t("Choose videos")}
+                      {activity === "import" ? t("Importing\u2026") : t("Choose videos")}
                     </button>
                     <span className="drop-hint">
                       {t("or drop video files anywhere in this window")}
@@ -1741,16 +1745,18 @@ function Workbench({ api = window.clipdeck }: { api?: ClipDeckAPI }) {
                       onError={(event) => {
                         if (event.currentTarget !== video.current) return;
                         if (view === "source") {
+                          if (rejectedVideoKey.current === sourceVideoKey) return;
                           rejectedVideoKey.current = sourceVideoKey;
                           stopAudition(true);
                           setDecodedSource("");
                           setPendingAudition(null);
                           pendingSeek.current = null;
-                          sourcePreview.fallback();
+                          const fallback = sourcePreview.fallback();
                           setDecodeFailure({
                             key: sourceVideoKey,
-                            message:
-                              "This source preview could not be decoded. Retry or relink the recording.",
+                            message: fallback || sourcePreview.pending
+                              ? "Preparing a compatible preview. Text editing stays available."
+                              : "This source preview could not be decoded. Retry or relink the recording.",
                           });
                           return;
                         }
@@ -1819,20 +1825,22 @@ function Workbench({ api = window.clipdeck }: { api?: ClipDeckAPI }) {
                       <div
                         className="source-preview-status"
                         role={
-                          sourceVideoError || sourcePreview.error
+                          sourcePreview.error || (sourceVideoError && !sourcePreview.pending && sourcePreview.job?.status !== "cancelled")
                             ? "alert"
                             : "status"
                         }
                       >
                         <p>
-                          {sourceVideoError
-                            ? t(sourceVideoError)
-                            : (sourcePreview.error ? t(sourcePreview.error) :
+                          {sourcePreview.error
+                            ? t(sourcePreview.error)
+                            : sourcePreview.job?.status === "cancelled"
+                              ? t("Source preview cancelled.")
+                            : sourceVideoError
+                              ? t(sourceVideoError)
+                              : (
                               (asset.mediaUrl
                                 ? t("Decoding source video\u2026")
-                                : sourcePreview.job?.status === "cancelled"
-                                  ? t("Source preview cancelled.")
-                                  : t(sourcePreview.job?.stage ??
+                                : t(sourcePreview.job?.stage ??
                                     "Preparing source preview\u2026")))}
                         </p>
                         {sourcePreview.pending && (

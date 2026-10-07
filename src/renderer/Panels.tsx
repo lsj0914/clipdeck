@@ -85,7 +85,7 @@ export function RangeEditor({
       </div>
       {error && (
         <p ref={alert} tabIndex={-1} role="alert" className="field-error">
-          {error}
+          {t(error)}
         </p>
       )}
       <div className="button-row">
@@ -339,7 +339,7 @@ export function CutInspector({
       </label>
       {error && (
         <p role="alert" className="field-error">
-          {error}
+          {t(error)}
         </p>
       )}
       <div className="button-row">
