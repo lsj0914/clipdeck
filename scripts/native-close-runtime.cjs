@@ -3,6 +3,7 @@
 const { app, BrowserWindow, dialog } = require("electron");
 const assert = require("node:assert/strict");
 const fs = require("node:fs/promises");
+const fsSync = require("node:fs");
 const path = require("node:path");
 app.setAppPath(path.resolve(__dirname, ".."));
 const evidence = { nativeQuitCancelled: false, nativeSaveCancelled: false,
@@ -67,13 +68,16 @@ app.on("browser-window-created", (_event, created) => {
       await fs.rename(`${recovery}.preserved-test-backup`, recovery);
       scenario = "successful-retry";
       created.once("closed", () => {
-        void fs.readFile(recovery, "utf8").then((bytes) => {
-          assert.equal(JSON.parse(bytes).project.name, "Focused native close draft");
+        // The production window-all-closed handler quits immediately. Record
+        // this test receipt synchronously so an async read cannot lose the race.
+        try {
+          assert.equal(JSON.parse(fsSync.readFileSync(recovery, "utf8")).project.name, "Focused native close draft");
           evidence.focusedTitleRecovered = true;
           evidence.closeRetried = true;
-          console.log(JSON.stringify({ event: "native-close-integration", ...evidence }));
-          app.exit(0);
-        }).catch(fail);
+          const receipt = { event: "native-close-integration", ...evidence };
+          fsSync.writeFileSync(path.join(app.getPath("userData"), "native-close-evidence.json"), JSON.stringify(receipt));
+          console.log(JSON.stringify(receipt));
+        } catch (error) { fail(error); }
       });
       created.close();
     })().catch(fail);
