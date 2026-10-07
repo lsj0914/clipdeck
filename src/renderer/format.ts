@@ -79,7 +79,9 @@ export function assemblyPosition(cuts: Cut[], positionMs: number) {
   if (!totalFrames) return null;
   const frame = Math.min(
     totalFrames - 1,
-    Math.max(0, Math.floor((positionMs * 30) / 1000 + 1e-7)),
+    // Chromium reads media time back at microsecond precision. A truncated
+    // repeating frame boundary still identifies the frame we sought.
+    Math.max(0, Math.floor(((positionMs + 0.001) * 30) / 1000 + 1e-7)),
   );
   let startFrame = 0;
   for (let index = 0; index < cuts.length; index++) {
