@@ -347,6 +347,120 @@ describe("reviewed editing workflow", () => {
   });
 });
 
+describe("first-use and replacement transcription feedback", () => {
+  it.each(["notReady", "downloading", "failed"] as const)(
+    "offers model preparation without diagnosing an unavailable worker while the model is %s",
+    async (status) => {
+      const initial = fixture();
+      initial.project.transcripts = [];
+      initial.capabilities.transcription = false;
+      initial.model = { ...initial.model, status, id: null, message: "Model needs preparation" };
+      render(<App api={bridge(initial).api} />);
+      await screen.findByRole("button", { name: "Download selected model" });
+      expect(screen.queryByText("Local transcription is unavailable. You can still select time ranges.")).toBeNull();
+      expect(screen.getByRole("button", { name: "Transcribe source" })).toHaveProperty("disabled", true);
+      expect(screen.getByRole("button", { name: "Use local model" })).toBeTruthy();
+    },
+  );
+  it("reports actual worker unavailability after a verified model is ready", async () => {
+    const initial = fixture();
+    initial.project.transcripts = [];
+    initial.capabilities.transcription = false;
+    render(<App api={bridge(initial).api} />);
+    await screen.findByText("Local transcription is unavailable. You can still select time ranges.");
+    expect(screen.getByRole("button", { name: "Transcribe source" })).toHaveProperty("disabled", true);
+  });
+  const priorJob = (status: "completed" | "cancelled" | "failed"): WorkspaceSnapshot["jobs"][number] => ({
+    id: "previous-asr", kind: "transcription", status, stage: status === "completed" ? "complete" : "cancelled",
+    processedMs: 10000, totalMs: 10000, progress: status === "completed" ? 1 : null, error: null,
+    cancelRequested: status === "cancelled", assetId: "source-one", outputUrl: null,
+  });
+  it("does not show or cancel the previous completed job while a replacement request is unpublished", async () => {
+    const initial = fixture();
+    initial.jobs = [priorJob("completed")];
+    const b = bridge(initial);
+    let release!: (id: string) => void;
+    vi.mocked(b.api.transcribe).mockImplementation(() => new Promise(resolve => { release = resolve; }));
+    render(<App api={b.api} />);
+    fireEvent.click(await screen.findByRole("button", { name: "Transcription settings" }));
+    fireEvent.click(screen.getByRole("button", { name: "Transcribe again" }));
+    expect(screen.getByText("Transcribing · Waiting for local processing")).toBeTruthy();
+    expect(screen.getByRole("progressbar", { name: "Transcription progress" }).hasAttribute("value")).toBe(false);
+    expect(screen.queryByRole("button", { name: "Cancel transcription" })).toBeNull();
+    expect(screen.getByRole("button", { name: "今天" })).toBeTruthy();
+    const running = { ...priorJob("completed"), id: "new-asr", status: "running" as const, stage: "loading local model", progress: null, processedMs: 0 };
+    await act(async () => { b.emit({ ...b.get(), jobs: [...initial.jobs, running] }); release("new-asr"); });
+    fireEvent.click(screen.getByRole("button", { name: "Cancel transcription" }));
+    expect(b.api.cancelJob).toHaveBeenCalledExactlyOnceWith("new-asr");
+  });
+  it.each(["failed", "completed"] as const)("clears historical errors while waiting and reports the new job when %s", async (outcome) => {
+    const initial = fixture();
+    initial.jobs = [{ ...priorJob("failed"), error: "Previous attempt could not check local storage" }];
+    const b = bridge(initial);
+    let release!: (id: string) => void;
+    vi.mocked(b.api.transcribe).mockImplementation(() => new Promise(resolve => { release = resolve; }));
+    render(<App api={b.api} />);
+    await screen.findByText("Previous attempt could not check local storage");
+    fireEvent.click(screen.getByRole("button", { name: "Retry transcription" }));
+    expect(screen.getByText("Transcribing · Waiting for local processing")).toBeTruthy();
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Retry transcription" })).toBeNull();
+    const running = { ...priorJob("completed"), id: "new-asr", status: "running" as const, stage: "loading local model", progress: null, processedMs: 0 };
+    await act(async () => { b.emit({ ...b.get(), jobs: [...initial.jobs, running] }); release("new-asr"); });
+    expect(screen.queryByRole("alert")).toBeNull();
+    const terminal = { ...running, status: outcome, stage: outcome === "failed" ? "failed" : "complete", progress: outcome === "failed" ? null : 1, error: outcome === "failed" ? "New attempt could not read the source" : null };
+    await act(async () => b.emit({ ...b.get(), jobs: [...initial.jobs, terminal] }));
+    if (outcome === "failed") {
+      expect(screen.getByRole("alert").textContent).toContain("New attempt could not read the source");
+      expect(screen.getByRole("button", { name: "Retry transcription" })).toHaveProperty("disabled", false);
+    } else expect(screen.queryByRole("alert")).toBeNull();
+    expect(screen.queryByText("Previous attempt could not check local storage")).toBeNull();
+  });
+  it("reports a rejected new request instead of a historical error", async () => {
+    const initial = fixture();
+    initial.jobs = [{ ...priorJob("failed"), error: "Historical failure" }];
+    const b = bridge(initial);
+    vi.mocked(b.api.transcribe).mockRejectedValue(new Error("Current request cannot start"));
+    render(<App api={b.api} />);
+    fireEvent.click(await screen.findByRole("button", { name: "Retry transcription" }));
+    await screen.findByText("Current request cannot start");
+    expect(screen.queryByText("Historical failure")).toBeNull();
+    expect(screen.getByRole("button", { name: "Retry transcription" })).toHaveProperty("disabled", false);
+  });
+  it("keeps the source visibly transcribed after a replacement is cancelled", async () => {
+    const initial = fixture();
+    initial.jobs = [priorJob("cancelled")];
+    render(<App api={bridge(initial).api} />);
+    await screen.findByText("Transcription cancelled. Your previous text is kept.");
+    const source = screen.getByRole("button", { name: /^01采访 interview/ });
+    expect(source.textContent).toContain("Transcribed");
+    expect(source.textContent).not.toContain("cancelled");
+    fireEvent.click(screen.getByRole("button", { name: "今天" }));
+    expect(screen.getByRole("button", { name: "Add selection" })).toHaveProperty("disabled", false);
+  });
+  it("shows a single cancelled state when there is no retained transcript", async () => {
+    const initial = fixture();
+    initial.project.transcripts = [];
+    initial.jobs = [priorJob("cancelled")];
+    render(<App api={bridge(initial).api} />);
+    await screen.findByRole("button", { name: "Transcribe source" });
+    const source = screen.getByRole("button", { name: /^01采访 interview/ });
+    expect(source.textContent).toContain("cancelled");
+    expect(source.textContent).not.toContain(" · ");
+    expect(screen.queryByText("Transcription cancelled. Your previous text is kept.")).toBeNull();
+    expect(screen.getByText("Transcription cancelled. You can try again.")).toBeTruthy();
+  });
+  it.each(["missing", "changed"] as const)("prioritizes a %s source over an older cancelled transcription", async (status) => {
+    const initial = fixture();
+    initial.project.assets[0]!.status = status;
+    initial.jobs = [priorJob("cancelled")];
+    render(<App api={bridge(initial).api} />);
+    const source = await screen.findByRole("button", { name: /^01采访 interview/ });
+    expect(source.textContent).toContain(status === "missing" ? "Source missing" : "Source changed");
+    expect(source.textContent).not.toContain("cancelled");
+  });
+});
+
 function fixture(silent = false): WorkspaceSnapshot {
   return {
     project: {

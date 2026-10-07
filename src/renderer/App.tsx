@@ -1582,7 +1582,25 @@ function Workbench({ api = window.clipdeck }: { api?: ClipDeckAPI }) {
                 </button>
               </div>
               <div className="source-list">
-                {project?.assets.map((source, i) => (
+                {project?.assets.map((source, i) => {
+                  const job = snapshot.jobs.findLast(
+                    (j) => j.kind === "transcription" && j.assetId === source.id,
+                  );
+                  const transcribed = project.transcripts.some(
+                    (text) => text.assetId === source.id && text.fingerprint === source.fingerprint,
+                  );
+                  const sourceStatus = source.status !== "ready"
+                    ? t(source.status === "missing" ? "Source missing" : "Source changed")
+                    : job && isWorking(job)
+                      ? `${t(job.status)} · ${t(job.stage)}`
+                      : job?.status === "failed"
+                        ? t(job.status)
+                        : transcribed
+                          ? t("Transcribed")
+                          : job?.status === "cancelled"
+                            ? t(job.status)
+                            : t(source.hasAudio ? "Ready to transcribe" : "Video only");
+                  return (
                   <div
                     className={`source-item${source.id === asset?.id ? " active" : ""}`}
                     key={source.id}
@@ -1601,26 +1619,7 @@ function Workbench({ api = window.clipdeck }: { api?: ClipDeckAPI }) {
                         <span>
                           {time(source.durationMs)}{" "}
                           <span className="source-status">
-                            {snapshot.jobs.findLast(
-                              (j) =>
-                                j.kind === "transcription" &&
-                                j.assetId === source.id,
-                            )?.status !== undefined &&
-                            snapshot.jobs.findLast(
-                              (j) =>
-                                j.kind === "transcription" &&
-                                j.assetId === source.id,
-                            )?.status !== "completed"
-                              ? `${t(snapshot.jobs.findLast((j) => j.kind === "transcription" && j.assetId === source.id)?.status ?? "")} · ${t(snapshot.jobs.findLast((j) => j.kind === "transcription" && j.assetId === source.id)?.stage ?? "Waiting for local processing")}`
-                              : source.status !== "ready"
-                                ? t(source.status === "missing" ? "Source missing" : "Source changed")
-                                : project.transcripts.some(
-                                      (t) => t.assetId === source.id,
-                                    )
-                                  ? t("Transcribed")
-                                  : source.hasAudio
-                                    ? t("Ready to transcribe")
-                                    : t("Video only")}
+                            {sourceStatus}
                           </span>
                         </span>
                       </span>
@@ -1639,7 +1638,8 @@ function Workbench({ api = window.clipdeck }: { api?: ClipDeckAPI }) {
                       </button>
                     )}
                   </div>
-                ))}
+                  );
+                })}
                 {!project?.assets.length && (
                   <p className="rail-empty">
                     {t("Your imported recordings will appear here.")}

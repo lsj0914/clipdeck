@@ -67,7 +67,8 @@ export function TranscriptionPanel({
     snapshot.jobs.some((j) => j.id === modelAttempt.current.jobId)
   )
     modelAttempt.current.pending = false;
-  const active = !!attempt?.pending || (!!job && working(job.status));
+  const activeJob = job && working(job.status) ? job : undefined;
+  const active = !!attempt?.pending || !!activeJob;
   const modelPending =
     modelAttempt.current.pending || snapshot.model.status === "downloading";
   const modelReady =
@@ -110,7 +111,8 @@ export function TranscriptionPanel({
     }
     refresh((n) => n + 1);
   }
-  const error = attempt?.error ?? (job?.status === "failed" ? job.error : null);
+  const error =
+    attempt?.error ?? (!active && job?.status === "failed" ? job.error : null);
   return (
     <section
       className={`transcription-panel${opened || !transcript ? " expanded" : ""}`}
@@ -119,7 +121,7 @@ export function TranscriptionPanel({
       <div className="transcription-summary">
         <span>
           {active
-            ? `${t("Transcribing")} · ${t(job?.stage ?? "Waiting for local processing")}`
+            ? `${t("Transcribing")} · ${t(activeJob?.stage ?? "Waiting for local processing")}`
             : error
               ? t("Transcription needs attention")
               : transcript
@@ -138,13 +140,13 @@ export function TranscriptionPanel({
           <progress
             aria-label={t("Transcription progress")}
             max={1}
-            {...(job?.progress == null ? {} : { value: job.progress })}
+            {...(activeJob?.progress == null ? {} : { value: activeJob.progress })}
           />
-          {job && (
+          {activeJob && (
             <button
-              disabled={job.cancelRequested}
+              disabled={activeJob.cancelRequested}
               onClick={() =>
-                void api.cancelJob(job.id).catch((e) => {
+                void api.cancelJob(activeJob.id).catch((e) => {
                   attempts.current.set(identity, {
                     pending: false,
                     error: message(e),
@@ -177,7 +179,9 @@ export function TranscriptionPanel({
         </p>
       )}
       {job?.status === "cancelled" && !active && (
-        <p>{t("Transcription cancelled. Your previous text is kept.")}</p>
+        <p>{t(transcript
+          ? "Transcription cancelled. Your previous text is kept."
+          : "Transcription cancelled. You can try again.")}</p>
       )}
       {(opened || !transcript) && (
         <div className="transcription-options">
@@ -327,7 +331,7 @@ export function TranscriptionPanel({
                 : t("Transcribe source")}
           </button>
           </div>
-          {!snapshot.capabilities.transcription && (
+          {modelReady && !snapshot.capabilities.transcription && (
             <p>
               {t(
                 "Local transcription is unavailable. You can still select time ranges.",

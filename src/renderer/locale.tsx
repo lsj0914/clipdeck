@@ -287,6 +287,7 @@ const zh: Record<string, string> = {
     "转写完成后即可选择文字。",
   "Transcription cancelled. Your previous text is kept.":
     "转写已取消，之前的原文已保留。",
+  "Transcription cancelled. You can try again.": "转写已取消，可以重新开始。",
   "Small: lower memory use.": "Small：内存需求较低。",
   "Turbo: larger model; needs more memory.": "Turbo：模型更大，内存需求更高。",
   "Recognition can make mistakes. Listen and correct important names.":
