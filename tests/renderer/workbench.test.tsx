@@ -1107,7 +1107,30 @@ function navigationFixture() {
     startMs: 1500, endMs: 2601, text: "Ending", wordIds: ["w2", "w3"], transcriptRevision: 3 };
   return state;
 }
+function expectAssemblySeek(player: HTMLVideoElement, frame: number) {
+  const readback = Math.floor(player.currentTime * 1e6) / 1e6;
+  expect(readback).toBeGreaterThanOrEqual(frame / 30);
+  expect(readback - frame / 30).toBeLessThan(0.0000011);
+}
 describe("preview-mode navigation", () => {
+  it.each([62, 123, 124, 125, 392, 577, 829])("seeks and loops after a microsecond-truncated native frame %s boundary", async frames => {
+    const state = assemblyFixture();
+    state.project.assets[0]!.durationMs = 60000;
+    state.project.cuts[0] = { ...state.project.cuts[0]!, startMs: 0, endMs: Math.floor(frames * 1000 / 30) };
+    render(<App api={bridge(state).api} />);
+    fireEvent.click(await screen.findByRole("button", { name: "Assembly" }));
+    fireEvent.click(screen.getByRole("listitem", { name: "Cut 2: Second beat" }));
+    const player = screen.getByLabelText("Assembly video") as HTMLVideoElement;
+    const nativeClock = () => Math.floor(player.currentTime * 1e6) / 1e6;
+    expect(nativeClock()).toBeGreaterThanOrEqual(frames / 30);
+    expect(nativeClock() - frames / 30).toBeLessThan(0.0000011);
+    fireEvent.click(screen.getByRole("button", { name: "Loop audition" }));
+    await screen.findByRole("button", { name: "Stop loop" });
+    player.currentTime += 1;
+    fireEvent.timeUpdate(player);
+    expect(nativeClock()).toBeGreaterThanOrEqual(frames / 30);
+    expect(nativeClock() - frames / 30).toBeLessThan(0.0000011);
+  });
   it("auditions a complete selection in a different containing cut", async () => {
     const state = navigationFixture();
     state.project.cuts.push({ ...state.project.cuts[1]!, id: "wide", text: "Whole passage",
@@ -1153,7 +1176,7 @@ describe("preview-mode navigation", () => {
     const player = screen.getByLabelText("Assembly video") as HTMLVideoElement;
     vi.spyOn(HTMLMediaElement.prototype, "readyState", "get").mockReturnValue(4);
     fireEvent.loadedMetadata(player);
-    expect(player.currentTime).toBeCloseTo(19 / 30, 8);
+    expectAssemblySeek(player, 19);
   });
   it("lets a new word target inherit playing intent while its source is still decoding", async () => {
     const state = assemblyFixture();
@@ -1224,7 +1247,7 @@ describe("preview-mode navigation", () => {
     await waitFor(() => expect(player.paused).toBe(false));
     player.currentTime = 11 / 30;
     fireEvent.timeUpdate(player);
-    expect(player.currentTime).toBeCloseTo(4 / 30, 8);
+    expectAssemblySeek(player, 4);
     expect(player.paused).toBe(false);
     fireEvent.click(screen.getByRole("button", { name: "Stop loop" }));
     expect(player.paused).toBe(true);
@@ -1237,7 +1260,7 @@ describe("preview-mode navigation", () => {
     fireEvent.click(screen.getByRole("button", { name: "Audition" }));
     expect(screen.getByLabelText("Assembly video")).toBe(player);
     await waitFor(() => expect(player.paused).toBe(false));
-    expect(player.currentTime).toBeCloseTo(34 / 30, 8);
+    expectAssemblySeek(player, 34);
   });
   it("lets a newer scrub supersede a metadata-delayed cut jump", async () => {
     render(<App api={bridge(assemblyFixture()).api} />);
@@ -1265,7 +1288,7 @@ describe("preview-mode navigation", () => {
     const player = screen.getByLabelText("Assembly video") as HTMLVideoElement;
     vi.spyOn(HTMLMediaElement.prototype, "readyState", "get").mockReturnValue(4);
     fireEvent.loadedMetadata(player);
-    expect(player.currentTime).toBeCloseTo(4 / 30, 8);
+    expectAssemblySeek(player, 4);
   });
   it.each(["Cut 1: First beat", "Cut 2: Second beat"])("preserves Source playback when navigating %s", async name => {
     render(<App api={bridge(assemblyFixture()).api} />);
@@ -1284,7 +1307,7 @@ describe("preview-mode navigation", () => {
     fireEvent.click(screen.getByRole("listitem", { name: "Cut 2: Second beat" }));
     await waitFor(() => expect(screen.getByRole("button", { name: "Assembly" }).getAttribute("aria-pressed")).toBe("true"));
     expect(screen.getByLabelText("Assembly video")).toBe(player);
-    expect(player.currentTime).toBeCloseTo(4 / 30, 8);
+    expectAssemblySeek(player, 4);
     expect(screen.getByLabelText("Assembly playback context").textContent).toContain("Cut 2");
     expect(b.api.applyEdit).not.toHaveBeenCalled();
   });
@@ -1307,9 +1330,9 @@ describe("preview-mode navigation", () => {
     fireEvent.click(screen.getByRole("button", { name: "开始。" }));
     // 601 ms -> 19 output frames; 500 ms into the next cut -> 15 frames.
     expect(screen.getByLabelText("Assembly video")).toBe(player);
-    expect(player.currentTime).toBeCloseTo(34 / 30, 8);
+    expectAssemblySeek(player, 34);
     fireEvent.click(screen.getByRole("button", { name: "一起" }), { shiftKey: true });
-    expect(player.currentTime).toBeCloseTo(34 / 30, 8);
+    expectAssemblySeek(player, 34);
     expect(screen.getByRole("button", { name: "一起" }).getAttribute("aria-pressed")).toBe("true");
   });
   it("explains text excluded by trimming while leaving assembly playback untouched", async () => {
@@ -1337,7 +1360,7 @@ describe("preview-mode navigation", () => {
     fireEvent.click(screen.getByRole("listitem", { name: "Cut 3: Repeated ending" }));
     fireEvent.click(await screen.findByRole("button", { name: "开始。" }));
     expect(screen.getByLabelText("Assembly video")).toBe(player);
-    expect(player.currentTime).toBeCloseTo(68 / 30, 8);
+    expectAssemblySeek(player, 68);
     expect(screen.getByLabelText("Assembly playback context").textContent).toContain("Cut 3");
   });
   it("seeks assembly-script text and its edit action in the selected preview mode", async () => {
@@ -1346,7 +1369,7 @@ describe("preview-mode navigation", () => {
     fireEvent.click(screen.getByRole("button", { name: "Assembly" }));
     const player = screen.getByLabelText("Assembly video") as HTMLVideoElement;
     fireEvent.click(screen.getByRole("button", { name: "Edit cut 2" }));
-    expect(player.currentTime).toBeCloseTo(4 / 30, 8);
+    expectAssemblySeek(player, 4);
     fireEvent.click(screen.getByRole("button", { name: /Go to cut 1/ }));
     expect(player.currentTime).toBe(0);
     expect(screen.getByRole("region", { name: "Assembly script" })).toBeTruthy();
@@ -1364,7 +1387,7 @@ describe("preview-mode navigation", () => {
     const player = screen.getByLabelText("Assembly video") as HTMLVideoElement;
     vi.spyOn(HTMLMediaElement.prototype, "readyState", "get").mockReturnValue(4);
     fireEvent.loadedMetadata(player);
-    expect(player.currentTime).toBeCloseTo(4 / 30, 8);
+    expectAssemblySeek(player, 4);
     expect(screen.getByLabelText("Assembly playback context").textContent).toContain("Cut 2");
   });
   it("retires a pending cross-source inspection when the user explicitly changes mode", async () => {

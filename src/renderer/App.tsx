@@ -39,6 +39,7 @@ import {
   RangeInputError,
   assemblyDuration,
   assemblyPosition,
+  assemblySeekSeconds,
   assemblyTime,
   excerpt,
   message,
@@ -478,7 +479,7 @@ function Workbench({ api = window.clipdeck }: { api?: ClipDeckAPI }) {
     if (!element || element.readyState < 1 ||
         (view === "assembly" ? !previewUrl : !sourceReady || element.dataset.assetId !== selectedCut.assetId))
       return false;
-    element.currentTime = navigation.ms / 1000;
+    element.currentTime = view === "assembly" ? assemblySeekSeconds(navigation.ms) : navigation.ms / 1000;
     setCurrentMs(navigation.ms);
     setPendingNavigation(null);
     setPanel(navigation.inspect ? "inspector" : "video");
@@ -885,7 +886,7 @@ function Workbench({ api = window.clipdeck }: { api?: ClipDeckAPI }) {
       loop.cutId === cutId
     ) {
       const needsRestart = element.paused && restartAtMediaEnd && element.ended;
-      element.currentTime = loop.startMs / 1000;
+      element.currentTime = view === "assembly" ? assemblySeekSeconds(loop.startMs) : loop.startMs / 1000;
       setCurrentMs(loop.startMs);
       if (needsRestart) playVideo(element);
       return false;

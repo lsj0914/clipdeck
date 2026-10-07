@@ -119,6 +119,13 @@ export function assemblyTime(cuts: Cut[], cutId: string, sourceMs?: number): num
   return null;
 }
 
+/** A repeating frame boundary must survive the player's microsecond clock. */
+export function assemblySeekSeconds(ms: number): number {
+  const seconds = Math.ceil(ms * 1000) / 1_000_000;
+  // Keep floating-point conversion back to microseconds above this tick.
+  return seconds === 0 ? 0 : seconds + 2 * Number.EPSILON * Math.max(1, seconds);
+}
+
 /** Bound presentation work without changing the stored passage. */
 export function excerpt(text: string, limit = 180): string {
   if (text.length <= limit) return text;
