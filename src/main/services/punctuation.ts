@@ -42,10 +42,12 @@ export async function restorePunctuation(options: {
   worker: string;
   directory: string;
   words: TimedWord[];
+  language?: "en" | "zh";
   signal: AbortSignal;
 }): Promise<TimedWord[]> {
+  const language = options.language ?? "zh";
   const command = offlineWorkerCommand(options.python, options.worker);
-  const input = JSON.stringify({mode: "punctuate", punctuationDirectory: options.directory, fragments: options.words.map(word => word.text)}) + "\n";
+  const input = JSON.stringify({mode: "punctuate", language, punctuationDirectory: options.directory, fragments: options.words.map(word => word.text)}) + "\n";
   if (Buffer.byteLength(input) > 64 * 1024 * 1024)
     throw new Error("Punctuation input limit exceeded");
   let output = "";
@@ -87,7 +89,9 @@ export async function restorePunctuation(options: {
       if (fragments.length > options.words.length)
         throw new Error("Punctuation returned extra time anchors");
     } else if (event.type === "complete") {
-      const packet = record(event, ["type", "fragmentCount", "model"]);
+      const packet = record(event, ["type", "fragmentCount", "model", "language"]);
+      if (packet.language !== language)
+        throw new Error("Punctuation language mismatch");
       const model = record(packet.model, ["id", "revision", "sha256"]);
       if (integer(packet.fragmentCount) !== fragments.length || model.id !== PUNCTUATION_MODEL.id || model.revision !== PUNCTUATION_MODEL.revision || model.sha256 !== PUNCTUATION_MODEL.sha256)
         throw new Error("Punctuation model identity mismatch");

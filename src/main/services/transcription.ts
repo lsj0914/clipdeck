@@ -333,13 +333,14 @@ export class TranscriptionService {
           if (buffer.trim() || !complete)
             throw new Error("Worker exited without complete transcript");
           ctx.throwIfCancelled();
-          if (detected === "zh" && words.length) {
+          if ((detected === "zh" || detected === "en") && words.length) {
             ctx.update({ stage: "restoring punctuation", progress: null });
             const restored = await restorePunctuation({
               python: o.python,
               worker: o.worker,
               directory: path.join(path.dirname(path.dirname(path.dirname(o.python))), "punctuation"),
               words,
+              language: detected,
               signal: ctx.signal,
             });
             for (let index = 0; index < restored.length; index++)
@@ -379,7 +380,7 @@ export class TranscriptionService {
               simplifiedChinese: language === "zh" || (language === "auto" && detected === "zh"),
               conditionOnPreviousText: false,
               wordTimingReview: true,
-              ...(detected === "zh" && words.length ? { punctuation: PUNCTUATION_MODEL } : {}),
+              ...((detected === "zh" || detected === "en") && words.length ? { punctuation: PUNCTUATION_MODEL } : {}),
             },
           };
           validateProject({

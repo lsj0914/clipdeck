@@ -16,6 +16,7 @@ FILES = {
     "tokens.json": (4207480, "c960ab87bccea4aa15cf49a59f71973c2c330b46668048cd8da253749ec71ee3"),
 }
 PUNCTUATION = ("", "", "，", "。", "？", "、")
+ENGLISH_PUNCTUATION = ("", "", ",", ".", "?", ",")
 REPLACEABLE = frozenset("，。？、,?;；")
 
 
@@ -81,8 +82,10 @@ def tokenize(text):
     return tokens, ends
 
 
-def apply_predictions(fragments, ends, labels):
+def apply_predictions(fragments, ends, labels, language="zh"):
     """Map predictions to original character owners, never create timed words."""
+    if language not in ("zh", "en"):
+        raise ValueError("Unsupported punctuation language")
     if len(ends) != len(labels) or any(label not in range(6) for label in labels):
         raise ValueError("Invalid punctuation predictions")
     original = "".join(fragments)
@@ -99,18 +102,35 @@ def apply_predictions(fragments, ends, labels):
     for offset, label in zip(ends, labels):
         if offset < 0 or offset >= len(original):
             raise ValueError("Punctuation offset outside recognized text")
+        if language == "en" and original[offset] == "…":
+            continue
         next_offset = offset + 1
         while next_offset < len(original) and original[next_offset].isspace():
             next_offset += 1
+        if language == "en":
+            # A recognized stop may sit outside a quoted or bracketed phrase.
+            # Inspect past closers without moving any glyph to another owner.
+            while next_offset < len(original) and original[next_offset] in '\"”’」』）)]】':
+                next_offset += 1
+                while next_offset < len(original) and original[next_offset].isspace():
+                    next_offset += 1
         # An existing exclamation/colon is stronger evidence than a model that
         # has no such output class. Keep it instead of producing '？！'.
         if next_offset < len(original) and original[next_offset] in "!！:：":
             continue
+        # Whisper's existing English punctuation is evidence, even when the
+        # restoration model disagrees. Fill gaps without deleting those stops.
+        if language == "en" and next_offset < len(original) and (replaceable(original, next_offset) or original[next_offset] == "…"):
+            continue
         owner = next_offset if next_offset in punctuation_owners else offset
-        additions[owner] = PUNCTUATION[label]
+        additions[owner] = (ENGLISH_PUNCTUATION if language == "en" else PUNCTUATION)[label]
     result, offset = [], 0
     for fragment in fragments:
         if offset in punctuation_starts:
+            if language == "en":
+                result.append(fragment)
+                offset += len(fragment)
+                continue
             owner = punctuation_starts[offset]
             mark = additions.get(owner, "")
             if mark:
@@ -123,7 +143,7 @@ def apply_predictions(fragments, ends, labels):
             continue
         value = ""
         for char in fragment:
-            if not replaceable(original, offset):
+            if language == "en" or not replaceable(original, offset):
                 value += char
             value += additions.get(offset, "")
             offset += 1
@@ -187,10 +207,15 @@ class Restorer:
             raise ValueError("Incomplete punctuation result")
         return result
 
-    def restore(self, fragments):
+    def restore(self, fragments, language="zh"):
+        if language not in ("zh", "en"):
+            raise ValueError("Unsupported punctuation language")
         if not isinstance(fragments, list) or len(fragments) > 500000 or any(not isinstance(value, str) or len(value) > 10000 for value in fragments):
             raise ValueError("Invalid punctuation input")
         tokens, ends = tokenize("".join(fragments))
         if not tokens:
             return fragments.copy()
-        return apply_predictions(fragments, ends, self.predict(tokens))
+        # The fixed vocabulary contains lowercase English forms. Normalize
+        # classifier input only; recognition text and timed owners stay intact.
+        inputs = [token.lower() for token in tokens] if language == "en" else tokens
+        return apply_predictions(fragments, ends, self.predict(inputs), language)

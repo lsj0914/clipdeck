@@ -12,6 +12,7 @@ import {
 } from "../../src/main/services/models";
 import { JobManager } from "../../src/main/services/jobs";
 import { TranscriptionService } from "../../src/main/services/transcription";
+import { PUNCTUATION_MODEL } from "../../src/main/services/punctuation";
 import { createProject } from "../../src/domain/project";
 import type { Project, TranscriptionDraft } from "../../src/shared/contracts";
 import { asset as durationAsset } from "../domain/fixtures";
@@ -334,7 +335,7 @@ it.each([
   const script = path.join(dir, "protocol.py");
   await writeFile(
     script,
-    `import sys,json\nrequest=json.loads(sys.stdin.readline())\nassert request.get("vocabulary")=="editing"\nif request.get("mode")=="validate-options":\n print(json.dumps({"type":"options-validated"}),flush=True)\n sys.exit(0)\nprint(${JSON.stringify(events.map((event) => JSON.stringify(event)).join("\n"))},flush=True)\n`,
+    `import sys,json\nrequest=json.loads(sys.stdin.readline())\nif request.get("mode")=="punctuate":\n assert request.get("language")=="en"\n print(json.dumps({"type":"punctuation","start":0,"fragments":request["fragments"]}),flush=True)\n print(json.dumps({"type":"complete","fragmentCount":len(request["fragments"]),"language":"en","model":json.loads(${JSON.stringify(JSON.stringify(PUNCTUATION_MODEL))})}),flush=True)\n sys.exit(0)\nassert request.get("vocabulary")=="editing"\nif request.get("mode")=="validate-options":\n print(json.dumps({"type":"options-validated"}),flush=True)\n sys.exit(0)\nprint(${JSON.stringify(events.map((event) => JSON.stringify(event)).join("\n"))},flush=True)\n`,
   );
   const sources = new SourceRegistry(),
     media = new MediaService(path.resolve(".runtime/bin/ffprobe"), sources),
@@ -377,6 +378,7 @@ it.each([
     simplifiedChinese: false,
     conditionOnPreviousText: false,
     wordTimingReview: true,
+    punctuation: PUNCTUATION_MODEL,
   });
   expect(transcript.originId).toBe(id);
   expect(transcript.segments.map((segment) => segment.text)).toEqual([

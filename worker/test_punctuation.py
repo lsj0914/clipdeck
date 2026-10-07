@@ -66,6 +66,44 @@ class PunctuationOwnership(unittest.TestCase):
             with self.assertRaises(ValueError):
                 apply_predictions(["好"], ends, labels)
 
+    def test_english_fills_gaps_while_preserving_existing_stops_and_punctuation_anchors(self):
+        fragments = ["Hello", ".", " I", " am", " home,", " are", " you", " here", "?"]
+        tokens, ends = tokenize("".join(fragments))
+        labels = [1] * len(tokens)
+        labels[tokens.index("home")] = 3
+        labels[tokens.index("am")] = 2
+        labels[-1] = 3
+        result = apply_predictions(fragments, ends, labels, "en")
+        self.assertEqual(result, ["Hello", ".", " I", " am,", " home,", " are", " you", " here", "?"])
+        self.assertEqual(lexical_content("".join(fragments)), lexical_content("".join(result)))
+
+    def test_english_preserves_numeric_and_quoted_content_with_ascii_punctuation(self):
+        fragments = ["“ClipDeck”", " v1.", "2", " costs", " 1", ",000", " today", "!"]
+        tokens, ends = tokenize("".join(fragments))
+        labels = [1] * len(tokens)
+        labels[tokens.index("costs")] = 2
+        labels[-1] = 3
+        result = apply_predictions(fragments, ends, labels, "en")
+        self.assertEqual(result, ["“ClipDeck”", " v1.", "2", " costs,", " 1", ",000", " today", "!"])
+
+    def test_unknown_punctuation_language_is_rejected(self):
+        with self.assertRaisesRegex(ValueError, "language"):
+            apply_predictions(["Hello"], [4], [3], "fr")
+
+    def test_english_does_not_duplicate_stops_outside_closing_quotes_or_brackets(self):
+        for value in ['He called it "safe".', 'He called it “safe”.', '(This is fine).', '“Is this fine”?']:
+            fragments = [value]
+            tokens, ends = tokenize(value)
+            labels = [1] * len(tokens)
+            labels[-1] = 3
+            self.assertEqual(apply_predictions(fragments, ends, labels, "en"), fragments)
+
+    def test_english_retains_existing_ellipsis_in_its_original_anchor(self):
+        for fragments in [["Hello…"], ["Hello", "…"], ["Hello..."]]:
+            tokens, ends = tokenize("".join(fragments))
+            labels = [3] * len(tokens)
+            self.assertEqual(apply_predictions(fragments, ends, labels, "en"), fragments)
+
     def test_missing_model_is_an_explicit_failure(self):
         with self.assertRaisesRegex(ValueError, "punctuation resource"):
             check_resources("missing-local-model")

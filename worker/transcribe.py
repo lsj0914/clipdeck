@@ -535,7 +535,8 @@ def main():
             from punctuation import Restorer
 
             restorer = Restorer(request["punctuationDirectory"])
-            fragments = restorer.restore(request["fragments"])
+            language = request.get("language", "zh")
+            fragments = restorer.restore(request["fragments"], language)
             # Keep each JSONL packet bounded even when a word contains folded
             # untimed text. Main validates contiguous offsets before committing.
             start, batch, batch_bytes = 0, [], 0
@@ -549,7 +550,7 @@ def main():
                 batch_bytes += size
             if batch:
                 emit({"type": "punctuation", "start": start, "fragments": batch})
-            emit({"type": "complete", "fragmentCount": len(fragments), "model": restorer.identity})
+            emit({"type": "complete", "fragmentCount": len(fragments), "model": restorer.identity, "language": language})
         else:
             raise ValueError("Unsupported worker mode")
     except Exception as error:

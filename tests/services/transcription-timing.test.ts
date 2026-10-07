@@ -10,6 +10,7 @@ import { createProject } from "../../src/domain/project";
 import type { Project, TranscriptionDraft, Transcript, Language } from "../../src/shared/contracts";
 import { asset } from "../domain/fixtures";
 import type { ProcessOptions } from "../../src/main/services/process";
+import { PUNCTUATION_MODEL } from "../../src/main/services/punctuation";
 
 // Only external decoding/inference transport is substituted; actual adapter,
 // JobManager, parsing, validation, draft updates and commit remain exercised.
@@ -28,15 +29,22 @@ vi.mock("../../src/main/services/process", async importOriginal => ({
       options.onStdoutBytes(wav);
       return { stdout: "", stderr: "" };
     }
-    const punctuate = options.input && JSON.parse(options.input).mode === "punctuate";
-    if (options?.onStdout) for (const packet of punctuate ? transport.punctuation : transport.packets) options.onStdout(JSON.stringify(packet) + "\n");
+    const request = options.input ? JSON.parse(options.input) : null;
+    const punctuate = request?.mode === "punctuate";
+    // An identity result is a neutral external punctuation transport fixture.
+    // Native inference and real English punctuation are tested separately.
+    const packets = punctuate ? transport.punctuation.length ? transport.punctuation : [
+      { type: "punctuation", start: 0, fragments: request.fragments },
+      { type: "complete", fragmentCount: request.fragments.length, model: PUNCTUATION_MODEL, language: request.language },
+    ] : transport.packets;
+    if (options?.onStdout) for (const packet of packets) options.onStdout(JSON.stringify(packet) + "\n");
     if (punctuate && transport.punctuation.some(packet => packet.type === "error"))
       throw new Error("Native process failed");
     return { stdout: "", stderr: "" };
   }),
 }));
 let dir: string;
-beforeEach(async () => { dir = await mkdtemp(path.join(tmpdir(), "clipdeck-timing-unit-")); });
+beforeEach(async () => { transport.punctuation = []; dir = await mkdtemp(path.join(tmpdir(), "clipdeck-timing-unit-")); });
 afterEach(async () => { vi.restoreAllMocks(); await rm(dir, { recursive: true, force: true }); });
 
 const packet = (index: number, text: string, words: unknown[], leadingUntimedText = "") => ({
@@ -87,6 +95,7 @@ it("retains worker flags and marks the receiver of leading and all-untimed packe
   expect(result.job.status).toBe("completed"); expect(result.commits).toBe(1);
   const transcript = result.project.transcripts[0]!;
   expect(transcript.parameters).toHaveProperty("wordTimingReview", true);
+  expect(transcript.parameters).toHaveProperty("punctuation", PUNCTUATION_MODEL);
   expect(transcript.words).toEqual([
     { id: `${result.id}-w-0`, text: "Folded text", startMs: 100, endMs: 300, timingNeedsReview: true },
     { id: `${result.id}-w-1`, text: " next lead", startMs: 350, endMs: 450, timingNeedsReview: true },

@@ -42,6 +42,28 @@ it.runIf(process.platform === "darwin" && !!process.env.CLIPDECK_PUNCTUATION_MOD
   expect(result.every(word => word.text.length > 0)).toBe(true);
 }, 30000);
 
+it.runIf(process.platform === "darwin" && !!process.env.CLIPDECK_PUNCTUATION_MODEL)("adds English sentence punctuation without losing existing stops or changing recognized anchors", async () => {
+  const text = "It was late afternoon. I was traveling at the time I couldn't just go to the office I wasn't a mile or two away I was a long ways away and my airline reservation wasn't for several days.";
+  const words = text.split(" ").map((text, index) => ({
+    id: String(index), text: (index ? " " : "") + text,
+    startMs: index * 100, endMs: (index + 1) * 100,
+  }));
+  const options = {
+    python: path.resolve(".runtime/worker/bin/python3.12"), worker: path.resolve("worker/transcribe.py"),
+    directory: process.env.CLIPDECK_PUNCTUATION_MODEL!, words, language: "en" as const,
+    signal: new AbortController().signal,
+  };
+  const result = await restorePunctuation(options);
+  expect(result.map(({text, ...anchor}) => anchor)).toEqual(words.map(({text, ...anchor}) => anchor));
+  expect(result[3]!.text).toBe(" afternoon.");
+  expect(result.at(-1)!.text).toBe(" days.");
+  const restored = result.map(word => word.text).join("");
+  expect(restored).not.toMatch(/[，。？、]/u);
+  expect(restored.match(/\./g)!.length).toBeGreaterThanOrEqual(4);
+  expect(result.map(word => word.text.replace(/[,.?]/g, "")))
+    .toEqual(words.map(word => word.text.replace(/[,.?]/g, "")));
+}, 30000);
+
 it.runIf(process.platform === "darwin" && !!process.env.CLIPDECK_PUNCTUATION_MODEL)("reports a missing local punctuation resource without a fallback or private path", async () => {
   const missing = path.resolve(".runtime/missing-punctuation-resource");
   await expect(restorePunctuation({
