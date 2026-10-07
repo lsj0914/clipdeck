@@ -17,8 +17,29 @@ import type {
   ClosePreparation,
 } from "../../src/shared/contracts";
 import { App } from "../../src/renderer/App";
+import * as reading from "../../src/renderer/reading";
 
 describe("reviewed editing workflow", () => {
+  it("keeps the reading index and selection when an edit delivers an unchanged transcript", async () => {
+    const initial = fixture();
+    initial.transcriptVersions = { "source-one": "session-a-1" };
+    const b = bridge(initial), rows = vi.spyOn(reading, "transcriptRows");
+    render(<App api={b.api} />);
+    fireEvent.click(await screen.findByRole("button", { name: "今天" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Add selection" }).hasAttribute("disabled")).toBe(false));
+    rows.mockClear();
+    await act(async () => b.emit({ ...structuredClone(b.get()), project: { ...structuredClone(b.get().project), name: "Renamed", revision: 1 } }));
+    expect(screen.getByLabelText("Project name")).toHaveProperty("value", "Renamed");
+    expect(screen.getByRole("button", { name: "今天" }).getAttribute("aria-pressed")).toBe("true");
+    expect(rows).not.toHaveBeenCalled();
+    const changed = structuredClone(b.get());
+    changed.transcriptVersions = { "source-one": "session-a-2" };
+    changed.project.transcripts[0]!.words[0]!.text = "明天，";
+    await act(async () => b.emit(changed));
+    expect(screen.getByRole("button", { name: "明天，" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "今天" })).toBeNull();
+    expect(rows).toHaveBeenCalled();
+  });
   it("starts assembly preparation on its own clock and synchronizes a newly loaded preview", async () => {
     const b = bridge(assemblyFixture());
     render(<App api={b.api} />);

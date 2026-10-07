@@ -58,6 +58,7 @@ export class WorkspaceService {
   private recovered = false;
   private recoveryError: string | null = null;
   private drafts: Record<string, TranscriptionDraft> = {};
+  private transcriptVersions = new WeakMap<Transcript, string>();
   private sourceUrl: ((asset: Asset) => string | null) | undefined;
   private sourceAccessPending = false;
   private projectEpoch = 0;
@@ -170,6 +171,16 @@ export class WorkspaceService {
   }
   snapshot(): WorkspaceSnapshot {
     const result = safeSnapshot(this.project);
+    result.transcriptVersions = Object.fromEntries(
+      this.project.transcripts.map((transcript) => {
+        let version = this.transcriptVersions.get(transcript);
+        if (!version) {
+          version = globalThis.crypto.randomUUID();
+          this.transcriptVersions.set(transcript, version);
+        }
+        return [transcript.assetId, version];
+      }),
+    );
     result.cleanupWarnings = [...new Set([...this.cleanupWarnings, ...this.rendering.cleanupWarnings])];
     result.model = { ...this.models.status };
     result.jobs = this.jobs

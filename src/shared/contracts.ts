@@ -171,6 +171,8 @@ export interface TranscriptionDraft {
   segments: TranscriptSegment[];
 }
 export interface WorkspaceSnapshot {
+  // Main-owned identity of each immutable transcript; never saved in project files.
+  transcriptVersions?: Record<string, string>;
   cleanupWarnings?: string[];
   importFailures?: Array<{ name: string; message: string }>;
   transcriptionDrafts?: Record<string, TranscriptionDraft>;

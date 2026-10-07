@@ -155,8 +155,28 @@ function Workbench({ api = window.clipdeck }: { api?: ClipDeckAPI }) {
     setDraftProblem((previous) => ({ ...problem, request: (previous?.request ?? 0) + 1 }));
   }, []);
   const accept = useCallback((next: WorkspaceSnapshot) => {
-    if (workspaceRef.current && (next.project.id !== workspaceRef.current.project.id || next.project.revision !== workspaceRef.current.project.revision))
+    const previous = workspaceRef.current;
+    if (previous && (next.project.id !== previous.project.id || next.project.revision !== previous.project.revision))
       setAnnouncement("");
+    if (previous?.project.id === next.project.id && next.transcriptVersions) {
+      const transcripts = new Map(
+        previous.project.transcripts.map((transcript) => [transcript.assetId, transcript]),
+      );
+      // IPC copies invalidate reading memoization even when the main-owned
+      // transcript is unchanged. Reopen and recognition create new tokens.
+      next = {
+        ...next,
+        project: {
+          ...next.project,
+          transcripts: next.project.transcripts.map((transcript) => {
+            const version = next.transcriptVersions?.[transcript.assetId];
+            return version && version === previous.transcriptVersions?.[transcript.assetId]
+              ? (transcripts.get(transcript.assetId) ?? transcript)
+              : transcript;
+          }),
+        },
+      };
+    }
     workspaceRef.current = next;
     setSnapshot(next);
   }, []);
