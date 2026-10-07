@@ -14,6 +14,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { execFile } from 'node:child_process';
 import { promisify, parseArgs } from 'node:util';
 import { isExpectedProxyRefusal } from './offline-canary-errors.mjs';
+import { observationPaths } from './observation-paths.mjs';
 const here = path.dirname(fileURLToPath(import.meta.url));
 const { values } = parseArgs({ options: {
   app: { type: 'string' }, output: { type: 'string' }, help: { type: 'boolean' },
@@ -27,7 +28,7 @@ if (values.help || !values.app || !values.output) {
 }
 const timeoutMs = Number(values['timeout-ms']);
 assert.ok(Number.isSafeInteger(timeoutMs) && timeoutMs >= 45000 && timeoutMs <= 3600000, 'Timeout must be 45000..3600000 ms');
-const app = path.resolve(values.app), out = path.resolve(values.output);
+const { app, out } = await observationPaths(values.app, values.output);
 const emulationOnlyControl = values['emulation-only-control'];
 const execute = promisify(execFile);
 async function payload(root) {

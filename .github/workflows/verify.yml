@@ -65,7 +65,7 @@ jobs:
           CLIPDECK_PUNCTUATION_MODEL: ${{ github.workspace }}/.runtime/punctuation
         run: .runtime/worker/bin/python3.12 -m unittest discover -s worker -p 'test_*.py'
       - name: Native offline instrumentation checks (Node test runner)
-        run: node --test tests/packaging/offline_guard.test.mjs
+        run: node --test tests/packaging/offline_guard.test.mjs tests/packaging/offline_output.test.mjs
       - run: npm run typecheck
       - run: npm run build
       - name: Sandboxed desktop smoke

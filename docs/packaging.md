@@ -115,6 +115,8 @@ Model setup remains explicit. `Systran/faster-whisper-small` revision `536b06627
 
 A public external probe preserves this audited method:
 
+Use a new observation directory outside the application bundle, with an existing parent directory. The current repository tool resolves the app and output parent through filesystem links and rejects outputs equal to, inside, or above the app before creating anything. This is a test-tool safeguard; it does not change the Preview 3 application bytes or retroactively accept an earlier workflow.
+
 ```sh
 node scripts/packaging/offline_validation.mjs \
   --app "/PATH/WITH SPACES/ClipDeck.app" --output ../offline-method-next
