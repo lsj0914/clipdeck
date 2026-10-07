@@ -6,7 +6,11 @@
 
 ClipDeck 是一个本地文字剪辑工具，面向访谈、课程、播客和其他讲话视频。导入多个视频，阅读转写文字，选中想保留的段落，调整顺序，预览成片，再导出 MP4。模型需要明确下载或选择；准备完成后，视频处理与转写在本机进行。
 
-**当前状态：发布前开发。** 正在验收真实桌面操作和安装包，目前还没有通过验收的公开下载。首个目标是 Apple Silicon Mac。验收完成后，这里会提供对应版本的下载与演示。
+**当前状态：[Apple Silicon Mac 实验性预览](https://github.com/lsj0914/clipdeck/releases/tag/v0.1.0-preview.2)。** 已提供对应程序、可继续编辑的真实访谈工程和实际导出的成片。[预览验证记录](docs/verification/preview-2.md) 说明已走通的桌面操作与剩余边界；程序尚无开发者签名和公证。
+
+![真实访谈项目在 ClipDeck 桌面程序中的界面](docs/images/clipdeck-preview-2.png)
+
+[观看 50 秒真实操作演示](https://github.com/lsj0914/clipdeck/releases/download/v0.1.0-preview.2/ClipDeck-desktop-walkthrough.mp4) · [下载可编辑的访谈工程](https://github.com/lsj0914/clipdeck/releases/download/v0.1.0-preview.2/ClipDeck-USGS-demo-20261007.zip)
 
 ## 怎么用
 
@@ -34,7 +38,7 @@ ClipDeck 是一个本地文字剪辑工具，面向访谈、课程、播客和�
 
 ## 开发
 
-使用 Node 24。依赖、媒体引擎和 Python 运行时都有固定版本与完整性校验。五份运行资源、断句模型与对应源码已在 [资源预发布页](https://github.com/lsj0914/clipdeck/releases/tag/resources-bootstrap-0.1.0) 公开；开发准备会直接下载并校验，无需 GitHub 登录。这是资源下载，程序安装包仍在验收。安装与验证步骤见 [英文 README](README.md#develop-and-verify) 和 [贡献说明](CONTRIBUTING.md)。原始录音与生成测试素材在验证报告里分别注明，界面成功打开不等于完整流程通过。
+使用 Node 24。依赖、媒体引擎和 Python 运行时都有固定版本与完整性校验。五份运行资源、断句模型与对应源码已在 [资源预发布页](https://github.com/lsj0914/clipdeck/releases/tag/resources-bootstrap-0.1.0) 公开；开发准备会直接下载并校验，无需 GitHub 登录。这是开发资源下载；程序实验性预览另在上方页面提供。安装与验证步骤见 [英文 README](README.md#develop-and-verify) 和 [贡献说明](CONTRIBUTING.md)。原始录音与生成测试素材在验证报告里分别注明，界面成功打开不等于完整流程通过。
 
 ## 开源许可
 

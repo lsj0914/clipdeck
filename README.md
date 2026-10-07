@@ -6,7 +6,11 @@ Build a rough cut by choosing the words you want to keep from your own videos.
 
 ClipDeck is a local desktop editor for interviews, lessons and spoken recordings. Import several videos, read their transcripts, select passages, arrange them into one story, check the assembled preview, and export an MP4. Files and transcription stay on your computer after explicit model setup.
 
-**Status:** pre-release development. The current branch is undergoing real desktop and packaging acceptance; a verified public app download is not available yet. The initial target is Apple Silicon macOS. This README will link the exact accepted artifact and demo when they exist.
+**Status:** [experimental Apple Silicon Mac preview](https://github.com/lsj0914/clipdeck/releases/tag/v0.1.0-preview.2). Download the exact app, an editable real-interview project and its exported film. The [preview verification record](docs/verification/preview-2.md) describes the actual desktop checks and remaining limits. The app is not Developer ID signed or notarized.
+
+![Actual ClipDeck desktop with a real interview project](docs/images/clipdeck-preview-2.png)
+
+[Watch the 50-second desktop walkthrough](https://github.com/lsj0914/clipdeck/releases/download/v0.1.0-preview.2/ClipDeck-desktop-walkthrough.mp4) · [Download the editable interview demo](https://github.com/lsj0914/clipdeck/releases/download/v0.1.0-preview.2/ClipDeck-USGS-demo-20261007.zip)
 
 ## The workflow
 
@@ -47,7 +51,7 @@ npm run build
 npm start
 ```
 
-The five exact runtime, punctuation and source archives are available in the [resources-only prerelease](https://github.com/lsj0914/clipdeck/releases/tag/resources-bootstrap-0.1.0). Preparation downloads anonymously and verifies every pinned size and hash; this resource release is separate from an accepted application download. [Packaging guide](docs/packaging.md) documents the complete route. The CI model helper explicitly downloads the pinned Small model to its canonical test cache; it verifies cache hits and rejects corrupt existing content.
+The five exact runtime, punctuation and source archives are available in the [resources-only prerelease](https://github.com/lsj0914/clipdeck/releases/tag/resources-bootstrap-0.1.0). Preparation downloads anonymously and verifies every pinned size and hash; this resource release is separate from the experimental application preview. [Packaging guide](docs/packaging.md) documents the complete route. The CI model helper explicitly downloads the pinned Small model to its canonical test cache; it verifies cache hits and rejects corrupt existing content.
 
 The repository also separates resource-free unit checks from native checks. [Contributing](CONTRIBUTING.md) has the exact commands. A successful bundle build or desktop smoke is not evidence of the complete import-to-export workflow. Fixture-gated ASR checks are explicitly skipped when their recordings are absent. [Benchmark notes](docs/verification/benchmarks.md) distinguish generated fixtures, recorded speech, fresh processes, filesystem-warm runs and measured limits.
 

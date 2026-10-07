@@ -4,6 +4,10 @@ ClipDeck application source is **GPL-3.0-or-later**. The preview bundle uses ad-
 
 The intended binary deployment floor is macOS 14 on Apple Silicon. Native tests and sandboxed startup have run on macOS 15.7.9 ARM64 in GitHub Actions and macOS 27.0.1 ARM64 locally; complete moved-package workflow acceptance remains separate. macOS 14 execution, Intel Macs, Windows and Linux are unverified. A Mach-O minimum-version field is build metadata, not evidence of execution on an older system.
 
+## Current experimental application
+
+[Preview 2](https://github.com/lsj0914/clipdeck/releases/tag/v0.1.0-preview.2) supplies the application ZIP and matching source archive for `ded3e4d812cd77ad014d0290bbbf4ac052c81e8b`, with a portable real-interview project and actual exported MP4. [The preview record](verification/preview-2.md) separates performed native checks from remaining full-acceptance requirements. This experimental publication does not claim Developer ID signing, notarization or complete R01–R18 acceptance.
+
 ## Inputs and release assets
 
 `packaging/resources.lock.json` pins complete archive names, SHA-256 values and byte lengths. Never use a floating `latest` URL, a copied virtual environment, a system FFmpeg, or an implicit Hugging Face cache. The five resource assets are:

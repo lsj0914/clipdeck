@@ -1,0 +1,105 @@
+{
+  "formatVersion": 1,
+  "testedApplicationSource": "ded3e4d812cd77ad014d0290bbbf4ac052c81e8b",
+  "ci": "https://github.com/lsj0914/clipdeck/actions/runs/37604862084",
+  "application": {
+    "name": "ClipDeck-0.1.0-preview-ded3e4d-macos-arm64.zip",
+    "bytes": 498348952,
+    "sha256": "3f994fd16d50f71850d0541b84ed6fab0a89df32deaeaa8e9e8cc12afb3c1eca"
+  },
+  "applicationSource": {
+    "name": "clipdeck-application-source-ded3e4d.tar.gz",
+    "sha256": "6a0a12dec9f4765f8eadacffbaac4b491dc85c61ade96c11d3a91f75fed11b31",
+    "bytes": 798688
+  },
+  "nativeChecks": {
+    "cut2FirstPictureComparedWithActualSource": true,
+    "chosenModeWordAndCutNavigation": true,
+    "playingAndPausedNavigation": true,
+    "loopAcrossBoundaryAndPauseCleanup": true,
+    "expandedPreviewEscape": true,
+    "compactInspectorToVideo": true,
+    "portableProjectNativeReopened": true,
+    "sameContentNativeRelinkPreservesCutsAndTranscripts": true,
+    "isolatedChangedContentBlocksPreviewAndExport": true,
+    "syntheticSilentAudioManualCut100To800ms": true,
+    "nativeExportCompletedAndPlayed": true,
+    "normalCmdQExitCode": 0
+  },
+  "mediaReceipt": {
+    "frames": 3504,
+    "samples": 5606400,
+    "width": 1920,
+    "height": 1080,
+    "durationSeconds": 116.8,
+    "audioPresentationSamples": 5606400
+  },
+  "originals": [
+    {
+      "name": "01 Harley Benz \u2014 First response.mp4",
+      "sha256": "effe2e6716af792e9a4848c8b9c96769d325a432c395712148cceeb73aa75fc9",
+      "bytes": 56326724
+    },
+    {
+      "name": "03 Jill McCarthy \u2014 First alert.mp4",
+      "sha256": "8f1f4775276b49b46412eba4876d515f59b1786463154b842675128b92baaa78",
+      "bytes": 76940093
+    },
+    {
+      "name": "02 Paul Earle \u2014 A massive earthquake.mp4",
+      "sha256": "8d34351f59d37dd0278080f37a4c2c5aac7fb08b31634534c5d112021be39b0f",
+      "bytes": 50671956
+    }
+  ],
+  "artifacts": [
+    {
+      "name": "ClipDeck-desktop-walkthrough.mp4",
+      "bytes": 1642511,
+      "sha256": "3760e4e53acb4e7ab05c932485d8f1fe2f98ef86dfc424004a50faa5e3c037ad"
+    },
+    {
+      "name": "demo/USGS-first-response.clipdeck",
+      "bytes": 112907,
+      "sha256": "93fa8f2c1e9693cbf98c581d2551b97b8dfb4cd9e1ba215e25c28dfd6147465c"
+    },
+    {
+      "name": "demo/outputs/USGS-first-response-final.mp4",
+      "bytes": 69708907,
+      "sha256": "95ae7a85c750a4e889548951fdf2bf97689e06b55924ec47cf2646a1e5563e31"
+    }
+  ],
+  "limits": {
+    "fullR01ToR18AcceptanceClaim": false,
+    "recognitionQualityOrWERClaim": false,
+    "humanListeningAndLipSyncReviewClaim": false,
+    "wholeElectronKernelNetworkDenialClaim": false,
+    "freshRecognitionOfThreeEnglishInputsOnThisCandidateClaim": false,
+    "developerIDOrNotarization": false,
+    "macOS14Execution": false,
+    "otherPlatforms": false,
+    "currentRendererPerformanceRerun": false
+  },
+  "desktopWalkthrough": {
+    "actualNativeCaptures": 623,
+    "captureMilliseconds": 50030,
+    "outputSeconds": 50,
+    "outputFps": 12,
+    "audio": false,
+    "fakeUIFrames": false
+  },
+  "demoArchive": {
+    "name": "ClipDeck-USGS-demo-20261007.zip",
+    "bytes": 253373545,
+    "sha256": "6b46f562e8b09cf6ca810371f2aa38c49c3165463692029caf808da57735a211"
+  },
+  "distributionChecks": {
+    "allApplicationEntriesMatch": 5116,
+    "strictSignatureExitCode": 0,
+    "demoZipReadbackPassed": true,
+    "projectRelativeReferencesVerified": true,
+    "originalHashesVerified": true,
+    "namedPrivateNeedleCount": 6,
+    "namedPrivateNeedleFindings": 0,
+    "universalSecretScanClaim": false
+  }
+}
