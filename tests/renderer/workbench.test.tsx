@@ -839,8 +839,31 @@ describe("keyboard and asynchronous workspace states", () => {
     const b = bridge(value);
     render(<App api={b.api} />);
     expect(await screen.findByText("No clear speech was detected. Listen to the source or select a time range.")).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "Select a time range instead" }));
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Select a time range instead" }));
+    });
     expect(screen.getByRole("heading", { name: "Select a time range" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Range" }).getAttribute("aria-pressed")).toBe("true");
+    await act(async () => {});
+    expect(screen.getByRole("heading", { name: "Select a time range" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Range" }).getAttribute("aria-pressed")).toBe("true");
+  });
+  it("keeps range editing available when recognition publishes an empty result after the source is open", async () => {
+    const b = bridge();
+    render(<App api={b.api} />);
+    await screen.findByRole("button", { name: "今天" });
+    const empty = structuredClone(b.get());
+    empty.project.transcripts[0]!.words = [];
+    empty.project.transcripts[0]!.segments = [];
+    empty.project.transcripts[0]!.revision++;
+    await act(async () => b.emit(empty));
+    expect(screen.getByText("No clear speech was detected. Listen to the source or select a time range.")).toBeTruthy();
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Select a time range instead" }));
+    });
+    await act(async () => {});
+    expect(screen.getByRole("heading", { name: "Select a time range" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Range" }).getAttribute("aria-pressed")).toBe("true");
   });
   it("extends a passage by keyboard and auditions the inclusive range", async () => {
     const b = bridge();
