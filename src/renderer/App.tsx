@@ -32,6 +32,7 @@ import {
 } from "./Panels";
 import { Icon } from "./Icon";
 import { useSourcePreview } from "./useSourcePreview";
+import { hydrateSnapshot, snapshotBasis, MissingTranscriptReferenceError } from "./snapshot-update";
 import {
   range,
   RangeInputError,
@@ -45,6 +46,9 @@ import {
 type DraftProblem = { cutId: string; assetId: string; ordinal: number; field: "start" | "end"; message: string };
 class CutDraftFailure extends Error {
   constructor(readonly problem: DraftProblem) { super(problem.message); }
+}
+class SnapshotReadFailure extends Error {
+  constructor(error: unknown) { super(message(error)); }
 }
 type Failure = { message: string; retry: (() => void) | null; retryLabel?: string; cutOrdinal?: number };
 type ExportReview = {
@@ -119,6 +123,11 @@ function Workbench({ api = window.clipdeck }: { api?: ClipDeckAPI }) {
   const projectNameInput = useRef<HTMLInputElement>(null);
   const closeHandler = useRef<(action: CloseAction) => Promise<ClosePreparation>>(async () => ({ ready: false, locale: "en" }));
   const workspaceRef = useRef<WorkspaceSnapshot | null>(null);
+  const snapshotGeneration = useRef(0);
+  const pendingSnapshotRead = useRef<{
+    generation: number;
+    promise: Promise<WorkspaceSnapshot>;
+  } | null>(null);
   const draftsRef = useRef<Record<string, CutDraft>>({});
   function setDrafts(update: React.SetStateAction<Record<string, CutDraft>>) {
     const next =
@@ -156,6 +165,8 @@ function Workbench({ api = window.clipdeck }: { api?: ClipDeckAPI }) {
   }, []);
   const accept = useCallback((next: WorkspaceSnapshot) => {
     const previous = workspaceRef.current;
+    if (next === previous) return;
+    snapshotGeneration.current++;
     if (previous && (next.project.id !== previous.project.id || next.project.revision !== previous.project.revision))
       setAnnouncement("");
     if (previous?.project.id === next.project.id && next.transcriptVersions) {
@@ -180,6 +191,33 @@ function Workbench({ api = window.clipdeck }: { api?: ClipDeckAPI }) {
     workspaceRef.current = next;
     setSnapshot(next);
   }, []);
+  const readCurrentSnapshot = useCallback((): Promise<WorkspaceSnapshot> => {
+    const generation = ++snapshotGeneration.current;
+    const latest = (): Promise<WorkspaceSnapshot> | WorkspaceSnapshot => {
+      const pending = pendingSnapshotRead.current;
+      // An older read follows a newer recovery rather than returning the
+      // still-visible old state while that recovery is in flight.
+      if (pending && pending.generation > generation) return pending.promise;
+      if (workspaceRef.current) return workspaceRef.current;
+      throw new MissingTranscriptReferenceError();
+    };
+    const promise = Promise.resolve().then(() => api.getSnapshot()).then(
+      full => {
+        if (snapshotGeneration.current !== generation) return latest();
+        accept(full);
+        return workspaceRef.current!;
+      },
+      error => {
+        if (snapshotGeneration.current !== generation) return latest();
+        throw new SnapshotReadFailure(error);
+      },
+    ).finally(() => {
+      if (pendingSnapshotRead.current?.generation === generation)
+        pendingSnapshotRead.current = null;
+    });
+    pendingSnapshotRead.current = { generation, promise };
+    return promise;
+  }, [api, accept]);
   const run = useCallback(
     async <T,>(
       task: () => Promise<T>,
@@ -212,6 +250,9 @@ function Workbench({ api = window.clipdeck }: { api?: ClipDeckAPI }) {
           cutOrdinal: error.problem.ordinal,
           retryLabel: "Review edit",
           retry: () => revealDraft(error.problem),
+        } : error instanceof SnapshotReadFailure ? {
+          message: message(error),
+          retry: () => { void run(readCurrentSnapshot, { blocking: true }); },
         } : {
           message: message(error),
           retry: () => { void run(task, options); },
@@ -225,7 +266,7 @@ function Workbench({ api = window.clipdeck }: { api?: ClipDeckAPI }) {
         }
       }
     },
-    [accept, revealDraft],
+    [accept, revealDraft, readCurrentSnapshot],
   );
   useEffect(() => {
     if (!api) {
@@ -238,29 +279,41 @@ function Workbench({ api = window.clipdeck }: { api?: ClipDeckAPI }) {
     }
     let live = true;
     let received = false;
-    const unsubscribe = api.subscribe((next) => {
+    const receive = (next: Parameters<typeof hydrateSnapshot>[0]) => {
       received = true;
-      if (live) accept(next);
-    });
+      if (!live) return;
+      snapshotGeneration.current++;
+      try { accept(hydrateSnapshot(next, workspaceRef.current)); }
+      catch (error) {
+        if (!(error instanceof MissingTranscriptReferenceError)) throw error;
+        void readCurrentSnapshot().catch(error => {
+          if (live)
+            setFailure({ message: message(error), retry: () => { void run(readCurrentSnapshot); } });
+        });
+      }
+    };
+    const unsubscribe = api.subscribeUpdates ? api.subscribeUpdates(receive) : api.subscribe(receive);
     api
       .getSnapshot()
       .then((next) => {
         if (live && !received) accept(next);
       })
       .catch((error) => {
-        if (live)
+        if (live && !received)
           setFailure({
             message: message(error),
             retry: () => {
-              void run(() => api.getSnapshot());
+              void run(readCurrentSnapshot);
             },
           });
       });
     return () => {
       live = false;
+      snapshotGeneration.current++;
+      pendingSnapshotRead.current = null;
       unsubscribe();
     };
-  }, [api, accept, run]);
+  }, [api, accept, readCurrentSnapshot, run]);
   useEffect(() => {
     if (api) return api.onCloseRequested((action) => closeHandler.current(action));
   }, [api]);
@@ -593,12 +646,21 @@ function Workbench({ api = window.clipdeck }: { api?: ClipDeckAPI }) {
     sourcePreview.reset();
     return next;
   }
+  async function editSnapshot(command: EditCommand): Promise<WorkspaceSnapshot> {
+    if (!api.applyEditUpdate) return api.applyEdit(command);
+    const update = await api.applyEditUpdate(command, snapshotBasis(workspaceRef.current));
+    try { return hydrateSnapshot(update, workspaceRef.current); }
+    catch (error) {
+      if (!(error instanceof MissingTranscriptReferenceError)) throw error;
+      return readCurrentSnapshot();
+    }
+  }
   async function flushDrafts() {
     const name = projectNameInput.current?.value.trim();
     const currentProject = workspaceRef.current?.project;
     if (name === "") throw new Error("Project name cannot be empty.");
     if (name && currentProject && name !== currentProject.name)
-      accept(await api.applyEdit({ type: "renameProject", name }));
+      accept(await editSnapshot({ type: "renameProject", name }));
     if (correctionOpen && transcript) {
       const changes = Object.entries(corrections)
         .filter(([id, text]) => transcript.words.find((w) => w.id === id)?.text !== text)
@@ -608,7 +670,7 @@ function Workbench({ api = window.clipdeck }: { api?: ClipDeckAPI }) {
           return { wordId, text: prefix && !/^\s/.test(text) ? prefix + text : text };
         });
       if (changes.length)
-        accept(await api.applyEdit({ type: "correctTranscript", assetId: transcript.assetId,
+        accept(await editSnapshot({ type: "correctTranscript", assetId: transcript.assetId,
           fingerprint: transcript.fingerprint, transcriptRevision: transcript.revision, changes }));
       setCorrectionOpen(false);
     }
@@ -629,7 +691,7 @@ function Workbench({ api = window.clipdeck }: { api?: ClipDeckAPI }) {
         throw new CutDraftFailure(problem);
       }
       accept(
-        await api.applyEdit({
+        await editSnapshot({
           type: "updateCut",
           cutId: id,
           changes: {
@@ -720,7 +782,7 @@ function Workbench({ api = window.clipdeck }: { api?: ClipDeckAPI }) {
     });
   }, [project?.cuts]);
   function edit(command: EditCommand) {
-    return run(() => api.applyEdit(command), { blocking: true });
+    return run(() => editSnapshot(command), { blocking: true });
   }
   function stopAudition(forcePause = false) {
     pendingPlay.current = false;
@@ -902,7 +964,7 @@ function Workbench({ api = window.clipdeck }: { api?: ClipDeckAPI }) {
             transcriptRevision: transcript.revision,
           };
           addedId = cut.id;
-          return await api.applyEdit({ type: "addCut", cut });
+          return await editSnapshot({ type: "addCut", cut });
         } catch (error) {
           setSelection(null);
           throw error;

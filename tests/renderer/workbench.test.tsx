@@ -12,6 +12,7 @@ import {
 import type {
   ClipDeckAPI,
   WorkspaceSnapshot,
+  WorkspaceUpdate,
   EditCommand,
   CloseAction,
   ClosePreparation,
@@ -20,6 +21,150 @@ import { App } from "../../src/renderer/App";
 import * as reading from "../../src/renderer/reading";
 
 describe("reviewed editing workflow", () => {
+  it("uses compact edit and subscription results while keeping the transcript selectable", async () => {
+    const initial = fixture();
+    initial.transcriptVersions = { "source-one": "session-a-1" };
+    const b = bridge(initial);
+    let receive!: (update: WorkspaceUpdate) => void;
+    b.api.subscribeUpdates = vi.fn(listener => { receive = listener; return () => {}; });
+    b.api.applyEditUpdate = vi.fn(async (command, basis) => {
+      expect(basis).toEqual({ projectId: initial.project.id, versions: [{ assetId: "source-one", version: "session-a-1" }] });
+      const full = await b.api.applyEdit(command);
+      const update = { ...full, project: { ...full.project, transcripts: [{ assetId: "source-one", referenceVersion: "session-a-1" }] } };
+      receive(update);
+      return update;
+    });
+    render(<App api={b.api} />);
+    fireEvent.click(await screen.findByRole("button", { name: "今天" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add selection" }));
+    await waitFor(() => expect(b.get().project.cuts).toHaveLength(1));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Add another cut" })).toHaveProperty("disabled", false));
+    expect(b.api.applyEditUpdate).toHaveBeenCalledTimes(1);
+    expect(b.api.subscribeUpdates).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("list", { name: "Ordered cuts" }).textContent).toContain("今天");
+    expect(screen.getByRole("button", { name: "今天" }).getAttribute("aria-pressed")).toBe("true");
+  });
+  it("reloads a full snapshot for an unavailable text reference without overwriting a later update", async () => {
+    const initial = fixture();
+    initial.transcriptVersions = { "source-one": "session-a-1" };
+    const b = bridge(initial);
+    let receive!: (update: WorkspaceUpdate) => void;
+    b.api.subscribeUpdates = listener => { receive = listener; return () => {}; };
+    render(<App api={b.api} />);
+    await screen.findByRole("button", { name: "今天" });
+    let resolveReload!: (snapshot: WorkspaceSnapshot) => void;
+    vi.mocked(b.api.getSnapshot).mockImplementation(() => new Promise(resolve => { resolveReload = resolve; }));
+    const stale = { ...initial, transcriptVersions: { "source-one": "unknown" }, project: { ...initial.project, transcripts: [{ assetId: "source-one", referenceVersion: "unknown" }] } };
+    act(() => receive(stale));
+    await waitFor(() => expect(b.api.getSnapshot).toHaveBeenCalledTimes(2));
+    expect(screen.getByRole("button", { name: "今天" })).toBeTruthy();
+    const newer = structuredClone(initial);
+    newer.project.revision++;
+    newer.transcriptVersions = { "source-one": "newer" };
+    newer.project.transcripts[0]!.words[0]!.text = "后天，";
+    act(() => receive(newer));
+    await screen.findByRole("button", { name: "后天，" });
+    await act(async () => resolveReload(initial));
+    expect(screen.getByRole("button", { name: "后天，" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "今天" })).toBeNull();
+  });
+  it("keeps newer recognition when an edit-reference reload returns late", async () => {
+    const initial = fixture();
+    initial.transcriptVersions = { "source-one": "token-a" };
+    const b = bridge(initial);
+    let receive!: (value: WorkspaceUpdate) => void;
+    let resolveEdit!: (value: WorkspaceUpdate) => void;
+    let resolveReload!: (value: WorkspaceSnapshot) => void;
+    b.api.subscribeUpdates = listener => { receive = listener; return () => {}; };
+    b.api.applyEditUpdate = vi.fn(() => new Promise<WorkspaceUpdate>(resolve => { resolveEdit = resolve; }));
+    render(<App api={b.api} />);
+    fireEvent.click(await screen.findByRole("button", { name: "今天" }));
+    vi.mocked(b.api.getSnapshot).mockImplementation(() => new Promise(resolve => { resolveReload = resolve; }));
+    fireEvent.click(screen.getByRole("button", { name: "Add selection" }));
+    await waitFor(() => expect(b.api.applyEditUpdate).toHaveBeenCalledTimes(1));
+    const command = vi.mocked(b.api.applyEditUpdate!).mock.calls[0]![0];
+    if (command.type !== "addCut") throw new Error("Expected passage edit");
+    const addedCut = command.cut;
+    function recognition(label: string, token: string, revision: number) {
+      const next = structuredClone(initial);
+      next.project.revision = revision;
+      next.transcriptVersions = { "source-one": token };
+      next.project.transcripts[0]!.originId = token;
+      next.project.transcripts[0]!.words[0]!.text = label;
+      next.project.cuts = [{ ...addedCut, needsReview: true }];
+      next.project.cutOrder = [addedCut.id];
+      return next;
+    }
+    const middle = recognition("Recognition B", "token-b", 2);
+    act(() => receive(middle));
+    await screen.findByRole("button", { name: "Recognition B" });
+    const edit = structuredClone(initial);
+    edit.project.revision++;
+    edit.project.cuts = [command.cut];
+    edit.project.cutOrder = [command.cut.id];
+    await act(async () => resolveEdit({ ...edit, project: { ...edit.project, transcripts: [{ assetId: "source-one", referenceVersion: "token-a" }] } }));
+    await waitFor(() => expect(b.api.getSnapshot).toHaveBeenCalledTimes(2));
+    act(() => receive(recognition("Recognition C", "token-c", 3)));
+    await screen.findByRole("button", { name: "Recognition C" });
+    await act(async () => resolveReload(middle));
+    expect(screen.getByRole("button", { name: "Recognition C" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Recognition B" })).toBeNull();
+  });
+  it("retains the latest missing-reference resync when the older reply arrives first", async () => {
+    const initial = fixture();
+    initial.transcriptVersions = { "source-one": "token-a" };
+    const b = bridge(initial);
+    let receive!: (value: WorkspaceUpdate) => void;
+    const replies: Array<(value: WorkspaceSnapshot) => void> = [];
+    b.api.subscribeUpdates = listener => { receive = listener; return () => {}; };
+    render(<App api={b.api} />);
+    await screen.findByRole("button", { name: "今天" });
+    vi.mocked(b.api.getSnapshot).mockImplementation(() => new Promise(resolve => { replies.push(resolve); }));
+    const first = structuredClone(initial);
+    first.project.name = "Older resync";
+    first.project.revision++;
+    first.transcriptVersions = { "source-one": "token-b" };
+    const newer = structuredClone(first);
+    newer.project.name = "Newest resync";
+    newer.project.revision++;
+    const reference = (full: WorkspaceSnapshot): WorkspaceUpdate => ({ ...full, project: { ...full.project, transcripts: [{ assetId: "source-one", referenceVersion: "token-b" }] } });
+    act(() => receive(reference(first)));
+    await waitFor(() => expect(replies).toHaveLength(1));
+    act(() => receive(reference(newer)));
+    await waitFor(() => expect(replies).toHaveLength(2));
+    await act(async () => replies[0]!(first));
+    await act(async () => replies[1]!(newer));
+    expect(screen.getByLabelText("Project name")).toHaveProperty("value", "Newest resync");
+  });
+  it("retries only the snapshot read after a committed compact edit cannot recover its reference", async () => {
+    const initial = fixture();
+    initial.transcriptVersions = { "source-one": "token-a" };
+    const b = bridge(initial);
+    let receive!: (value: WorkspaceUpdate) => void;
+    b.api.subscribeUpdates = listener => { receive = listener; return () => {}; };
+    const committed = structuredClone(initial);
+    committed.project.revision = 1;
+    committed.transcriptVersions = { "source-one": "token-b" };
+    committed.project.transcripts[0]!.words[0]!.text = "Recognition B";
+    b.api.applyEditUpdate = vi.fn(async command => {
+      if (command.type !== "addCut") throw new Error("Expected passage edit");
+      committed.project.cuts = [{ ...command.cut, needsReview: true }];
+      committed.project.cutOrder = [command.cut.id];
+      receive(committed);
+      return { ...initial, project: { ...committed.project, transcripts: [{ assetId: "source-one", referenceVersion: "token-a" }] } };
+    });
+    render(<App api={b.api} />);
+    fireEvent.click(await screen.findByRole("button", { name: "今天" }));
+    vi.mocked(b.api.getSnapshot).mockRejectedValueOnce(new Error("Refresh unavailable"));
+    fireEvent.click(screen.getByRole("button", { name: "Add selection" }));
+    expect((await screen.findByRole("alert")).textContent).toContain("Refresh unavailable");
+    vi.mocked(b.api.getSnapshot).mockResolvedValue(committed);
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+    await waitFor(() => expect(b.api.getSnapshot).toHaveBeenCalledTimes(3));
+    await waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
+    expect(b.api.applyEditUpdate).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("list", { name: "Ordered cuts" }).textContent).toContain("今天");
+  });
   it("keeps the reading index and selection when an edit delivers an unchanged transcript", async () => {
     const initial = fixture();
     initial.transcriptVersions = { "source-one": "session-a-1" };

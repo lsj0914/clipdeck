@@ -195,6 +195,20 @@ export interface WorkspaceSnapshot {
   };
 }
 export type CloseAction = "apply" | "discard" | "resume";
+/** Renderer-local transport references never enter saved projects. */
+export interface TranscriptBasis {
+  projectId: string;
+  versions: Array<{ assetId: string; version: string }>;
+}
+export interface TranscriptReference {
+  assetId: string;
+  referenceVersion: string;
+}
+export interface WorkspaceUpdate extends Omit<WorkspaceSnapshot, "project"> {
+  project: Omit<WorkspaceSnapshot["project"], "transcripts"> & {
+    transcripts: Array<Transcript | TranscriptReference>;
+  };
+}
 export interface ClosePreparation {
   ready: boolean;
   locale: "en" | "zh";
@@ -206,6 +220,7 @@ export interface ClipDeckAPI {
   importMedia(): Promise<WorkspaceSnapshot>;
   importDroppedFiles(files: File[]): Promise<WorkspaceSnapshot>;
   applyEdit(command: EditCommand): Promise<WorkspaceSnapshot>;
+  applyEditUpdate?(command: EditCommand, basis: TranscriptBasis | null): Promise<WorkspaceUpdate>;
   transcribe(
     assetId: string,
     language: Language,
@@ -222,9 +237,10 @@ export interface ClipDeckAPI {
   downloadModel(choice?: ModelChoice): Promise<string>;
   revealExport(jobId: string): Promise<void>;
   subscribe(listener: (snapshot: WorkspaceSnapshot) => void): () => void;
+  subscribeUpdates?(listener: (update: WorkspaceUpdate) => void): () => void;
   onCloseRequested(listener: (action: CloseAction) => Promise<ClosePreparation>): () => void;
 }
-export type IpcMethod = Exclude<keyof ClipDeckAPI, "subscribe" | "onCloseRequested">;
+export type IpcMethod = Exclude<keyof ClipDeckAPI, "subscribe" | "subscribeUpdates" | "applyEditUpdate" | "onCloseRequested">;
 export interface IpcRequest {
   method: IpcMethod;
   args: unknown[];

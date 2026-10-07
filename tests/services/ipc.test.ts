@@ -13,6 +13,8 @@ it("rejects arbitrary methods, paths, malformed args and object pollution", () =
     { method: "saveProject", args: ["yes"] },
     { method: "applyEdit", args: [{ type: "undo", path: "/etc/passwd" }] },
     { method: "getSnapshot", args: [], constructor: "polluted" },
+    { method: "applyEditUpdate", args: [{ type: "undo" }, null] },
+    { method: "subscribeUpdates", args: [] },
   ])
     expect(() => parseIpcRequest(request)).toThrow();
 });

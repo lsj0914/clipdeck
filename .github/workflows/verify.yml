@@ -26,7 +26,7 @@ jobs:
       - run: npm ci
       - run: npm run typecheck
       - name: Unit and renderer checks (no native media runtime)
-        run: npm test -- tests/domain tests/renderer tests/services/ipc.test.ts tests/services/ipc-native.test.ts tests/services/jobs.test.ts tests/services/process.test.ts tests/services/capacity.test.ts tests/services/storage.test.ts tests/services/sentences.test.ts tests/services/punctuation.test.ts tests/services/media-protocol.test.ts tests/services/preparation.test.ts tests/services/close.test.ts tests/services/renderer-close.test.ts tests/services/transient.test.ts tests/scripts --maxWorkers=2
+        run: npm test -- tests/domain tests/renderer tests/services/ipc.test.ts tests/services/ipc-native.test.ts tests/services/snapshot-update.test.ts tests/services/jobs.test.ts tests/services/process.test.ts tests/services/capacity.test.ts tests/services/storage.test.ts tests/services/sentences.test.ts tests/services/punctuation.test.ts tests/services/media-protocol.test.ts tests/services/preparation.test.ts tests/services/close.test.ts tests/services/renderer-close.test.ts tests/services/transient.test.ts tests/scripts --maxWorkers=2
       - run: python3 -m unittest discover -s tests/packaging -p 'test_*.py'
       - run: npm run build
   native:
