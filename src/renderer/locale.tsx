@@ -1,6 +1,14 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 export type Locale = "en" | "zh";
 const zh: Record<string, string> = {
+  "Expand preview": "放大预览",
+  "Expanded preview": "放大预览",
+  "Assembly preview preparation": "成片预览准备",
+  "Cancel preview": "取消预览准备",
+  "Selected source contains unreadable data; relink a complete recording": "所选素材中有无法读取的数据，请重新关联完整视频。",
+  Expand: "放大",
+  "Return to editing": "返回剪辑",
+  "Return to editing (Esc)": "返回剪辑 (Esc)",
   "Review edit": "查看编辑",
   "Review this cut's range before saving.": "请修改此片段的时间范围后再保存。",
   "Viewing cut": "正在查看片段",

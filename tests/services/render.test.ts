@@ -15,6 +15,7 @@ import { MediaService, SourceRegistry } from "../../src/main/services/media";
 import { JobManager } from "../../src/main/services/jobs";
 import { RenderService } from "../../src/main/services/render";
 import { runProcess } from "../../src/main/services/process";
+import * as nativeProcess from "../../src/main/services/process";
 import { createProject } from "../../src/domain/project";
 import { buildAssemblyPlan } from "../../src/domain/assembly";
 import type { Asset, Project } from "../../src/shared/contracts";
@@ -135,6 +136,27 @@ it("renders exact non-frame-aligned two-source selections to 26 frames and 41600
   expect(job).toMatchObject({ projectId: s.project.id, projectRevision: 0 });
   expect(job.outputUrl).toMatch(/^clipdeck-media:\/\/media\/[a-f0-9-]+$/);
 }, 30000);
+it("stops the native source-presence scan at its first usable frame while preserving the rendered clock", async () => {
+  const actualRun = nativeProcess.runProcess;
+  const scans: number[] = [];
+  const observed = vi.spyOn(nativeProcess, "runProcess").mockImplementation(async (...args) => {
+    const result = await actualRun(...args);
+    const command = args[1];
+    if (command.includes("pipe:1") && command.includes("null") && command.includes("-vf")) {
+      const counts = [...result.stdout.matchAll(/^frame=(\d+)$/gm)].map(m => Number(m[1]));
+      scans.push(Math.max(...counts));
+    }
+    return result;
+  });
+  try {
+    const s = await setup();
+    const id = await s.render.preview(buildAssemblyPlan(s.project));
+    const job = await finish(s, id);
+    expect(job.status, job.error ?? "").toBe("completed");
+    expect(scans).toEqual([1, 1]);
+    expect(s.render.receipt(id)).toMatchObject({ frames: 26, samples: 41600 });
+  } finally { observed.mockRestore(); }
+}, 30000);
 it("rejects an interval containing no selected frame and leaves no published file", async () => {
   const s = await setup([red]);
   s.project.cuts[0]!.startMs = 1;
@@ -144,6 +166,40 @@ it("rejects an interval containing no selected frame and leaves no published fil
   expect(job.status).toBe("failed");
   expect(job.error).toMatch(/frame|range/i);
   expect(job.outputUrl).toBeNull();
+}, 30000);
+it("rejects a truncated selected source instead of publishing cloned frames as a complete preview", async () => {
+  const whole = path.join(dir, "front-index.mp4");
+  await runProcess(ffmpeg, ["-v", "error", "-f", "lavfi", "-i", "testsrc2=s=96x64:r=60:d=1.8", "-f", "lavfi", "-i", "sine=frequency=440:sample_rate=48000:duration=1.8", "-c:v", "libx264", "-c:a", "aac", "-movflags", "+faststart", whole]);
+  const { stdout } = await runProcess(ffprobe, ["-v", "error", "-select_streams", "v:0", "-show_packets", "-show_entries", "packet=pos,size", "-of", "json", whole]);
+  const packet = JSON.parse(stdout).packets[23];
+  const truncated = path.join(dir, "truncated-index.mp4");
+  const originalBytes = await readFile(whole);
+  await writeFile(truncated, originalBytes.subarray(0, Number(packet.pos) + Number(packet.size)));
+  const sourceBytes = await readFile(truncated);
+  // Legal extended-size and EOF-sized boxes must not become false positives.
+  const extended = Buffer.alloc(24);
+  extended.writeUInt32BE(1);
+  extended.write("free", 4, "ascii");
+  extended.writeBigUInt64BE(24n, 8);
+  const eof = Buffer.alloc(8);
+  eof.write("free", 4, "ascii");
+  const complete = path.join(dir, "complete-extended-index.mp4");
+  await writeFile(complete, Buffer.concat([originalBytes, extended, eof]));
+  const valid = await setup([complete]);
+  valid.project.cuts[0]!.startMs = 0;
+  valid.project.cuts[0]!.endMs = 1800;
+  const validId = await valid.render.preview(buildAssemblyPlan(valid.project));
+  expect((await finish(valid, validId)).status).toBe("completed");
+  expect(valid.render.receipt(validId)).toMatchObject({ frames: 54, samples: 86400 });
+  const s = await setup([truncated]);
+  expect(s.assets[0]!.durationMs).toBe(1800);
+  s.project.cuts[0]!.startMs = 0;
+  s.project.cuts[0]!.endMs = 1800;
+  const id = await s.render.preview(buildAssemblyPlan(s.project));
+  expect((await finish(s, id)).status).toBe("failed");
+  expect(s.render.outputPath(id)).toBeUndefined();
+  expect(s.render.receipt(id)).toBeUndefined();
+  expect((await readFile(truncated)).equals(sourceBytes)).toBe(true);
 }, 30000);
 it("preserves delayed audio on the common source time axis", async () => {
   const s = await setup([delayed]);

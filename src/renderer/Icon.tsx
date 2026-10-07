@@ -1,6 +1,7 @@
 import React from "react";
 const paths = {
   plus: "M12 5v14M5 12h14",
+  expand: "M8 3H3v5m13-5h5v5M3 16v5h5m13-5v5h-5",
   play: "m9 5 11 7-11 7Z",
   pause: "M8 5v14M16 5v14",
   folder: "M3 7V5h6l2 2h10v13H3Z",

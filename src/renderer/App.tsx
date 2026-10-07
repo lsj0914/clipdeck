@@ -80,6 +80,7 @@ function Workbench({ api = window.clipdeck }: { api?: ClipDeckAPI }) {
     [cutId, setCutId] = useState(""),
     [view, setView] = useState<"source" | "assembly">("source"),
     [panel, setPanel] = useState<"video" | "inspector">("video"),
+    [previewExpanded, setPreviewExpanded] = useState(false),
     [rangeMode, setRangeMode] = useState(false),
     [timingRange, setTimingRange] = useState<{
       assetId: string;
@@ -144,6 +145,7 @@ function Workbench({ api = window.clipdeck }: { api?: ClipDeckAPI }) {
     pendingPlay = useRef(false),
     busyRef = useRef(false);
   const revealDraft = useCallback((problem: DraftProblem) => {
+    setPreviewExpanded(false);
     setSourceId(problem.assetId);
     setCutId(problem.cutId);
     setView("source");
@@ -184,6 +186,7 @@ function Workbench({ api = window.clipdeck }: { api?: ClipDeckAPI }) {
         }
         return result;
       } catch (error) {
+        setPreviewExpanded(false);
         setFailure(error instanceof CutDraftFailure ? {
           message: "Review this cut's range before saving.",
           cutOrdinal: error.problem.ordinal,
@@ -296,7 +299,8 @@ function Workbench({ api = window.clipdeck }: { api?: ClipDeckAPI }) {
     view === "assembly" && previewUrl
       ? assemblyPosition(cuts, currentMs)
       : null;
-  const previewBusy = activeJobs.some((j) => j.kind === "preview");
+  const preparingPreview = activeJobs.find((j) => j.kind === "preview");
+  const previewBusy = !!preparingPreview;
   const exportBusy = activeJobs.some((j) => j.kind === "export");
   const addedWords = useMemo(
     () =>
@@ -499,12 +503,12 @@ function Workbench({ api = window.clipdeck }: { api?: ClipDeckAPI }) {
     return () => window.clearTimeout(timer);
   }, [announcement]);
   const overlay = helpOpen ? ".shortcuts-panel" : exportReview ? ".export-summary:not(.completed-export)" :
-    completedExport ? ".completed-export" : correctionOpen ? ".correction-panel" : null;
+    completedExport ? ".completed-export" : correctionOpen ? ".correction-panel" : previewExpanded ? ".preview-expanded" : null;
   useEffect(() => {
     if (!overlay) return;
     const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const element = document.querySelector<HTMLElement>(overlay);
-    (element?.querySelector<HTMLElement>("input:not(:disabled)") ?? element?.querySelector<HTMLElement>("button:not(:disabled),[tabindex='0']"))?.focus();
+    (element?.querySelector<HTMLElement>("[data-overlay-initial-focus]") ?? element?.querySelector<HTMLElement>("input:not(:disabled)") ?? element?.querySelector<HTMLElement>("button:not(:disabled),[tabindex='0']"))?.focus();
     return () => { if (previous?.isConnected) previous.focus({ preventScroll: true }); };
   }, [overlay]);
   useEffect(() => {
@@ -1019,6 +1023,7 @@ function Workbench({ api = window.clipdeck }: { api?: ClipDeckAPI }) {
         else if (exportReview) setExportReview(null);
         else if (completedExport) setCompletedExport(null);
         else if (correctionOpen) { if (!busyRef.current) setCorrectionOpen(false); }
+        else if (previewExpanded) setPreviewExpanded(false);
         else if (queueOpen) setQueueOpen(false);
         else if (sourcesOpen) setSourcesOpen(false);
         else setSelection(null);
@@ -1029,6 +1034,19 @@ function Workbench({ api = window.clipdeck }: { api?: ClipDeckAPI }) {
         !!event.target.closest(
           'input,textarea,select,[contenteditable="true"]',
         );
+      if (previewExpanded && event.key === "Tab") {
+        const controls = Array.from(document.querySelectorAll<HTMLElement>(
+          ".preview-expanded button:not(:disabled),.preview-expanded input:not(:disabled)",
+        ));
+        const first = controls[0], last = controls.at(-1);
+        if (first && last && ((event.shiftKey && document.activeElement === first) ||
+          (!event.shiftKey && document.activeElement === last) ||
+          !controls.includes(document.activeElement as HTMLElement))) {
+          event.preventDefault();
+          (event.shiftKey ? last : first).focus();
+        }
+        return;
+      }
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "s") {
         event.preventDefault();
         void run(() => saveProject(event.shiftKey), {
@@ -1116,7 +1134,7 @@ function Workbench({ api = window.clipdeck }: { api?: ClipDeckAPI }) {
         }
       }}
     >
-      <header className="project-toolbar">
+      <header className="project-toolbar" inert={previewExpanded || undefined}>
         <div className="brand">
           <Icon name="scissors" />
           <span>{t("ClipDeck")}</span>
@@ -1317,7 +1335,7 @@ function Workbench({ api = window.clipdeck }: { api?: ClipDeckAPI }) {
       ) : (
         <>
           <div className="workspace">
-            <aside className="sources">
+            <aside className="sources" inert={previewExpanded || undefined}>
               <div className="section-heading">
                 <h2>
                   {t("Sources")}
@@ -1404,7 +1422,7 @@ function Workbench({ api = window.clipdeck }: { api?: ClipDeckAPI }) {
                 <span>{t("Originals stay untouched")}</span>
               </div>
             </aside>
-            <section className="reading-pane">
+            <section className="reading-pane" inert={previewExpanded || undefined}>
               <div className="reading-heading">
                 <button
                   className="sources-toggle"
@@ -1720,7 +1738,10 @@ function Workbench({ api = window.clipdeck }: { api?: ClipDeckAPI }) {
                   </div>
                 )}
             </section>
-            <aside className={`monitor-pane showing-${panel}`}>
+            <aside className={`monitor-pane showing-${panel}${previewExpanded ? " preview-expanded" : ""}`}
+              role={previewExpanded ? "dialog" : undefined}
+              aria-modal={previewExpanded || undefined}
+              aria-label={previewExpanded ? t("Expanded preview") : undefined}>
               <div className="monitor-heading">
                 <div className="mode-switch">
                   <button
@@ -1746,6 +1767,7 @@ function Workbench({ api = window.clipdeck }: { api?: ClipDeckAPI }) {
                 </div>
                 <button
                   className="inspector-toggle"
+                  hidden={previewExpanded}
                   aria-pressed={panel === "inspector"}
                   onClick={() =>
                     setPanel(panel === "video" ? "inspector" : "video")
@@ -1758,6 +1780,13 @@ function Workbench({ api = window.clipdeck }: { api?: ClipDeckAPI }) {
                     ? (asset?.name ?? t("Original footage"))
                     : t("Continuous preview")}
                 </span>
+                <button className="preview-expand" aria-label={t(previewExpanded ? "Return to editing" : "Expand preview")}
+                  title={t(previewExpanded ? "Return to editing (Esc)" : "Expand preview")}
+                  data-overlay-initial-focus={previewExpanded ? "true" : undefined}
+                  onClick={() => { setPanel("video"); setPreviewExpanded(!previewExpanded); }}>
+                  <Icon name={previewExpanded ? "close" : "expand"} />
+                  <span>{t(previewExpanded ? "Return to editing" : "Expand")}</span>
+                </button>
               </div>
               <div className="video-section">
                 <div
@@ -1822,6 +1851,7 @@ function Workbench({ api = window.clipdeck }: { api?: ClipDeckAPI }) {
                           });
                           return;
                         }
+                        setPreviewExpanded(false);
                         setFailure({
                           message:
                             "This video could not be played. Relink the source or prepare the assembly again.",
@@ -1866,7 +1896,18 @@ function Workbench({ api = window.clipdeck }: { api?: ClipDeckAPI }) {
                                 : t("Preparing source preview\u2026")
                             : t("Original footage appears here.")}
                       </p>
-                      {view === "assembly" && cuts.length > 0 && (
+                      {view === "assembly" && preparingPreview && (
+                        <div className="assembly-preview-status" role="status">
+                          <p>{t(preparingPreview.stage)}</p>
+                          <progress aria-label={t("Assembly preview preparation")} max={1}
+                            {...(preparingPreview.progress == null ? {} : { value: preparingPreview.progress })} />
+                          <button disabled={preparingPreview.cancelRequested || preparingPreview.status === "cancelling"}
+                            onClick={() => void run(() => api.cancelJob(preparingPreview.id))}>
+                            {t(preparingPreview.status === "cancelling" ? "Cancelling…" : "Cancel preview")}
+                          </button>
+                        </div>
+                      )}
+                      {view === "assembly" && cuts.length > 0 && !previewBusy && (
                         <button
                           disabled={
                             previewBusy ||
@@ -2016,7 +2057,7 @@ function Workbench({ api = window.clipdeck }: { api?: ClipDeckAPI }) {
                   </span>
                 </div>
               </div>
-              {selectedCut ? (
+              {!previewExpanded && (selectedCut ? (
                 <CutInspector
                   canAudition={
                     selectedCut.assetId === asset?.id
@@ -2083,10 +2124,10 @@ function Workbench({ api = window.clipdeck }: { api?: ClipDeckAPI }) {
                     )}
                   </p>
                 </div>
-              )}
+              ))}
             </aside>
           </div>
-          <section className="assembly" aria-label={t("Assembly")}>
+          <section className="assembly" aria-label={t("Assembly")} inert={previewExpanded || undefined}>
             <div className="assembly-heading">
               <h2>
                 {t("Assembly")}{" "}
@@ -2266,7 +2307,7 @@ function Workbench({ api = window.clipdeck }: { api?: ClipDeckAPI }) {
               )}
             </div>
           </section>
-          <footer className="status-bar">
+          <footer className="status-bar" inert={previewExpanded || undefined}>
             <button
               className={`model-status ${snapshot.model.status}`}
               onClick={() => setQueueOpen(!queueOpen)}

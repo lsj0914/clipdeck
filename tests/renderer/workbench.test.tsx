@@ -19,6 +19,98 @@ import type {
 import { App } from "../../src/renderer/App";
 
 describe("reviewed editing workflow", () => {
+  it("leaves the enlarged assembly player when playback fails so its recovery is visible", async () => {
+    const state = assemblyFixture();
+    state.jobs = [{ id: "ready-preview", kind: "preview", status: "completed", stage: "completed", processedMs: 1800, totalMs: 1800, progress: 1, error: null, cancelRequested: false, assetId: null, outputUrl: "clipdeck-media://preview/ready", projectId: state.project.id, projectRevision: state.project.revision }];
+    const b = bridge(state);
+    render(<App api={b.api} />);
+    fireEvent.click(await screen.findByRole("button", { name: "Assembly" }));
+    const player = await screen.findByLabelText("Assembly video");
+    fireEvent.click(screen.getByRole("button", { name: "Expand preview" }));
+    fireEvent.error(player);
+    const error = await screen.findByRole("alert");
+    expect(screen.queryByRole("dialog", { name: "Expanded preview" })).toBeNull();
+    expect(error.textContent).toContain("This video could not be played");
+    expect(document.activeElement).toBe(error);
+    expect(b.get().project.cuts).toHaveLength(2);
+  });
+  it("returns from enlarged preview to the invalid draft when saving fails", async () => {
+    const b = bridge(assemblyFixture());
+    render(<App api={b.api} />);
+    fireEvent.click(await screen.findByRole("listitem", { name: /Cut 1:/ }));
+    fireEvent.change(screen.getByLabelText("Cut out"), { target: { value: "00:00.000" } });
+    fireEvent.click(screen.getByRole("button", { name: "Expand preview" }));
+    expect(screen.getByRole("dialog", { name: "Expanded preview" })).toBeTruthy();
+    fireEvent.keyDown(window, { key: "s", metaKey: true });
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Expanded preview" })).toBeNull());
+    const input = screen.getByLabelText("Cut out");
+    await waitFor(() => expect(document.activeElement).toBe(input));
+    expect(input).toHaveProperty("value", "00:00.000");
+    expect(b.api.saveProject).not.toHaveBeenCalled();
+  });
+  it("keeps a rejected save visible after leaving the enlarged player", async () => {
+    const b = bridge();
+    b.api.saveProject = vi.fn(async () => { throw new Error("Cannot save this project"); });
+    render(<App api={b.api} />);
+    fireEvent.click(await screen.findByRole("button", { name: "Expand preview" }));
+    fireEvent.keyDown(window, { key: "s", metaKey: true });
+    const error = await screen.findByRole("alert");
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Expanded preview" })).toBeNull());
+    expect(error.textContent).toContain("Cannot save this project");
+    expect(document.activeElement).toBe(error);
+  });
+  it("shows actual assembly preparation progress and lets the user cancel from the player", async () => {
+    const state = assemblyFixture();
+    state.jobs = [{ id: "pending-preview", kind: "preview", status: "running", stage: "rendering cut 1 of 2", processedMs: 5000, totalMs: 36300, progress: 0.25, error: null, cancelRequested: false, assetId: null, outputUrl: null, projectId: state.project.id, projectRevision: state.project.revision }];
+    const b = bridge(state);
+    render(<App api={b.api} />);
+    fireEvent.click(await screen.findByRole("button", { name: "Assembly" }));
+    const progress = screen.getByRole("progressbar", { name: "Assembly preview preparation" });
+    expect(progress).toHaveProperty("value", 0.25);
+    expect(screen.getByText("rendering cut 1 of 2")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Cancel preview" }));
+    await waitFor(() => expect(b.api.cancelJob).toHaveBeenCalledWith("pending-preview"));
+  });
+  it("expands the same player without losing its position and Escape returns to editing", async () => {
+    const b = bridge();
+    render(<App api={b.api} />);
+    const player = await screen.findByLabelText("Source video") as HTMLVideoElement;
+    await waitFor(() => expect(screen.getByRole("button", { name: "Play playback" }).hasAttribute("disabled")).toBe(false));
+    player.currentTime = 4.125;
+    fireEvent.timeUpdate(player);
+    fireEvent.click(screen.getByRole("button", { name: "今天" }));
+    // Position is deliberately set after selecting, which seeks to the chosen word.
+    player.currentTime = 4.125;
+    fireEvent.timeUpdate(player);
+    const expand = screen.getByRole("button", { name: "Expand preview" });
+    expand.focus();
+    fireEvent.click(expand);
+    const dialog = screen.getByRole("dialog", { name: "Expanded preview" });
+    expect(dialog.contains(player)).toBe(true);
+    expect(screen.getByLabelText("Source video")).toBe(player);
+    expect(player.currentTime).toBe(4.125);
+    expect(dialog.getAttribute("aria-modal")).toBe("true");
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: "Return to editing" }));
+    fireEvent.keyDown(window, { key: "Escape" });
+    expect(screen.queryByRole("dialog", { name: "Expanded preview" })).toBeNull();
+    expect(screen.getByLabelText("Source video")).toBe(player);
+    expect(player.currentTime).toBe(4.125);
+    expect(screen.getByRole("button", { name: "今天" }).getAttribute("aria-pressed")).toBe("true");
+    expect(document.activeElement).toBe(expand);
+  });
+  it("contains keyboard focus within the enlarged preview and its return button", async () => {
+    render(<App api={bridge().api} />);
+    fireEvent.click(await screen.findByRole("button", { name: "Expand preview" }));
+    const dialog = screen.getByRole("dialog", { name: "Expanded preview" });
+    const enabled = Array.from(dialog.querySelectorAll<HTMLElement>("button:not(:disabled),input:not(:disabled)"));
+    enabled.at(-1)!.focus();
+    fireEvent.keyDown(enabled.at(-1)!, { key: "Tab" });
+    expect(document.activeElement).toBe(enabled[0]);
+    fireEvent.keyDown(enabled[0]!, { key: "Tab", shiftKey: true });
+    expect(document.activeElement).toBe(enabled.at(-1));
+    fireEvent.click(screen.getByRole("button", { name: "Return to editing" }));
+    expect(screen.queryByRole("dialog", { name: "Expanded preview" })).toBeNull();
+  });
   it("takes a failed save back to the invalid retained draft and its field", async () => {
     const b = bridge(assemblyFixture());
     render(<App api={b.api} />);

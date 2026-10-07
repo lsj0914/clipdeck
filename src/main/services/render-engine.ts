@@ -20,6 +20,32 @@ export interface RenderReceipt {
   audioPresentationSamples: number;
 }
 const seconds = (ms: number) => (ms / 1000).toFixed(6);
+/** MP4/MOV may retain an intact front index after their media payload is cut off.
+ * Check top-level box bounds without reading or decoding the media payload. */
+async function verifyMovieBounds(file: string, signal: AbortSignal): Promise<void> {
+  const source = await open(file, "r");
+  try {
+    const length = (await source.stat()).size;
+    const header = Buffer.alloc(16);
+    let offset = 0;
+    while (offset < length) {
+      signal.throwIfAborted();
+      const { bytesRead } = await source.read(header, 0, 16, offset);
+      if (offset === 0 && (bytesRead < 8 || !["ftyp", "moov", "mdat", "free", "skip", "wide", "pnot"].includes(header.toString("ascii", 4, 8)))) return;
+      const invalid = () => new Error("Selected source contains unreadable data; relink a complete recording");
+      if (bytesRead < 8) throw invalid();
+      const size = header.readUInt32BE(0);
+      if (size === 0) return; // A final box may legally extend to EOF.
+      const extended = size === 1;
+      if (extended && bytesRead < 16) throw invalid();
+      const boxLength = extended ? header.readBigUInt64BE(8) : BigInt(size);
+      if (boxLength < BigInt(extended ? 16 : 8) || boxLength > BigInt(length - offset)) throw invalid();
+      offset += Number(boxLength);
+    }
+  } finally {
+    await source.close();
+  }
+}
 /** The source clock is shared by video and audio. Never subtract each stream's STARTPTS. */
 export function videoFilter(
   startMs: number,
@@ -46,9 +72,10 @@ export class RenderEngine {
     args: string[],
     ctx: JobContext,
     onTime?: (ms: number) => void,
+    options: { rejectLoggedErrors?: boolean } = {},
   ): Promise<void> {
     let buffered = "";
-    await runProcess(
+    const result = await runProcess(
       this.ffmpeg,
       [
         "-hide_banner",
@@ -75,6 +102,10 @@ export class RenderEngine {
         },
       },
     );
+    // Some demuxers log a partial-file error but return EOF with exit code zero.
+    // With -v error, nonempty stderr is a processing error, not a warning.
+    if (options.rejectLoggedErrors && result.stderr.trim())
+      throw new Error("Selected source contains unreadable data; relink a complete recording");
   }
   async assemble(
     plan: AssemblyPlan,
@@ -85,6 +116,7 @@ export class RenderEngine {
     height: number,
   ): Promise<string> {
     const paths: string[] = [];
+    const checkedSources = new Set<string>();
     let completedBytes = 0;
     const checkSpace = (file: string) => {
       let bytes = 0;
@@ -105,6 +137,10 @@ export class RenderEngine {
       });
       ctx.throwIfCancelled();
       const input = inputs.get(segment.assetId)!;
+      if (!checkedSources.has(input.file)) {
+        await verifyMovieBounds(input.file, ctx.signal);
+        checkedSources.add(input.file);
+      }
       const file = path.join(dir, `cut-${i}.mkv`);
       const selected = await runProcess(
         this.ffmpeg,
@@ -123,6 +159,8 @@ export class RenderEngine {
           input.file,
           "-vf",
           `trim=start=0:end=${seconds(segment.endMs - segment.startMs)}`,
+          "-frames:v",
+          "1",
           "-an",
           "-f",
           "null",
@@ -138,6 +176,7 @@ export class RenderEngine {
           `Cut ${i + 1} contains no usable video frame in the selected range; widen its bounds`,
         );
       const args = [
+        "-xerror",
         ...SOURCE_INPUT_OPTIONS,
         "-ss",
         seconds(segment.startMs),
@@ -184,7 +223,7 @@ export class RenderEngine {
             ((segment.startFrame + (ms / 1000) * 30) / plan.totalFrames) * 0.7,
           ),
         });
-      });
+      }, { rejectLoggedErrors: true });
       // Empty video can still produce a valid audio container; reject before concat.
       const { stdout } = await runProcess(
         this.ffprobe,
