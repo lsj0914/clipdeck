@@ -192,7 +192,7 @@ const zh: Record<string, string> = {
   "Loop audition": "循环试听",
   "Stop loop": "停止循环",
   "Add range": "加入时间段",
-  "Audition range": "试听时间段",
+  "Audition source range": "试听原素材时间段",
   "Selection in": "选区入点",
   "Selection out": "选区出点",
   "Read or edit full text": "阅读或编辑全文",

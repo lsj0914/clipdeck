@@ -94,7 +94,7 @@ export function RangeEditor({
           onClick={() => submit(onAudition)}
         >
           <Icon name="play" />
-          {t("Audition range")}
+        {t("Audition source range")}
         </button>
         <button
           className="primary"

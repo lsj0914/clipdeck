@@ -1135,7 +1135,7 @@ function Workbench({ api = window.clipdeck }: { api?: ClipDeckAPI }) {
     if (!project) return;
     playbackCommand.current++;
     const resume = !!audition || (targetView === "source" && view === "source" &&
-      (!!pendingNavigation?.resume || (!!video.current && !video.current.paused)));
+      (!!pendingNavigation?.resume || pendingPlay.current || (!!video.current && !video.current.paused)));
     const ms = targetView === "assembly" ? assemblyTime(cuts, cut.id, sourceMs) : sourceMs;
     if (ms === null) return;
     if (targetView === "source") {

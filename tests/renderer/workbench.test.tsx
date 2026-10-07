@@ -614,7 +614,7 @@ describe("uncertain word timing recovery", () => {
     expect(screen.getByLabelText("Selection out")).toHaveProperty("value", "00:03.040");
     fireEvent.change(screen.getByLabelText("Selection in"), { target: { value: "1.000" } });
     fireEvent.change(screen.getByLabelText("Selection out"), { target: { value: "2.500" } });
-    fireEvent.click(screen.getByRole("button", { name: "Audition range" }));
+    fireEvent.click(screen.getByRole("button", { name: "Audition source range" }));
     expect(screen.getByLabelText("Source video")).toHaveProperty("currentTime", 1);
     fireEvent.click(screen.getByRole("button", { name: "Add range" }));
     await waitFor(() => expect(b.get().project.cuts).toHaveLength(1));
@@ -1191,12 +1191,17 @@ describe("preview-mode navigation", () => {
     expect(screen.getByRole("button", { name: "Inspector" }).getAttribute("aria-pressed")).toBe("false");
     expect(screen.getByRole("button", { name: /First beat/ })).toBeTruthy();
   });
-  it("carries playing intent through a rapid cross-source navigation while decoding", async () => {
-    render(<App api={bridge(assemblyFixture()).api} />);
+  it.each([false, true])("carries playing intent through rapid cross-source navigation (intervening word: %s)", async interveningWord => {
+    const state = assemblyFixture();
+    state.project.transcripts.push({ ...state.project.transcripts[0]!, assetId: "source-two",
+      words: [{ id: "second-word", text: "Secondword", startMs: 5500, endMs: 5900 }],
+      segments: [{ id: "second-segment", text: "Secondword", startMs: 5500, endMs: 5900, wordIds: ["second-word"] }] });
+    render(<App api={bridge(state).api} />);
     const first = await screen.findByLabelText("Source video") as HTMLVideoElement;
     await act(async () => { await first.play(); fireEvent.play(first); });
     autoDecode = false;
     fireEvent.click(screen.getByRole("listitem", { name: "Cut 2: Second beat" }));
+    if (interveningWord) fireEvent.click(await screen.findByRole("button", { name: "Secondword" }));
     fireEvent.click(screen.getByRole("listitem", { name: "Cut 1: First beat" }));
     const last = screen.getByLabelText("Source video") as HTMLVideoElement;
     decodedFrame(last);
