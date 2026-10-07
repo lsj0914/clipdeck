@@ -1109,6 +1109,7 @@ function Workbench({ api = window.clipdeck }: { api?: ClipDeckAPI }) {
   }
   useEffect(() => {
     const handle = (event: KeyboardEvent) => {
+      if (event.defaultPrevented) return;
       if (closingRef.current) { event.preventDefault(); return; }
       if (event.key === "Escape") {
         event.preventDefault();
@@ -1179,8 +1180,17 @@ function Workbench({ api = window.clipdeck }: { api?: ClipDeckAPI }) {
         togglePlayback();
       }
     };
+    const handleViewerKey = (event: KeyboardEvent) => {
+      if ((completedExport || previewExpanded) &&
+        (event.key === "Escape" || event.key === "Tab")) handle(event);
+    };
+    // Receive viewer navigation before native media controls consume the event.
+    window.addEventListener("keydown", handleViewerKey, true);
     window.addEventListener("keydown", handle);
-    return () => window.removeEventListener("keydown", handle);
+    return () => {
+      window.removeEventListener("keydown", handleViewerKey, true);
+      window.removeEventListener("keydown", handle);
+    };
   });
   function togglePlayback() {
     const el = video.current;

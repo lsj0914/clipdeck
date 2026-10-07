@@ -2597,12 +2597,15 @@ describe("Task 7 recovery and completed delivery", () => {
     expect(player.currentTime).toBe(4.125);
     expect(player.getAttribute("controlslist")).toContain("nofullscreen");
     expect(screen.getByRole("button", { name: "Export video" }).closest("header")?.hasAttribute("inert")).toBe(true);
-    fireEvent.keyDown(window, { key: "Escape" });
+    // Native media controls may stop keyboard events before they bubble to the window.
+    player.addEventListener("keydown", (event) => event.stopPropagation());
+    player.focus();
+    fireEvent.keyDown(player, { key: "Escape" });
     expect(screen.getByRole("dialog", { name: "Completed export" })).toBe(dialog);
     expect(expand.getAttribute("aria-pressed")).toBe("false");
     expect(screen.getByLabelText("Exported video")).toBe(player);
     expect(player.currentTime).toBe(4.125);
-    fireEvent.keyDown(window, { key: "Escape" });
+    fireEvent.keyDown(player, { key: "Escape" });
     expect(screen.queryByRole("dialog", { name: "Completed export" })).toBeNull();
     expect(b.api.exportVideo).not.toHaveBeenCalled();
     expect(b.api.applyEdit).not.toHaveBeenCalled();
@@ -3203,7 +3206,7 @@ describe("independent completed-export recovery controls", () => {
     render(<App api={b.api}/>);await openExport();fireEvent.click(screen.getByRole("button",{name:"Show exported video"}));
     const alert=await screen.findByRole("alert");expect(alert.textContent).toContain("Export file no longer exists");
     expect(screen.queryByRole("dialog",{name:"Completed export"})).toBeNull();
-    expect(document.activeElement).toBe(alert);expect(b.get().project.cuts).toHaveLength(2);
+    await waitFor(()=>expect(document.activeElement).toBe(alert));expect(b.get().project.cuts).toHaveLength(2);
   });
   it("independent: returns focus to a connected editing control after closing delivered viewer",async()=>{
     const b=bridge(delivered());render(<App api={b.api}/>);await openExport();
