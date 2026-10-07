@@ -2728,7 +2728,9 @@ describe("Task 7 first-run Open guard", () => {
     let resolveOpen!: (snapshot: WorkspaceSnapshot) => void;
     vi.mocked(b.api.openProject).mockImplementation(() => new Promise(resolve => { resolveOpen = resolve; }));
     render(<App api={b.api} />);
-    fireEvent.click(await screen.findByRole("button", { name: "Open project" }));
+    const open = await screen.findByRole("button", { name: "Open project" });
+    await waitFor(() => expect(open).toHaveProperty("disabled", false));
+    fireEvent.click(open);
     await waitFor(() => expect(b.api.openProject).toHaveBeenCalledTimes(1));
     expect(screen.getByRole("button", { name: "Open project" }).textContent).toContain("Opening…");
     expect(screen.getByRole("button", { name: "Choose videos" })).toHaveProperty("disabled", true);
