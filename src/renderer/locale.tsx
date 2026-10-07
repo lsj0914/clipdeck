@@ -1,6 +1,9 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 export type Locale = "en" | "zh";
 const zh: Record<string, string> = {
+  "Go to cut": "定位片段",
+  "Selected text is split or absent in the assembly. Play the assembly or switch to Source.": "选区在成片中不连续或尚未加入。可播放完整成片，或切到原素材试听。",
+  "This text is not in the assembly. Add it first or switch to Source.": "这段文字未加入成片。请先加入，或切换到原素材查看。",
   "Play exported file": "播放成片",
   "Pause exported file": "暂停成片",
   "Exported video position": "成片查看位置",

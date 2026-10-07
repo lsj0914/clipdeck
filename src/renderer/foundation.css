@@ -2048,12 +2048,25 @@ progress::-webkit-progress-value {
   min-height: 24px;
   padding: 3px 6px;
 }
-.script-passage p {
+.script-passage p, .script-passage .script-text {
   font-size: 17px;
   line-height: 1.8;
   overflow-wrap: anywhere;
   max-width: 70ch;
 }
+.script-passage .script-text {
+  display: block;
+  text-align: left;
+  font-weight: inherit;
+  color: inherit;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  width: 100%;
+  white-space: normal;
+  cursor: pointer;
+}
+.script-passage .script-text:hover { color: var(--accent); }
 .script-passage input {
   width: 52px;
   margin-left: 6px;

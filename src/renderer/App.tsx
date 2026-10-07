@@ -39,6 +39,7 @@ import {
   RangeInputError,
   assemblyDuration,
   assemblyPosition,
+  assemblyTime,
   excerpt,
   message,
   time,
@@ -110,6 +111,17 @@ function Workbench({ api = window.clipdeck }: { api?: ClipDeckAPI }) {
       repeat: boolean;
       projectId: string;
     } | null>(null),
+    [pendingNavigation, setPendingNavigation] = useState<{
+      projectId: string;
+      basis: string;
+      cutId: string;
+      view: "source" | "assembly";
+      ms: number;
+      inspect: boolean;
+      selectText: boolean;
+      resume: boolean;
+      audition?: { endMs: number; repeat: boolean };
+    } | null>(null),
     [announcement, setAnnouncement] = useState(""),
     [readingMode, setReadingMode] = useState<"source" | "script">("source"),
     [drafts, setDraftsState] = useState<Record<string, CutDraft>>({}),
@@ -126,6 +138,8 @@ function Workbench({ api = window.clipdeck }: { api?: ClipDeckAPI }) {
   const processingToggle = useRef<HTMLButtonElement>(null);
   const closeHandler = useRef<(action: CloseAction) => Promise<ClosePreparation>>(async () => ({ ready: false, locale: "en" }));
   const workspaceRef = useRef<WorkspaceSnapshot | null>(null);
+  const previousProjectId = useRef<string | undefined>(undefined);
+  const playbackCommand = useRef(0);
   const snapshotGeneration = useRef(0);
   const pendingSnapshotRead = useRef<{
     generation: number;
@@ -151,6 +165,8 @@ function Workbench({ api = window.clipdeck }: { api?: ClipDeckAPI }) {
       startMs: number;
       cutId: string;
       assetId: string;
+      view: "source" | "assembly";
+      basis: string;
     } | null>(null),
     dragCut = useRef<string | null>(null),
     pendingSeek = useRef<number | null>(null),
@@ -351,6 +367,10 @@ function Workbench({ api = window.clipdeck }: { api?: ClipDeckAPI }) {
     return project?.cutOrder.map((id) => byId.get(id)!).filter(Boolean) ?? [];
   }, [project?.cuts, project?.cutOrder]);
   const selectedCut = cuts.find((c) => c.id === cutId);
+  const navigationBasis = useMemo(() => JSON.stringify({ id: project?.id, output: project?.output,
+    cuts: cuts.map(({ id, assetId, fingerprint, startMs, endMs, needsReview }) =>
+      ({ id, assetId, fingerprint, startMs, endMs, needsReview })) }),
+    [project?.id, project?.output, cuts]);
   const sourceJob = snapshot?.jobs.find(
     (j) =>
       j.assetId === asset?.id && j.kind === "transcription" && isWorking(j),
@@ -416,15 +436,21 @@ function Workbench({ api = window.clipdeck }: { api?: ClipDeckAPI }) {
   const selectionHasTimingIssues = selectedWords.some((w) => w.timingNeedsReview);
   const currentTimingRange = timingRange?.assetId === asset?.id ? timingRange : null;
   useEffect(() => {
+    const changedProject = previousProjectId.current !== project?.id;
+    previousProjectId.current = project?.id;
     setSelection(null);
     setCorrectionOpen(false);
-    setCurrentMs(0);
     setRangeMode(false);
     setTimingRange(null);
-    setView("source");
-    setPlaying(false);
-    stopAudition(true);
-    pendingSeek.current = null;
+    // Browsing an assembly cut also reveals its source text. That source change
+    // must not reset the independent assembly player or its clock.
+    if (changedProject || view === "source") {
+      setCurrentMs(0);
+      setPlaying(false);
+      stopAudition(true);
+      pendingSeek.current = null;
+    }
+    if (changedProject) setView("source");
   }, [
     asset?.id,
     asset?.status,
@@ -437,6 +463,34 @@ function Workbench({ api = window.clipdeck }: { api?: ClipDeckAPI }) {
     setSelection(null);
     setCorrectionOpen(false);
   }, [transcriptOrigin]);
+  function applyPendingNavigation(element = video.current) {
+    const navigation = pendingNavigation;
+    if (!navigation) return false;
+    if (navigation.projectId !== project?.id || navigation.basis !== navigationBasis ||
+        navigation.cutId !== cutId || view !== navigation.view || !selectedCut) {
+      setPendingNavigation(null);
+      return false;
+    }
+    if (navigation.selectText && asset?.id === selectedCut.assetId) {
+      setSelection(selectedCut.wordIds.length && transcript?.revision === selectedCut.transcriptRevision
+        ? { anchor: selectedCut.wordIds[0]!, focus: selectedCut.wordIds.at(-1)! } : null);
+    }
+    if (!element || element.readyState < 1 ||
+        (view === "assembly" ? !previewUrl : !sourceReady || element.dataset.assetId !== selectedCut.assetId))
+      return false;
+    element.currentTime = navigation.ms / 1000;
+    setCurrentMs(navigation.ms);
+    setPendingNavigation(null);
+    setPanel(navigation.inspect ? "inspector" : "video");
+    if (navigation.audition) {
+      auditionEnd.current = navigation.audition.endMs;
+      auditionLoop.current = navigation.audition.repeat ? { startMs: navigation.ms,
+        cutId: selectedCut.id, assetId: selectedCut.assetId, view, basis: navigationBasis } : null;
+      setLoopingCutId(navigation.audition.repeat ? selectedCut.id : "");
+    }
+    if (navigation.resume && element.paused) playVideo(element);
+    return true;
+  }
   useEffect(() => {
     if (view !== "source" || !asset?.mediaUrl || asset.status !== "ready")
       return;
@@ -482,11 +536,7 @@ function Workbench({ api = window.clipdeck }: { api?: ClipDeckAPI }) {
       setDecodeFailure(null);
       if (pendingPlay.current) {
         pendingPlay.current = false;
-        void element
-          .play()
-          .catch((error) =>
-            setFailure({ message: message(error), retry: null }),
-          );
+        playVideo(element);
       }
     };
     const onSeeked = () => {
@@ -554,7 +604,7 @@ function Workbench({ api = window.clipdeck }: { api?: ClipDeckAPI }) {
   }, [sourceVideoKey, view, asset?.status]);
   useEffect(() => {
     const previous = previousSourceMedia.current;
-    if (
+    if (view === "source" &&
       previous.identity === sourcePreview.key &&
       previous.url &&
       previous.url !== asset?.mediaUrl
@@ -568,12 +618,15 @@ function Workbench({ api = window.clipdeck }: { api?: ClipDeckAPI }) {
       identity: sourcePreview.key,
       url: asset?.mediaUrl ?? null,
     };
-    setPlaying(false);
-    setLoopingCutId("");
+    if (view === "source") {
+      setPlaying(false);
+      setLoopingCutId("");
+    }
   }, [sourceVideoKey]);
   useEffect(() => {
     stopAudition();
-  }, [view, cutId, selectedCut?.startMs, selectedCut?.endMs]);
+  }, [view, cutId, selectedCut?.startMs, selectedCut?.endMs, navigationBasis,
+    view === "assembly" ? previewUrl : null]);
   useEffect(() => {
     if (snapshot?.save.error) setAnnouncement("");
   }, [snapshot?.save.error]);
@@ -601,8 +654,14 @@ function Workbench({ api = window.clipdeck }: { api?: ClipDeckAPI }) {
       setPlaying(false);
     }
   }, [previewUrl, view]);
+  // Retire the old audition first. A new target may select a different cut,
+  // and must not be stopped by cleanup for that previous cut afterwards.
   useEffect(() => {
-    if (!playing || view !== "source") return;
+    applyPendingNavigation();
+  }, [pendingNavigation, project?.id, navigationBasis, cutId, selectedCut, asset?.id,
+    transcriptOrigin, sourceReady, previewUrl, view]);
+  useEffect(() => {
+    if (!playing) return;
     let frame = 0;
     const stopAtBoundary = () => {
       if (checkAuditionBoundary()) return;
@@ -802,6 +861,7 @@ function Workbench({ api = window.clipdeck }: { api?: ClipDeckAPI }) {
     auditionEnd.current = null;
     auditionLoop.current = null;
     if (wasAuditioning || forcePause) {
+      playbackCommand.current++;
       video.current?.pause();
       setPlaying(false);
     }
@@ -813,24 +873,21 @@ function Workbench({ api = window.clipdeck }: { api?: ClipDeckAPI }) {
       !element ||
       (element.paused && !(restartAtMediaEnd && element.ended)) ||
       auditionEnd.current === null ||
-      element.currentTime * 1000 < auditionEnd.current
+      element.currentTime * 1000 + 1e-6 < auditionEnd.current
     )
       return false;
     const loop = auditionLoop.current;
     if (
       loop &&
-      view === "source" &&
-      element.dataset.assetId === loop.assetId &&
+      view === loop.view &&
+      loop.basis === navigationBasis &&
+      (view === "assembly" || element.dataset.assetId === loop.assetId) &&
       loop.cutId === cutId
     ) {
       const needsRestart = element.paused && restartAtMediaEnd && element.ended;
       element.currentTime = loop.startMs / 1000;
       setCurrentMs(loop.startMs);
-      if (needsRestart)
-        void element.play().catch((error) => {
-          stopAudition(true);
-          setFailure({ message: message(error), retry: null });
-        });
+      if (needsRestart) playVideo(element);
       return false;
     }
     const end = auditionEnd.current;
@@ -842,7 +899,15 @@ function Workbench({ api = window.clipdeck }: { api?: ClipDeckAPI }) {
   }
   function startCutAudition(repeat: boolean) {
     if (!selectedCut) return;
+    if (view === "assembly") {
+      const startMs = assemblyTime(cuts, selectedCut.id);
+      if (!previewUrl || startMs === null) return;
+      navigateCut(selectedCut, { audition: { endMs: startMs + assemblyDuration([selectedCut]), repeat } });
+      return;
+    }
+    const savedReadingMode = readingMode;
     chooseSource(selectedCut.assetId);
+    setReadingMode(savedReadingMode);
     setPendingAudition({ cut: selectedCut, repeat, projectId: project!.id });
   }
   useEffect(() => {
@@ -882,6 +947,8 @@ function Workbench({ api = window.clipdeck }: { api?: ClipDeckAPI }) {
     selectedCut,
   ]);
   function chooseSource(id: string) {
+    playbackCommand.current++;
+    setPendingNavigation(null);
     stopAudition();
     setPendingAudition(null);
     video.current?.pause();
@@ -901,6 +968,8 @@ function Workbench({ api = window.clipdeck }: { api?: ClipDeckAPI }) {
     targetAssetId = asset?.id,
     repeatCutId: string | null = null,
   ) {
+    playbackCommand.current++;
+    setPendingNavigation(null);
     setPendingAudition(null);
     stopAudition();
     if (view !== "source") setPlaying(false);
@@ -912,7 +981,7 @@ function Workbench({ api = window.clipdeck }: { api?: ClipDeckAPI }) {
     auditionEnd.current = end;
     auditionLoop.current =
       repeatCutId && targetAssetId
-        ? { startMs: ms, cutId: repeatCutId, assetId: targetAssetId }
+        ? { startMs: ms, cutId: repeatCutId, assetId: targetAssetId, view: "source", basis: navigationBasis }
         : null;
     setLoopingCutId(repeatCutId ?? "");
     const el = video.current;
@@ -926,21 +995,31 @@ function Workbench({ api = window.clipdeck }: { api?: ClipDeckAPI }) {
       pendingSeek.current = null;
       if (play && sourceReady) {
         pendingPlay.current = false;
-        void el
-          .play()
-          .catch((e) => setFailure({ message: message(e), retry: null }));
+        playVideo(el);
       }
     }
   }
   function selectWord(id: string, extend: boolean) {
     if (!transcript || asset?.status !== "ready") return;
+    const resume = view === "source" && (!!pendingNavigation?.resume || pendingPlay.current);
+    if (extend) setPendingNavigation(previous => previous ? { ...previous, selectText: false } : null);
+    else setPendingNavigation(null);
     setSelection((old) => ({
       anchor: extend && old ? old.anchor : id,
       focus: id,
     }));
     if (!extend) {
       const word = transcript.words.find((w) => w.id === id);
-      if (word) seek(word.startMs);
+      if (word && view === "source") seek(word.startMs, resume);
+      else if (word) {
+        const candidates = cuts.filter(cut => cut.assetId === asset.id &&
+          cut.fingerprint === asset.fingerprint && !cut.needsReview &&
+          word.startMs < cut.endMs && word.endMs > cut.startMs);
+        const target = candidates.find(cut => cut.id === cutId) ??
+          candidates.find(cut => cut.id === playbackPosition?.cut.id) ?? candidates[0];
+        if (target) navigateCut(target, { targetView: "assembly", sourceMs: word.startMs, selectText: false });
+        else setAnnouncement(t("This text is not in the assembly. Add it first or switch to Source."));
+      }
     }
   }
   async function addSelection() {
@@ -1032,25 +1111,62 @@ function Workbench({ api = window.clipdeck }: { api?: ClipDeckAPI }) {
       setAnnouncement(t("Word timing needs review; select a time range instead."));
       return;
     }
+    if (selectedWords.length && view === "assembly") {
+      const candidates = cuts.filter(cut => cut.assetId === asset?.id && cut.fingerprint === asset.fingerprint &&
+        !cut.needsReview && selectedWords.every(word => word.startMs < cut.endMs && word.endMs > cut.startMs));
+      const cut = candidates.find(cut => cut.id === cutId) ?? candidates[0];
+      const start = cut && assemblyTime(cuts, cut.id);
+      if (!cut || start == null) {
+        setAnnouncement(t("Selected text is split or absent in the assembly. Play the assembly or switch to Source."));
+        return;
+      }
+      const endMs = start + Math.min(assemblyDuration([cut]),
+        Math.ceil(((Math.min(selectionEnd, cut.endMs) - cut.startMs) * 30) / 1000) * 1000 / 30);
+      navigateCut(cut, { sourceMs: selectedWords[0]!.startMs, selectText: false,
+        audition: { endMs, repeat: false } });
+      return;
+    }
     if (selectedWords.length)
       seek(selectedWords[0]!.startMs, true, selectionEnd);
   }
-  function inspectCut(cut: Cut) {
-    if (readingMode === "script") {
-      setCutId(cut.id);
-      setPanel("inspector");
-      return;
+  function navigateCut(cut: Cut, { targetView = view, sourceMs = cut.startMs, inspect = false,
+    selectText = true, audition }: { targetView?: "source" | "assembly"; sourceMs?: number;
+      inspect?: boolean; selectText?: boolean; audition?: { endMs: number; repeat: boolean } } = {}) {
+    if (!project) return;
+    playbackCommand.current++;
+    const resume = !!audition || (targetView === "source" && view === "source" &&
+      (!!pendingNavigation?.resume || (!!video.current && !video.current.paused)));
+    const ms = targetView === "assembly" ? assemblyTime(cuts, cut.id, sourceMs) : sourceMs;
+    if (ms === null) return;
+    if (targetView === "source") {
+      const savedReadingMode = readingMode;
+      if (view !== "source" || cut.assetId !== asset?.id) chooseSource(cut.assetId);
+      else {
+        stopAudition();
+        setPendingAudition(null);
+      }
+      setReadingMode(savedReadingMode);
+    } else {
+      stopAudition();
+      setPendingAudition(null);
+      setSourceId(cut.assetId);
     }
-    chooseSource(cut.assetId);
     setCutId(cut.id);
-    setPanel("inspector");
-    const t = project?.transcripts.find((t) => t.assetId === cut.assetId);
-    setTimeout(() => {
-      seek(cut.startMs, false, null, cut.assetId);
-      setPanel("inspector");
-      if (cut.wordIds.length && t?.revision === cut.transcriptRevision)
-        setSelection({ anchor: cut.wordIds[0]!, focus: cut.wordIds.at(-1)! });
-    }, 0);
+    setView(targetView);
+    setPanel(inspect ? "inspector" : "video");
+    setCurrentMs(ms);
+    setPendingNavigation({ projectId: project.id, basis: navigationBasis,
+      cutId: cut.id, view: targetView, ms, inspect, selectText, resume, ...(audition ? { audition } : {}) });
+  }
+  function inspectCut(cut: Cut) { navigateCut(cut, { inspect: true }); }
+  function changePreviewView(next: "source" | "assembly") {
+    setPanel("video");
+    if (next === view) return;
+    setPendingNavigation(null);
+    setPendingAudition(null);
+    stopAudition(true);
+    setView(next);
+    setCurrentMs(0);
   }
   function moveCut(id: string, delta: number) {
     if (!project) return;
@@ -1071,8 +1187,7 @@ function Workbench({ api = window.clipdeck }: { api?: ClipDeckAPI }) {
     void edit({ type: "reorderCuts", cutIds: ids });
   }
   async function preparePreview() {
-    if (view !== "assembly") setCurrentMs(0);
-    setView("assembly");
+    changePreviewView("assembly");
     setPanel("video");
     await run(
       async () => {
@@ -1193,14 +1308,19 @@ function Workbench({ api = window.clipdeck }: { api?: ClipDeckAPI }) {
       window.removeEventListener("keydown", handle);
     };
   });
+  function playVideo(element: HTMLVideoElement) {
+    const command = ++playbackCommand.current;
+    void element.play().catch(error => {
+      if (command === playbackCommand.current && video.current === element)
+        setFailure({ message: message(error), retry: null });
+    });
+  }
   function togglePlayback() {
     const el = video.current;
     if (!el || (view === "source" && !sourceReady)) return;
-    if (el.paused)
-      void el
-        .play()
-        .catch((error) => setFailure({ message: message(error), retry: null }));
-    else el.pause();
+    setPendingNavigation(null);
+    if (el.paused) playVideo(el);
+    else { stopAudition(); playbackCommand.current++; el.pause(); }
   }
   const displayedUrl =
     view === "source"
@@ -1215,7 +1335,7 @@ function Workbench({ api = window.clipdeck }: { api?: ClipDeckAPI }) {
     if (!el) return;
     const ms = el.currentTime * 1000;
     setCurrentMs(ms);
-    if (view === "source") checkAuditionBoundary();
+    checkAuditionBoundary();
   }
   return (
     <div
@@ -1582,8 +1702,7 @@ function Workbench({ api = window.clipdeck }: { api?: ClipDeckAPI }) {
                   disabled={!cuts.length}
                   onClick={() => {
                     setReadingMode("script");
-                    setView("assembly");
-                    setCurrentMs(0);
+                    changePreviewView("assembly");
                   }}
                 >
                   {t("Assembly script")}
@@ -1615,10 +1734,11 @@ function Workbench({ api = window.clipdeck }: { api?: ClipDeckAPI }) {
                     assets={project?.assets ?? []}
                     selected={cutId}
                     onInspect={inspectCut}
+                    onNavigate={cut => navigateCut(cut)}
                     onSource={(cut) => {
                       setReadingMode("source");
-                      chooseSource(cut.assetId);
-                      setCutId(cut.id);
+                      navigateCut(cut, { targetView: "source" });
+                      setReadingMode("source");
                     }}
                     onMove={(id, position) => {
                       if (
@@ -1715,7 +1835,7 @@ function Workbench({ api = window.clipdeck }: { api?: ClipDeckAPI }) {
                     transcript={transcript}
                     selection={selection}
                     onSelect={selectWord}
-                    currentMs={view === "source" ? currentMs : -1}
+                    currentMs={view === "source" ? currentMs : playbackPosition?.cut.assetId === asset.id ? playbackPosition.sourceMs : -1}
                     addedWords={addedWords}
                     timingProvenanceKnown={transcript.parameters.wordTimingReview === true}
                     onReviewTimingRange={reviewTimingWindow}
@@ -1814,7 +1934,7 @@ function Workbench({ api = window.clipdeck }: { api?: ClipDeckAPI }) {
                       {t("Correct text")}
                     </button>
                     <button
-                      disabled={!selectedWords.length || !sourceReady || selectionTimingUnsafe}
+                      disabled={!selectedWords.length || (view === "assembly" ? !previewUrl : !sourceReady) || selectionTimingUnsafe}
                       aria-label={t("Audition")}
                       title={t("Audition")}
                       onClick={auditionSelection}
@@ -1855,21 +1975,13 @@ function Workbench({ api = window.clipdeck }: { api?: ClipDeckAPI }) {
                 <div className="mode-switch">
                   <button
                     aria-pressed={view === "source"}
-                    onClick={() => {
-                      setView("source");
-                      setPanel("video");
-                      setCurrentMs(0);
-                    }}
+                    onClick={() => changePreviewView("source")}
                   >
                     {t("Source")}
                   </button>
                   <button
                     aria-pressed={view === "assembly"}
-                    onClick={() => {
-                      setView("assembly");
-                      setPanel("video");
-                      setCurrentMs(0);
-                    }}
+                    onClick={() => changePreviewView("assembly")}
                   >
                     {t("Assembly")}
                   </button>
@@ -1929,10 +2041,11 @@ function Workbench({ api = window.clipdeck }: { api?: ClipDeckAPI }) {
                           setCurrentMs(video.current.currentTime * 1000);
                       }}
                       onEnded={() => {
-                        if (view === "source") checkAuditionBoundary(true);
+                        checkAuditionBoundary(true);
                       }}
                       onLoadedMetadata={() => {
-                        if (video.current && view === "assembly")
+                        if (applyPendingNavigation()) return;
+                        if (video.current && view === "assembly" && !pendingNavigation)
                           setCurrentMs(video.current.currentTime * 1000);
                         if (
                           video.current &&
@@ -2126,9 +2239,11 @@ function Workbench({ api = window.clipdeck }: { api?: ClipDeckAPI }) {
                       !displayedUrl || (view === "source" && !sourceReady)
                     }
                     onChange={(e) => {
+                      setPendingNavigation(null);
+                      playbackCommand.current++;
                       const ms = Number(e.target.value);
                       setCurrentMs(ms);
-                      if (view === "source") stopAudition(true);
+                      stopAudition(view === "source");
                       if (video.current) video.current.currentTime = ms / 1000;
                     }}
                   />
@@ -2171,7 +2286,7 @@ function Workbench({ api = window.clipdeck }: { api?: ClipDeckAPI }) {
               {!previewExpanded && (selectedCut ? (
                 <CutInspector
                   canAudition={
-                    selectedCut.assetId === asset?.id
+                    view === "assembly" ? !!previewUrl : selectedCut.assetId === asset?.id
                       ? sourceReady
                       : !!project?.assets.find(
                           (a) => a.id === selectedCut.assetId,
@@ -2345,7 +2460,7 @@ function Workbench({ api = window.clipdeck }: { api?: ClipDeckAPI }) {
                       cut.id === playbackPosition?.cut.id ? "true" : undefined
                     }
                     className={`assembly-cut${cut.id === playbackPosition?.cut.id ? " playback-current" : ""}${cut.id === cutId ? " active" : ""}${cut.needsReview ? " needs-review" : ""}`}
-                    onClick={() => inspectCut(cut)}
+                    onClick={() => navigateCut(cut)}
                     onDragStart={(e) => {
                       dragCut.current = cut.id;
                       e.dataTransfer.effectAllowed = "move";

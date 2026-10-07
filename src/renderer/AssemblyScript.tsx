@@ -9,6 +9,7 @@ export function AssemblyScript({
   assets,
   selected,
   onInspect,
+  onNavigate,
   onSource,
   onMove,
 }: {
@@ -16,6 +17,7 @@ export function AssemblyScript({
   assets: SafeAsset[];
   selected: string;
   onInspect: (cut: Cut) => void;
+  onNavigate: (cut: Cut) => void;
   onSource: (cut: Cut) => void;
   onMove: (id: string, position: number) => void;
 }) {
@@ -109,7 +111,8 @@ export function AssemblyScript({
                   )}
                 </header>
               )}
-              <p>{item.text}</p>
+              <button className="script-text" aria-label={`${t("Go to cut")} ${item.index + 1}: ${item.text}`}
+                onClick={() => onNavigate(item.cut)}>{item.text}</button>
               {item.first && item.cut.needsReview && (
                 <p className="warning">{t("Review this cut before export.")}</p>
               )}

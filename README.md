@@ -18,6 +18,8 @@ ClipDeck is a local desktop editor for interviews, lessons and spoken recordings
 
 The core is multi-source speech editing rather than a traditional effects timeline. Source playback and assembled playback are separate. The assembly preview and final export use the same frame/sample edit plan, including clips with different sizes and frame rates.
 
+Choose **Source** or **Assembly** above the player to control navigation. Clicking a bottom cut jumps to that cut's start in the chosen video; clicking transcript words locates their corresponding position. Ordinary jumps keep playback running or paused. In Assembly, repeated passages use the selected occurrence, and text outside the current cuts is explained without switching videos. Audition and loop controls also use the chosen preview. Click the assembly script's passage to locate it, or **Edit cut** to open its boundaries.
+
 ## Scope and constraints
 
 - Local word timestamps, cancellable jobs, manual ranges, project recovery and explicit relinking.

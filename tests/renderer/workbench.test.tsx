@@ -1099,6 +1099,288 @@ function assemblyFixture() {
   ];
   return state;
 }
+function navigationFixture() {
+  const state = assemblyFixture();
+  state.project.cuts[0] = { ...state.project.cuts[0]!, startMs: 800, endMs: 1401,
+    text: "Opening", wordIds: ["w1"], transcriptRevision: 3 };
+  state.project.cuts[1] = { ...state.project.cuts[1]!, assetId: "source-one",
+    startMs: 1500, endMs: 2601, text: "Ending", wordIds: ["w2", "w3"], transcriptRevision: 3 };
+  return state;
+}
+describe("preview-mode navigation", () => {
+  it("auditions a complete selection in a different containing cut", async () => {
+    const state = navigationFixture();
+    state.project.cuts.push({ ...state.project.cuts[1]!, id: "wide", text: "Whole passage",
+      startMs: 1000, endMs: 2600, wordIds: ["w1", "w2", "w3"] });
+    state.project.cutOrder.push("wide");
+    render(<App api={bridge(state).api} />);
+    fireEvent.click(await screen.findByRole("button", { name: "Assembly" }));
+    fireEvent.click(screen.getByRole("button", { name: "今天" }));
+    fireEvent.click(screen.getByRole("button", { name: "开始。" }), { shiftKey: true });
+    fireEvent.click(screen.getByRole("button", { name: "Audition" }));
+    expect(screen.getByLabelText("Assembly playback context").textContent).toContain("Cut 3");
+    expect((screen.getByLabelText("Assembly video") as HTMLVideoElement).paused).toBe(false);
+  });
+  it("retires an old loop before ordinary playback of a reordered preview", async () => {
+    const b = bridge(assemblyFixture());
+    render(<App api={b.api} />);
+    fireEvent.click(await screen.findByRole("button", { name: "Assembly" }));
+    fireEvent.click(screen.getByRole("listitem", { name: "Cut 1: First beat" }));
+    fireEvent.click(screen.getByRole("button", { name: "Loop audition" }));
+    await screen.findByRole("button", { name: "Stop loop" });
+    const next = structuredClone(b.get());
+    next.project.revision++;
+    next.project.cutOrder.reverse();
+    act(() => b.emit(next));
+    expect(screen.queryByRole("button", { name: "Stop loop" })).toBeNull();
+    next.jobs[0]!.projectRevision = next.project.revision;
+    next.jobs[0]!.outputUrl = "clipdeck-media://preview/reordered";
+    act(() => b.emit({ ...next }));
+    const player = screen.getByLabelText("Assembly video") as HTMLVideoElement;
+    fireEvent.loadedMetadata(player);
+    fireEvent.click(screen.getByRole("button", { name: "Play playback" }));
+    player.currentTime = 0.15;
+    fireEvent.timeUpdate(player);
+    expect(player.paused).toBe(false);
+    expect(player.currentTime).toBe(0.15);
+  });
+  it("extends text without cancelling a cut jump waiting for metadata", async () => {
+    render(<App api={bridge(navigationFixture()).api} />);
+    fireEvent.click(await screen.findByRole("button", { name: "Assembly" }));
+    vi.spyOn(HTMLMediaElement.prototype, "readyState", "get").mockReturnValue(0);
+    fireEvent.click(screen.getByRole("listitem", { name: "Cut 2: Ending" }));
+    fireEvent.click(screen.getByRole("button", { name: "开始。" }), { shiftKey: true });
+    const player = screen.getByLabelText("Assembly video") as HTMLVideoElement;
+    vi.spyOn(HTMLMediaElement.prototype, "readyState", "get").mockReturnValue(4);
+    fireEvent.loadedMetadata(player);
+    expect(player.currentTime).toBeCloseTo(19 / 30, 8);
+  });
+  it("lets a new word target inherit playing intent while its source is still decoding", async () => {
+    const state = assemblyFixture();
+    state.project.transcripts.push({ ...state.project.transcripts[0]!, assetId: "source-two",
+      words: [{ id: "second-word", text: "Secondword", startMs: 5500, endMs: 5900 },
+        { id: "third-word", text: "Thirdword", startMs: 6000, endMs: 6500 }],
+      segments: [{ id: "second-segment", text: "Secondword Thirdword", startMs: 5500, endMs: 6500, wordIds: ["second-word", "third-word"] }] });
+    render(<App api={bridge(state).api} />);
+    const first = await screen.findByLabelText("Source video") as HTMLVideoElement;
+    await act(async () => { await first.play(); fireEvent.play(first); });
+    autoDecode = false;
+    fireEvent.click(screen.getByRole("listitem", { name: "Cut 2: Second beat" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Secondword" }));
+    fireEvent.click(screen.getByRole("button", { name: "Thirdword" }));
+    const last = screen.getByLabelText("Source video") as HTMLVideoElement;
+    decodedFrame(last);
+    await waitFor(() => expect(last.paused).toBe(false));
+    expect(last.currentTime).toBe(6);
+  });
+  it("ignores an obsolete play rejection after switching preview modes", async () => {
+    render(<App api={bridge(assemblyFixture()).api} />);
+    await screen.findByLabelText("Source video");
+    let reject!: (error: Error) => void;
+    vi.mocked(HTMLMediaElement.prototype.play).mockImplementationOnce(() => new Promise((_, fail) => { reject = fail; }));
+    fireEvent.click(screen.getByRole("button", { name: "Play playback" }));
+    fireEvent.click(screen.getByRole("button", { name: "Assembly" }));
+    await act(async () => reject(new Error("Interrupted obsolete source playback")));
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(screen.getByRole("button", { name: "Assembly" }).getAttribute("aria-pressed")).toBe("true");
+  });
+  it("keeps the preview visible when navigating a script passage", async () => {
+    render(<App api={bridge(assemblyFixture()).api} />);
+    fireEvent.click(await screen.findByRole("button", { name: "Assembly script" }));
+    fireEvent.click(screen.getByRole("button", { name: /Go to cut 2/ }));
+    expect(screen.getByRole("button", { name: "Inspector" }).getAttribute("aria-pressed")).toBe("false");
+    expect(screen.getByRole("button", { name: /First beat/ })).toBeTruthy();
+  });
+  it("carries playing intent through a rapid cross-source navigation while decoding", async () => {
+    render(<App api={bridge(assemblyFixture()).api} />);
+    const first = await screen.findByLabelText("Source video") as HTMLVideoElement;
+    await act(async () => { await first.play(); fireEvent.play(first); });
+    autoDecode = false;
+    fireEvent.click(screen.getByRole("listitem", { name: "Cut 2: Second beat" }));
+    fireEvent.click(screen.getByRole("listitem", { name: "Cut 1: First beat" }));
+    const last = screen.getByLabelText("Source video") as HTMLVideoElement;
+    decodedFrame(last);
+    await waitFor(() => expect(last.currentTime).toBe(1));
+    expect(last.paused).toBe(false);
+  });
+  it("auditions and loops the selected cut on the assembly clock", async () => {
+    render(<App api={bridge(assemblyFixture()).api} />);
+    fireEvent.click(await screen.findByRole("button", { name: "Assembly" }));
+    fireEvent.click(screen.getByRole("listitem", { name: "Cut 2: Second beat" }));
+    const player = screen.getByLabelText("Assembly video") as HTMLVideoElement;
+    fireEvent.click(screen.getByRole("button", { name: "Audition cut" }));
+    expect(screen.getByLabelText("Assembly video")).toBe(player);
+    await waitFor(() => expect(player.paused).toBe(false));
+    player.currentTime = 11 / 30;
+    fireEvent.timeUpdate(player);
+    expect(player.paused).toBe(true);
+    expect(player.currentTime).toBeCloseTo(11 / 30, 8);
+    fireEvent.click(screen.getByRole("button", { name: "Loop audition" }));
+    await waitFor(() => expect(player.paused).toBe(false));
+    player.currentTime = 11 / 30;
+    fireEvent.timeUpdate(player);
+    expect(player.currentTime).toBeCloseTo(4 / 30, 8);
+    expect(player.paused).toBe(false);
+    fireEvent.click(screen.getByRole("button", { name: "Stop loop" }));
+    expect(player.paused).toBe(true);
+  });
+  it("auditions selected text in its assembly occurrence", async () => {
+    render(<App api={bridge(navigationFixture()).api} />);
+    fireEvent.click(await screen.findByRole("button", { name: "Assembly" }));
+    fireEvent.click(screen.getByRole("button", { name: "开始。" }));
+    const player = screen.getByLabelText("Assembly video") as HTMLVideoElement;
+    fireEvent.click(screen.getByRole("button", { name: "Audition" }));
+    expect(screen.getByLabelText("Assembly video")).toBe(player);
+    await waitFor(() => expect(player.paused).toBe(false));
+    expect(player.currentTime).toBeCloseTo(34 / 30, 8);
+  });
+  it("lets a newer scrub supersede a metadata-delayed cut jump", async () => {
+    render(<App api={bridge(assemblyFixture()).api} />);
+    fireEvent.click(await screen.findByRole("button", { name: "Assembly" }));
+    const player = screen.getByLabelText("Assembly video") as HTMLVideoElement;
+    vi.spyOn(HTMLMediaElement.prototype, "readyState", "get").mockReturnValue(0);
+    fireEvent.click(screen.getByRole("listitem", { name: "Cut 2: Second beat" }));
+    fireEvent.change(screen.getByLabelText("Assembly playhead"), { target: { value: "250" } });
+    vi.spyOn(HTMLMediaElement.prototype, "readyState", "get").mockReturnValue(4);
+    fireEvent.loadedMetadata(player);
+    expect(player.currentTime).toBe(0.25);
+  });
+  it("keeps a pending cut jump across a name change with the same edit plan", async () => {
+    const b = bridge(assemblyFixture());
+    render(<App api={b.api} />);
+    fireEvent.click(await screen.findByRole("button", { name: "Assembly" }));
+    vi.spyOn(HTMLMediaElement.prototype, "readyState", "get").mockReturnValue(0);
+    fireEvent.click(screen.getByRole("listitem", { name: "Cut 2: Second beat" }));
+    const next = structuredClone(b.get());
+    next.project.name = "Renamed";
+    next.project.revision++;
+    next.jobs[0]!.projectRevision = next.project.revision;
+    next.jobs[0]!.outputUrl = "clipdeck-media://preview/renamed";
+    await act(async () => b.emit(next));
+    const player = screen.getByLabelText("Assembly video") as HTMLVideoElement;
+    vi.spyOn(HTMLMediaElement.prototype, "readyState", "get").mockReturnValue(4);
+    fireEvent.loadedMetadata(player);
+    expect(player.currentTime).toBeCloseTo(4 / 30, 8);
+  });
+  it.each(["Cut 1: First beat", "Cut 2: Second beat"])("preserves Source playback when navigating %s", async name => {
+    render(<App api={bridge(assemblyFixture()).api} />);
+    const player = await screen.findByLabelText("Source video") as HTMLVideoElement;
+    await act(async () => { await player.play(); fireEvent.play(player); });
+    fireEvent.click(screen.getByRole("listitem", { name }));
+    await waitFor(() => expect(screen.getByLabelText("Source video")).toHaveProperty("currentTime", name.includes("Cut 2") ? 5 : 1));
+    expect((screen.getByLabelText("Source video") as HTMLVideoElement).paused).toBe(false);
+    expect(screen.getByRole("button", { name: "Source" }).getAttribute("aria-pressed")).toBe("true");
+  });
+  it("jumps a bottom cut to its quantized assembly start without replacing the player", async () => {
+    const b = bridge(assemblyFixture());
+    render(<App api={b.api} />);
+    fireEvent.click(await screen.findByRole("button", { name: "Assembly" }));
+    const player = screen.getByLabelText("Assembly video") as HTMLVideoElement;
+    fireEvent.click(screen.getByRole("listitem", { name: "Cut 2: Second beat" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Assembly" }).getAttribute("aria-pressed")).toBe("true"));
+    expect(screen.getByLabelText("Assembly video")).toBe(player);
+    expect(player.currentTime).toBeCloseTo(4 / 30, 8);
+    expect(screen.getByLabelText("Assembly playback context").textContent).toContain("Cut 2");
+    expect(b.api.applyEdit).not.toHaveBeenCalled();
+  });
+  it("keeps assembly playback running across a cut from another source", async () => {
+    const b = bridge(assemblyFixture());
+    render(<App api={b.api} />);
+    fireEvent.click(await screen.findByRole("button", { name: "Assembly" }));
+    const player = screen.getByLabelText("Assembly video") as HTMLVideoElement;
+    await act(async () => { await player.play(); fireEvent.play(player); });
+    fireEvent.click(screen.getByRole("listitem", { name: "Cut 2: Second beat" }));
+    await waitFor(() => expect(screen.queryByLabelText("Source video")).toBeNull());
+    expect(player.paused).toBe(false);
+    expect(screen.getByRole("button", { name: "Pause playback" })).toBeTruthy();
+  });
+  it("jumps an original-text word within its assembly cut and extends without moving playback", async () => {
+    const b = bridge(navigationFixture());
+    render(<App api={b.api} />);
+    fireEvent.click(await screen.findByRole("button", { name: "Assembly" }));
+    const player = screen.getByLabelText("Assembly video") as HTMLVideoElement;
+    fireEvent.click(screen.getByRole("button", { name: "开始。" }));
+    // 601 ms -> 19 output frames; 500 ms into the next cut -> 15 frames.
+    expect(screen.getByLabelText("Assembly video")).toBe(player);
+    expect(player.currentTime).toBeCloseTo(34 / 30, 8);
+    fireEvent.click(screen.getByRole("button", { name: "一起" }), { shiftKey: true });
+    expect(player.currentTime).toBeCloseTo(34 / 30, 8);
+    expect(screen.getByRole("button", { name: "一起" }).getAttribute("aria-pressed")).toBe("true");
+  });
+  it("explains text excluded by trimming while leaving assembly playback untouched", async () => {
+    const state = navigationFixture();
+    state.project.cuts[1]!.endMs = 1900;
+    const b = bridge(state);
+    render(<App api={b.api} />);
+    fireEvent.click(await screen.findByRole("button", { name: "Assembly" }));
+    const player = screen.getByLabelText("Assembly video") as HTMLVideoElement;
+    player.currentTime = 0.3;
+    fireEvent.timeUpdate(player);
+    fireEvent.click(screen.getByRole("button", { name: "开始。" }));
+    expect(screen.getByLabelText("Assembly video")).toBe(player);
+    expect(player.currentTime).toBe(0.3);
+    expect(screen.getByRole("status").textContent).toContain("not in the assembly");
+    expect(b.api.applyEdit).not.toHaveBeenCalled();
+  });
+  it("uses the selected occurrence when a transcript word appears in repeated cuts", async () => {
+    const state = navigationFixture();
+    state.project.cuts.push({ ...state.project.cuts[1]!, id: "repeat", text: "Repeated ending" });
+    state.project.cutOrder.push("repeat");
+    render(<App api={bridge(state).api} />);
+    fireEvent.click(await screen.findByRole("button", { name: "Assembly" }));
+    const player = screen.getByLabelText("Assembly video") as HTMLVideoElement;
+    fireEvent.click(screen.getByRole("listitem", { name: "Cut 3: Repeated ending" }));
+    fireEvent.click(await screen.findByRole("button", { name: "开始。" }));
+    expect(screen.getByLabelText("Assembly video")).toBe(player);
+    expect(player.currentTime).toBeCloseTo(68 / 30, 8);
+    expect(screen.getByLabelText("Assembly playback context").textContent).toContain("Cut 3");
+  });
+  it("seeks assembly-script text and its edit action in the selected preview mode", async () => {
+    render(<App api={bridge(assemblyFixture()).api} />);
+    fireEvent.click(await screen.findByRole("button", { name: "Assembly script" }));
+    fireEvent.click(screen.getByRole("button", { name: "Assembly" }));
+    const player = screen.getByLabelText("Assembly video") as HTMLVideoElement;
+    fireEvent.click(screen.getByRole("button", { name: "Edit cut 2" }));
+    expect(player.currentTime).toBeCloseTo(4 / 30, 8);
+    fireEvent.click(screen.getByRole("button", { name: /Go to cut 1/ }));
+    expect(player.currentTime).toBe(0);
+    expect(screen.getByRole("region", { name: "Assembly script" })).toBeTruthy();
+  });
+  it("retains a cut target until a newly prepared assembly has loaded metadata", async () => {
+    const state = assemblyFixture();
+    state.jobs = [];
+    const b = bridge(state);
+    render(<App api={b.api} />);
+    fireEvent.click(await screen.findByRole("button", { name: "Assembly" }));
+    fireEvent.click(screen.getByRole("listitem", { name: "Cut 2: Second beat" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Assembly" }).getAttribute("aria-pressed")).toBe("true"));
+    vi.spyOn(HTMLMediaElement.prototype, "readyState", "get").mockReturnValue(0);
+    await act(async () => b.emit({ ...b.get(), jobs: assemblyFixture().jobs }));
+    const player = screen.getByLabelText("Assembly video") as HTMLVideoElement;
+    vi.spyOn(HTMLMediaElement.prototype, "readyState", "get").mockReturnValue(4);
+    fireEvent.loadedMetadata(player);
+    expect(player.currentTime).toBeCloseTo(4 / 30, 8);
+    expect(screen.getByLabelText("Assembly playback context").textContent).toContain("Cut 2");
+  });
+  it("retires a pending cross-source inspection when the user explicitly changes mode", async () => {
+    render(<App api={bridge(assemblyFixture()).api} />);
+    fireEvent.click(await screen.findByRole("listitem", { name: "Cut 2: Second beat" }));
+    fireEvent.click(screen.getByRole("button", { name: "Assembly" }));
+    await act(async () => new Promise(resolve => setTimeout(resolve, 10)));
+    expect(screen.getByRole("button", { name: "Assembly" }).getAttribute("aria-pressed")).toBe("true");
+    expect(screen.queryByLabelText("Source video")).toBeNull();
+  });
+  it("does not reset the displayed clock when the active preview tab is clicked again", async () => {
+    render(<App api={bridge(assemblyFixture()).api} />);
+    fireEvent.click(await screen.findByRole("button", { name: "Assembly" }));
+    const player = screen.getByLabelText("Assembly video") as HTMLVideoElement;
+    player.currentTime = 0.2;
+    fireEvent.timeUpdate(player);
+    fireEvent.click(screen.getByRole("button", { name: "Assembly" }));
+    expect(player.currentTime).toBe(0.2);
+    expect(screen.getByLabelText("Assembly playhead")).toHaveProperty("value", "200");
+  });
+});
 describe("review round one regressions", () => {
   it("clears unavailable-source selections and safely ignores the E shortcut", async () => {
     const b = bridge();
@@ -1184,6 +1466,11 @@ describe("review round one regressions", () => {
     expect(player.currentTime).toBe(1);
     fireEvent.click(screen.getByRole("button", { name: "Assembly" }));
     expect(screen.queryByRole("button", { name: "Stop loop" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Loop audition" })).toHaveProperty("disabled", true);
+    // Editing the label advanced the project revision. Load its current preview;
+    // audition must now loop that assembly rather than silently switching Source.
+    await act(async () => b.emit({ ...b.get(), jobs: [{ ...assemblyFixture().jobs[0]!,
+      projectRevision: b.get().project.revision }] }));
     fireEvent.click(screen.getByRole("button", { name: "Loop audition" }));
     await screen.findByRole("button", { name: "Stop loop" });
     fireEvent.click(

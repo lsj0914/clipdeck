@@ -102,6 +102,21 @@ export function assemblyPosition(cuts: Cut[], positionMs: number) {
   return null;
 }
 
+/** Inverse of the preview frame clock, including rounding at every cut boundary. */
+export function assemblyTime(cuts: Cut[], cutId: string, sourceMs?: number): number | null {
+  let startFrame = 0;
+  for (const cut of cuts) {
+    const frames = Math.max(1, Math.ceil(((cut.endMs - cut.startMs) * 30) / 1000));
+    if (cut.id === cutId) {
+      const offset = sourceMs === undefined ? 0 :
+        Math.max(0, Math.min(frames - 1, Math.floor(((sourceMs - cut.startMs) * 30) / 1000 + 1e-7)));
+      return ((startFrame + offset) * 1000) / 30;
+    }
+    startFrame += frames;
+  }
+  return null;
+}
+
 /** Bound presentation work without changing the stored passage. */
 export function excerpt(text: string, limit = 180): string {
   if (text.length <= limit) return text;
