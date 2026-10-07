@@ -1,6 +1,7 @@
 import { useLocale, LocaleProvider } from "./locale";
 import { TranscriptionPanel } from "./TranscriptionPanel";
 import { AssemblyScript } from "./AssemblyScript";
+import { ExportPlayer } from "./ExportPlayer";
 import React, {
   useCallback,
   useEffect,
@@ -2610,13 +2611,7 @@ function Workbench({ api = window.clipdeck }: { api?: ClipDeckAPI }) {
               </button>
             </div>
           </div>
-          <video
-            controls
-            controlsList="nofullscreen"
-            src={completedExport.outputUrl}
-            aria-label={t("Exported video")}
-            preload="metadata"
-          />
+          <ExportPlayer src={completedExport.outputUrl} />
           <div className="completed-export-footer">
             <p>
               {t(

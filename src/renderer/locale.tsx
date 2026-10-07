@@ -1,6 +1,18 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 export type Locale = "en" | "zh";
 const zh: Record<string, string> = {
+  "Play exported file": "播放成片",
+  "Pause exported file": "暂停成片",
+  "Exported video position": "成片查看位置",
+  "Export playback controls": "成片播放控制",
+  "Export volume": "成片音量",
+  "Mute exported video": "成片静音",
+  "Unmute exported video": "取消成片静音",
+  Play: "播放",
+  Pause: "暂停",
+  Mute: "静音",
+  Unmute: "取消静音",
+  "This exported video could not be played. Show its file or return to editing and export again.": "无法播放此成片。可显示文件，或返回编辑重新导出。",
   "Expand preview": "放大预览",
   "Expanded preview": "放大预览",
   "Reduce preview": "缩回预览",

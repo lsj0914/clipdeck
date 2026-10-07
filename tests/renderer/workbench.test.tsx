@@ -839,6 +839,7 @@ describe("keyboard and asynchronous workspace states", () => {
     const b = bridge(value);
     render(<App api={b.api} />);
     expect(await screen.findByText("No clear speech was detected. Listen to the source or select a time range.")).toBeTruthy();
+    await waitFor(() => expect(screen.getByRole("button", { name: "Play playback" })).toHaveProperty("disabled", false));
     await act(async () => {
       fireEvent.click(screen.getByRole("button", { name: "Select a time range instead" }));
     });
@@ -2588,6 +2589,8 @@ describe("Task 7 recovery and completed delivery", () => {
     open.focus();
     fireEvent.click(open);
     const player = screen.getByLabelText("Exported video") as HTMLVideoElement;
+    vi.spyOn(player, "duration", "get").mockReturnValue(116.8);
+    fireEvent.loadedMetadata(player);
     player.currentTime = 4.125;
     const dialog = screen.getByRole("dialog", { name: "Completed export" });
     const expand = dialog.querySelector<HTMLButtonElement>('button[aria-label="Expand preview"]')!;
@@ -2596,17 +2599,20 @@ describe("Task 7 recovery and completed delivery", () => {
     expect(expand.getAttribute("aria-pressed")).toBe("true");
     expect(screen.getByLabelText("Exported video")).toBe(player);
     expect(player.currentTime).toBe(4.125);
-    expect(player.getAttribute("controlslist")).toContain("nofullscreen");
+    expect(player.controls).toBe(false);
+    expect(screen.getByRole("button", { name: "Play exported file" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Export video" }).closest("header")?.hasAttribute("inert")).toBe(true);
-    // Native media controls may stop keyboard events before they bubble to the window.
-    player.addEventListener("keydown", (event) => event.stopPropagation());
-    player.focus();
-    fireEvent.keyDown(player, { key: "Escape" });
+    // The app owns transport controls instead of relying on browser shadow controls.
+    const play = screen.getByRole("button", { name: "Play exported file" });
+    expect(play).toHaveProperty("disabled", false);
+    play.addEventListener("keydown", (event) => event.stopPropagation());
+    play.focus();
+    fireEvent.keyDown(play, { key: "Escape" });
     expect(screen.getByRole("dialog", { name: "Completed export" })).toBe(dialog);
     expect(expand.getAttribute("aria-pressed")).toBe("false");
     expect(screen.getByLabelText("Exported video")).toBe(player);
     expect(player.currentTime).toBe(4.125);
-    fireEvent.keyDown(player, { key: "Escape" });
+    fireEvent.keyDown(play, { key: "Escape" });
     expect(screen.queryByRole("dialog", { name: "Completed export" })).toBeNull();
     expect(b.api.exportVideo).not.toHaveBeenCalled();
     expect(b.api.applyEdit).not.toHaveBeenCalled();

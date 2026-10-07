@@ -2285,6 +2285,14 @@ progress::-webkit-progress-value {
   background: #090b0c;
   object-fit: contain;
 }
+.export-player { display: flex; flex-direction: column; min-height: 0; }
+.export-player-controls { flex-shrink: 0; flex-wrap: wrap; padding: 8px 0; }
+.export-player-controls > button { display: inline-flex; align-items: center; gap: 6px; }
+.export-player-time { font-family: var(--font-time); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.export-player-controls > input { min-width: 100px; }
+.export-player-volume { display: flex; align-items: center; gap: 8px; }
+.export-player-volume input { flex: none; width: 80px; }
+.completed-export.export-expanded .export-player { flex: 1; min-height: 0; }
 .completed-export-actions {
   display: flex;
   flex-wrap: wrap;
