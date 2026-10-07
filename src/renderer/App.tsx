@@ -978,6 +978,7 @@ function Workbench({ api = window.clipdeck }: { api?: ClipDeckAPI }) {
     void edit({ type: "reorderCuts", cutIds: ids });
   }
   async function preparePreview() {
+    if (view !== "assembly") setCurrentMs(0);
     setView("assembly");
     setPanel("video");
     await run(
@@ -1823,6 +1824,8 @@ function Workbench({ api = window.clipdeck }: { api?: ClipDeckAPI }) {
                         if (view === "source") checkAuditionBoundary(true);
                       }}
                       onLoadedMetadata={() => {
+                        if (video.current && view === "assembly")
+                          setCurrentMs(video.current.currentTime * 1000);
                         if (
                           video.current &&
                           pendingSeek.current !== null &&

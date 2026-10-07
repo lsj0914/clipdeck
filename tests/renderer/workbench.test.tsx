@@ -19,6 +19,25 @@ import type {
 import { App } from "../../src/renderer/App";
 
 describe("reviewed editing workflow", () => {
+  it("starts assembly preparation on its own clock and synchronizes a newly loaded preview", async () => {
+    const b = bridge(assemblyFixture());
+    render(<App api={b.api} />);
+    const source = await screen.findByLabelText("Source video") as HTMLVideoElement;
+    source.currentTime = 5.85;
+    fireEvent.timeUpdate(source);
+    fireEvent.click(screen.getByRole("button", { name: "Prepare assembly preview" }));
+    await waitFor(() => expect(b.api.preparePreview).toHaveBeenCalled());
+    expect(screen.getByLabelText("Assembly playhead")).toHaveProperty("value", "0");
+    await act(async () => b.emit({ ...b.get(), jobs: [{ id: "ready-preview", kind: "preview", status: "completed", stage: "completed", processedMs: 1800, totalMs: 1800, progress: 1, error: null, cancelRequested: false, assetId: null, outputUrl: "clipdeck-media://preview/ready", projectId: b.get().project.id, projectRevision: b.get().project.revision }] }));
+    const assembly = await screen.findByLabelText("Assembly video") as HTMLVideoElement;
+    assembly.currentTime = 0.2;
+    fireEvent.loadedMetadata(assembly);
+    expect(screen.getByLabelText("Assembly playhead")).toHaveProperty("value", "200");
+    assembly.currentTime = 0.25;
+    fireEvent.timeUpdate(assembly);
+    expect(screen.getByLabelText("Assembly playhead")).toHaveProperty("value", "250");
+    expect(b.get().project.cuts).toHaveLength(2);
+  });
   it("leaves the enlarged assembly player when playback fails so its recovery is visible", async () => {
     const state = assemblyFixture();
     state.jobs = [{ id: "ready-preview", kind: "preview", status: "completed", stage: "completed", processedMs: 1800, totalMs: 1800, progress: 1, error: null, cancelRequested: false, assetId: null, outputUrl: "clipdeck-media://preview/ready", projectId: state.project.id, projectRevision: state.project.revision }];
