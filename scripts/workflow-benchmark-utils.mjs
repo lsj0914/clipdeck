@@ -1,6 +1,64 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { createHash } from "node:crypto";
+import assert from "node:assert/strict";
+
+export function summarizeRendererEvidence(report, actions, actionsSha256) {
+  const names = ["select-word", "cross-unmounted-selection", "add-selection", "undo-add", "edit-cut", "reorder-cut", "undo-reorder", "find-transcript", "find-next-scroll"];
+  const conditions = ["first-operation-after-open", "filesystem-warm-1", "filesystem-warm-2", "filesystem-warm-3"];
+  assert.match(report.sourceHead, /^[a-f0-9]{40}$/);
+  assert.equal(report.actionsSha256, actionsSha256, "Renderer report/actions hash mismatch");
+  assert.equal(report.freshProcesses, 3);
+  assert.equal(report.timedSamples, 108);
+  assert.deepEqual(report.operations, names);
+  assert.deepEqual(report.conditions, conditions);
+  assert.equal(report.allTrusted, true);
+  assert.equal(report.allNoError, true);
+  assert.ok(Array.isArray(actions));
+  const setup = actions.filter(row => row.name === "project-open" && row.condition === "setup-unmeasured");
+  const rows = actions.filter(row => !(row.name === "project-open" && row.condition === "setup-unmeasured"));
+  assert.equal(rows.length, 108, "Expected all 108 timed renderer observations");
+  const slots = new Set();
+  for (const row of rows) {
+    assert.ok([1, 2, 3].includes(row.run) && names.includes(row.name) && conditions.includes(row.condition)
+      && row.event?.isTrusted === true && row.error === null && Number.isFinite(row.ms) && row.ms >= 0
+      && row.predicateId === `r17.task7.${row.name}.v2`, "Invalid renderer observation");
+    const slot = `${row.run}/${row.condition}/${row.name}`;
+    assert.ok(!slots.has(slot), `Duplicate renderer observation: ${slot}`);
+    slots.add(slot);
+  }
+  const percentile = values => {
+    const sorted = [...values].sort((a, b) => a - b);
+    return sorted[Math.ceil(sorted.length * 0.95) - 1];
+  };
+  const perOperation = Object.fromEntries(names.map(name => {
+    const selected = rows.filter(row => row.name === name);
+    assert.equal(selected.length, 12);
+    return [name, {
+      n: selected.length, p95NearestRankMs: percentile(selected.map(row => row.ms)),
+      maximumMs: Math.max(...selected.map(row => row.ms)),
+      firstP95Ms: percentile(selected.filter(row => row.condition === conditions[0]).map(row => row.ms)),
+      warmP95Ms: percentile(selected.filter(row => row.condition !== conditions[0]).map(row => row.ms)),
+    }];
+  }));
+  if (report.perOperation) for (const name of names) {
+    assert.equal(report.perOperation[name].n, perOperation[name].n);
+    assert.equal(report.perOperation[name].p95NearestRankMs, perOperation[name].p95NearestRankMs);
+  }
+  return {
+    sourceCommit: report.sourceHead, actionsSha256, freshProcesses: 3,
+    firstCohorts: 3, warmCohorts: 9, operationSamples: 12, totalInteractionSamples: rows.length,
+    unmeasuredSetupRows: setup.length, thresholdMs: 200,
+    maximumMs: Math.max(...rows.map(row => row.ms)), pooledInteractionP95Ms: percentile(rows.map(row => row.ms)),
+    withinInteractionThreshold: Object.values(perOperation).every(op => op.p95NearestRankMs <= 200),
+    operationP95Ms: Object.fromEntries(names.map(name => [name, perOperation[name].p95NearestRankMs])), perOperation,
+    measuredSamples: rows.map(row => ({ run: row.run, name: row.name, condition: row.condition, ms: row.ms,
+      isTrusted: row.event.isTrusted, predicateId: row.predicateId,
+      ...(row.after ? { afterWordCount: row.after.wordCount, afterCutCount: row.after.cutCount, afterRevision: row.afterRevision } : {}) })),
+    timingScope: "Trusted input capture through the matching v2 state predicate and two animation frames; explicitly unmeasured project opens excluded",
+    boundaries: report.boundaries ?? [],
+  };
+}
 
 export function requireBenchmarkNodeVersion(version) {
   if (!/^24\.\d+\.\d+$/.test(version)) throw new Error(`Benchmark requires Node 24; observed ${version}`);

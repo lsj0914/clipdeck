@@ -9,6 +9,7 @@ import {
   processTreeSample,
   publicReceipt,
   requireBenchmarkNodeVersion,
+  summarizeRendererEvidence,
 } from "../../scripts/workflow-benchmark-utils.mjs";
 
 describe("workflow benchmark evidence", () => {
@@ -71,5 +72,54 @@ describe("workflow benchmark evidence", () => {
     expect(publicReceipt(raw, { "/Users/private/name/runtime": "$RUNTIME", "/tmp": "$OUTPUT" })).toEqual({
       argv: ["$RUNTIME/python", "--flag", "$OUTPUT/input.mp4"], elapsedMs: [7, 999], note: "failed at [local path]", sha256: "abc",
     });
+  });
+});
+
+describe("renderer benchmark summary", () => {
+  const names = ["select-word", "cross-unmounted-selection", "add-selection", "undo-add", "edit-cut", "reorder-cut", "undo-reorder", "find-transcript", "find-next-scroll"];
+  const conditions = ["first-operation-after-open", "filesystem-warm-1", "filesystem-warm-2", "filesystem-warm-3"];
+  const fixture = () => {
+    const actions = [1, 2, 3].flatMap(run => conditions.flatMap(condition => names.map((name, index) => ({
+      run, name, condition, predicateId: `r17.task7.${name}.v2`, ms: 10 + index + run,
+      event: { isTrusted: true }, error: null,
+    }))));
+    const report = { sourceHead: "a".repeat(40), actionsSha256: "b".repeat(64), timedSamples: 108, freshProcesses: 3,
+      operations: names, conditions, allTrusted: true, allNoError: true,
+      boundaries: ["No OS page-cache eviction"] };
+    return { report, actions };
+  };
+  it("derives new timings and retains a slow tail instead of repeating historic passing numbers", () => {
+    const { report, actions } = fixture();
+    actions.find(a => a.run === 2 && a.condition === "filesystem-warm-1" && a.name === "add-selection")!.ms = 999;
+    const result = summarizeRendererEvidence(report, actions, report.actionsSha256);
+    expect(result.sourceCommit).toBe(report.sourceHead);
+    expect(result.operationP95Ms["select-word"]).toBe(13);
+    expect(result.operationP95Ms["add-selection"]).toBe(999);
+    expect(result.maximumMs).toBe(999);
+    expect(result.withinInteractionThreshold).toBe(false);
+    expect(result.measuredSamples).toHaveLength(108);
+  });
+  it("rejects a missing sample and a duplicated run/condition/operation slot", () => {
+    const { report, actions } = fixture();
+    expect(() => summarizeRendererEvidence(report, actions.slice(1), report.actionsSha256)).toThrow("108");
+    actions[1] = { ...actions[0]! };
+    expect(() => summarizeRendererEvidence(report, actions, report.actionsSha256)).toThrow("Duplicate");
+  });
+  it.each(["untrusted", "error", "nonfinite", "predicate"])("rejects %s observations instead of dropping them", problem => {
+    const { report, actions } = fixture();
+    if (problem === "untrusted") actions[0]!.event.isTrusted = false;
+    if (problem === "error") Object.assign(actions[0]!, { error: "timed out" });
+    if (problem === "nonfinite") actions[0]!.ms = Number.NaN;
+    if (problem === "predicate") actions[0]!.predicateId = "r17.task7.select-word.v1";
+    expect(() => summarizeRendererEvidence(report, actions, report.actionsSha256)).toThrow("Invalid renderer observation");
+  });
+  it("binds the report to the exact raw actions and excludes only explicitly unmeasured setup rows", () => {
+    const { report, actions } = fixture();
+    expect(() => summarizeRendererEvidence(report, actions, "c".repeat(64))).toThrow("hash");
+    const setup = { ...actions[0]!, name: "project-open", condition: "setup-unmeasured", ms: 12000 };
+    const result = summarizeRendererEvidence(report, [setup, ...actions], report.actionsSha256);
+    expect(result.unmeasuredSetupRows).toBe(1);
+    expect(result.maximumMs).toBe(21);
+    expect(result.withinInteractionThreshold).toBe(true);
   });
 });

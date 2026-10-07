@@ -13,7 +13,7 @@ ClipDeck is a local desktop editor for interviews, lessons and spoken recordings
 1. **Import your videos.** Use the native file picker. Projects keep references to the originals, so retain the source files.
 2. **Create a transcript, or use a time range.** English and Chinese recognition run locally, with punctuation and sentence grouping in the saved result. Prepare the selected model explicitly; silent footage can be cut without transcription.
 3. **Keep a passage.** Select its words, audition it against the original, and add it to the assembly. Repeat across sources.
-4. **Shape the story.** Reorder passages, adjust in/out points, and use undo/redo. Check the continuous assembly preview before exporting.
+4. **Shape the story.** Reorder passages, adjust in/out points, and use undo/redo. Check the continuous assembly preview before exporting. Use the preview's **Expand** control to inspect the source or assembly across the window; **Esc** returns to editing at the same playback position.
 5. **Export and save.** Export a playable MP4 and save a `.clipdeck` project to continue later. Moving originals requires relinking; changed source bytes invalidate old anchors.
 
 The core is multi-source speech editing rather than a traditional effects timeline. Source playback and assembled playback are separate. The assembly preview and final export use the same frame/sample edit plan, including clips with different sizes and frame rates.

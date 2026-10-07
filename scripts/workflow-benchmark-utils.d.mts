@@ -12,3 +12,8 @@ export function parsePcmWav(bytes: Buffer): { channels: number; sampleRate: numb
 export function processTreeSample(stdout: string, rootPid: number): { treeRssKiB: number; nativeRssKiB: number; processes: Array<{ pid: number; ppid: number; rssKiB: number; command: string }> };
 export function publicReceipt<T>(value: T, roots?: Record<string, string>): T;
 export function requireBenchmarkNodeVersion(version: string): void;
+export function summarizeRendererEvidence(report: any, actions: any[], actionsSha256: string): {
+  sourceCommit: string; maximumMs: number; withinInteractionThreshold: boolean;
+  operationP95Ms: Record<string, number>; measuredSamples: any[]; unmeasuredSetupRows: number;
+  [key: string]: any;
+};

@@ -2,13 +2,13 @@ import assert from "node:assert/strict";
 import { readFile, writeFile } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import path from "node:path";
-import { publicReceipt, requireBenchmarkNodeVersion } from "./workflow-benchmark-utils.mjs";
+import { publicReceipt, requireBenchmarkNodeVersion, summarizeRendererEvidence } from "./workflow-benchmark-utils.mjs";
 
 const args = Object.fromEntries(process.argv.slice(2).map(value => {
   const i = value.indexOf("=");
   return [value.slice(2, i), value.slice(i + 1)];
 }));
-if (!args["receipt-dir"] || !args["renderer-report"] || !args["output-file"]) throw new Error("Provide --receipt-dir, --renderer-report and --output-file");
+if (!args["receipt-dir"] || !args["renderer-report"] || !args["renderer-actions"] || !args["output-file"]) throw new Error("Provide --receipt-dir, --renderer-report (JSON), --renderer-actions (JSONL) and --output-file");
 const directory = path.resolve(args["receipt-dir"]);
 const readJson = async file => JSON.parse(await readFile(file, "utf8"));
 const digest = bytes => createHash("sha256").update(bytes).digest("hex");
@@ -18,12 +18,21 @@ for (const [n, cohort] of cohorts.entries()) {
   assert.equal(cohort.node, cohorts[0].node);
   assert.equal(cohort.cohort, n);
   assert.equal(cohort.status, "verified native subset");
+  assert.equal(cohort.sourceCommit, cohorts[0].sourceCommit);
   assert.ok(cohort.operations.every(operation => operation.status === "completed"));
   assert.deepEqual(cohort.runtimeHashes, cohorts[0].runtimeHashes);
   assert.deepEqual(cohort.sourceHashes, cohorts[0].sourceHashes);
   assert.deepEqual(cohort.preservedOriginalHashes, cohorts[0].preservedOriginalHashes);
 }
 const operations = cohorts.flatMap(cohort => cohort.operations);
+for (const operation of operations) {
+  assert.ok(operation.memorySamples.every(sample => sample.error === undefined), "Memory sampling error retained; do not publish a successful memory summary");
+  if (operation.name === "transcription") {
+    const transcript = await readJson(path.join(directory, `cohort-${operation.cohort}/${operation.sourceId}-${operation.condition}-transcript.json`));
+    assert.equal(digest(JSON.stringify(transcript)), operation.transcriptSha256);
+    operation.punctuation = transcript.parameters?.punctuation ?? null;
+  }
+}
 for (const condition of ["first", "fs-warm"]) {
   for (const sourceId of ["story-part-1", "synthetic-zh"]) assert.equal(operations.filter(o => o.name === "transcription" && o.condition === condition && o.sourceId === sourceId).length, 3);
   for (const sourceId of ["story-part-1", "story-part-2", "story-part-3"]) assert.equal(operations.filter(o => o.name === "source-proxy" && o.condition === condition && o.sourceId === sourceId).length, 3);
@@ -35,8 +44,9 @@ for (const operation of operations.filter(o => o.name === "assembly-preview" || 
   assert.equal(operation.receipt.audioPresentationSamples, 4654400);
 }
 const rendererBytes = await readFile(args["renderer-report"]);
-const rendererText = rendererBytes.toString("utf8");
-assert.ok(rendererText.includes("e35b0975f721d17284f03489bd742a7f1129010c") && rendererText.includes("108") && rendererText.includes("173.2"));
+const rendererActionsBytes = await readFile(args["renderer-actions"]);
+const rendererActions = rendererActionsBytes.toString("utf8").trim().split("\n").map(line => JSON.parse(line));
+const renderer = summarizeRendererEvidence(JSON.parse(rendererBytes), rendererActions, digest(rendererActionsBytes));
 const diagnostics = await Promise.all(["story-part-1", "synthetic-zh"].map(async sourceId => {
   const diagnostic = await readJson(path.join(directory, `cohort-0/${sourceId}-diagnostic.json`));
   const ready = diagnostic.events.find(event => event.event.type === "ready").event;
@@ -58,12 +68,14 @@ const nativeStages = operation => {
   return { serviceStageMs: {
     decodingAndPostDecodeSourceVerification: loading - decoding,
     workerStartupModelCheckPreflightPcmAndModelInit: transcribing - loading,
-    transcribingThroughNativeValidationAndCommit: complete - transcribing,
+    transcribingPunctuationValidationAndCommit: complete - transcribing,
   } };
 };
 const publicOperation = operation => ({
   cohort: operation.cohort, name: operation.name, condition: operation.condition,
   ...(operation.sourceId ? { sourceId: operation.sourceId } : {}),
+  ...(operation.language ? { language: operation.language } : {}),
+  ...(operation.name === "transcription" ? { punctuation: operation.punctuation } : {}),
   ...(operation.preset ? { preset: operation.preset, validationOnly: operation.validationOnly } : {}),
   elapsedMs: operation.elapsedMs,
   ...(operation.endToEndRtf ? { audioDurationSeconds: operation.audioDurationSeconds, audioSamples: operation.audioSamples, endToEndRtf: operation.endToEndRtf, wordCount: operation.wordCount, transcriptSha256: operation.transcriptSha256 } : {}),
@@ -75,7 +87,7 @@ const publicOperation = operation => ({
   status: operation.status,
 });
 const summary = {
-  schemaVersion: 1,
+  schemaVersion: 2,
   scope: "Verified native benchmark subset on an exact development candidate; not full R17/Task5/product/package/public delivery acceptance",
   sourceCommits: cohorts.map(c => c.sourceCommit), sourceHashes: cohorts[0].sourceHashes,
   frozenEntrySha256: digest(await readFile(path.join(directory, "workflow-entry.mjs"))),
@@ -86,13 +98,13 @@ const summary = {
   conditions: cohorts[0].conditions,
   reproduction: [
     "node scripts/benchmark-workflow.mjs --mode=measure --inputs-dir=$INPUTS --output-dir=$OUTPUT --model-dir=$MODEL",
-    "node scripts/summarize-workflow-benchmark.mjs --receipt-dir=$RUN --renderer-report=$RENDERER_REPORT --output-file=docs/verification/workflow-performance.json",
+    "node scripts/summarize-workflow-benchmark.mjs --receipt-dir=$RUN --renderer-report=$RENDERER_REPORT --renderer-actions=$RENDERER_ACTIONS --output-file=docs/verification/workflow-performance.json",
   ],
   story: { sourceFiles: 3, sourceMedia: storySourceMedia, recordedReaderIdentities: 1, selectedCompletePassages: 12, selectedSpeechSeconds: 96.7150625, integerSelectedMs: 96715, outputFrames: 2909, outputSamples: 4654400, outputDurationSeconds: 2909 / 30, audioSampleRate: 48000, framesPerSecond: 30, manualCorpusBounds: true, rendererWordSelectionClaim: false },
   nativeOperations: operations.map(publicOperation), diagnostics,
-  renderer: { sourceCommit: "e35b0975f721d17284f03489bd742a7f1129010c", reportSha256: digest(rendererBytes), freshProcesses: 3, firstCohorts: 3, warmCohorts: 9, operationSamples: 12, totalInteractionSamples: 108, thresholdMs: 200, fullSelectionP95Ms: 173.2, pooledInteractionP95Ms: 164.4, projectOpenP95Ms: 254.2, retainedBaselineSelectionP95Ms: 434.9, sourceDurationMs: 25000000, sourceSha256: "7f23f3769896d7c614888b5377ec15cd90d1331283b1d505f5880311cc84f795", actualSourcePreviewRejectedBySixHourLimit: true, individualRendererPeakMiB: [586.5, 588.4, 590.7], individualMainPeakMiB: [338.3, 338.1, 337.4], memoryScope: "Individual high-water marks; not simultaneous app sum", operationP95Ms: { selectWord: 25.8, selectAcrossUnmounted: 25.2, addFullSelection: 173.2, undoAdd: 140.5, editCut: 140.3, reorderCut: 148.3, undoReorder: 154.8, findTranscript: 24.3, findNext: 21.5 } },
-  retainedMarkerEvidence: "docs/verification/render-acceptance.json; 60 distinct markers × 3 runs already verified; not rerun",
-  limitations: cohorts[0].scopeLimits,
+  renderer: { ...renderer, reportSha256: digest(rendererBytes) },
+  separateMarkerEvidence: "Sixty-marker checks are separate from this workflow summary; consult the benchmark documentation for the matched artifact.",
+  nativeWorkflowScopeLimits: cohorts[0].scopeLimits,
 };
 if (args["condition-events"]) {
   const bytes = await readFile(args["condition-events"]);
