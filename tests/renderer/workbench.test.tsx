@@ -2231,6 +2231,7 @@ describe("Task 7 readiness and long reading regressions", () => {
     initial.project.transcripts = [];
     const b = bridge(initial);
     render(<App api={b.api} />);
+    await waitFor(() => expect(screen.getByRole("button", { name: "Play playback" })).toHaveProperty("disabled", false));
     fireEvent.click(await screen.findByRole("button", { name: "Range" }));
     fireEvent.change(screen.getByLabelText("Selection in"), { target: { value: "5.125" } });
     fireEvent.change(screen.getByLabelText("Selection out"), { target: { value: "8.375" } });
