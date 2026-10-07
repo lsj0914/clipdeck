@@ -3,6 +3,8 @@ export type Locale = "en" | "zh";
 const zh: Record<string, string> = {
   "Expand preview": "放大预览",
   "Expanded preview": "放大预览",
+  "Reduce preview": "缩回预览",
+  "Reduce preview (Esc)": "缩回预览 (Esc)",
   "Assembly preview preparation": "成片预览准备",
   "Cancel preview": "取消预览准备",
   "Selected source contains unreadable data; relink a complete recording": "所选素材中有无法读取的数据，请重新关联完整视频。",

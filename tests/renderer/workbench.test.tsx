@@ -2576,6 +2576,58 @@ describe("Task 7 recovery and completed delivery", () => {
       expect(b.api.revealExport).toHaveBeenCalledWith("delivered"),
     );
   });
+  it("enlarges the delivered file in place and Escape restores its player before returning to editing", async () => {
+    const state = assemblyFixture();
+    state.jobs = [{ ...state.jobs[0]!, id: "delivered", kind: "export", status: "completed",
+      outputUrl: "clipdeck-media://approved/export-result" }];
+    const b = bridge(state);
+    render(<App api={b.api} />);
+    fireEvent.click(await screen.findByRole("button", { name: "Processing" }));
+    const open = screen.getByRole("button", { name: "Play exported video" });
+    open.focus();
+    fireEvent.click(open);
+    const player = screen.getByLabelText("Exported video") as HTMLVideoElement;
+    player.currentTime = 4.125;
+    const dialog = screen.getByRole("dialog", { name: "Completed export" });
+    const expand = dialog.querySelector<HTMLButtonElement>('button[aria-label="Expand preview"]')!;
+    expect(expand).toBeTruthy();
+    fireEvent.click(expand);
+    expect(expand.getAttribute("aria-pressed")).toBe("true");
+    expect(screen.getByLabelText("Exported video")).toBe(player);
+    expect(player.currentTime).toBe(4.125);
+    expect(player.getAttribute("controlslist")).toContain("nofullscreen");
+    expect(screen.getByRole("button", { name: "Export video" }).closest("header")?.hasAttribute("inert")).toBe(true);
+    fireEvent.keyDown(window, { key: "Escape" });
+    expect(screen.getByRole("dialog", { name: "Completed export" })).toBe(dialog);
+    expect(expand.getAttribute("aria-pressed")).toBe("false");
+    expect(screen.getByLabelText("Exported video")).toBe(player);
+    expect(player.currentTime).toBe(4.125);
+    fireEvent.keyDown(window, { key: "Escape" });
+    expect(screen.queryByRole("dialog", { name: "Completed export" })).toBeNull();
+    expect(b.api.exportVideo).not.toHaveBeenCalled();
+    expect(b.api.applyEdit).not.toHaveBeenCalled();
+  });
+  it("keeps delivered-file keyboard focus inside its viewer and starts the next viewing unexpanded", async () => {
+    const state = assemblyFixture();
+    state.jobs = [{ ...state.jobs[0]!, id: "delivered", kind: "export", status: "completed",
+      outputUrl: "clipdeck-media://approved/export-result" }];
+    render(<App api={bridge(state).api} />);
+    fireEvent.click(await screen.findByRole("button", { name: "Processing" }));
+    fireEvent.click(screen.getByRole("button", { name: "Play exported video" }));
+    const dialog = screen.getByRole("dialog", { name: "Completed export" });
+    const controls = Array.from(dialog.querySelectorAll<HTMLElement>("button,video"));
+    controls.at(-1)!.focus();
+    fireEvent.keyDown(controls.at(-1)!, { key: "Tab" });
+    expect(document.activeElement).toBe(controls[0]);
+    fireEvent.keyDown(controls[0]!, { key: "Tab", shiftKey: true });
+    expect(document.activeElement).toBe(controls.at(-1));
+    const expand = dialog.querySelector<HTMLButtonElement>('button[aria-label="Expand preview"]')!;
+    fireEvent.click(expand);
+    fireEvent.click(screen.getByRole("button", { name: "Back to editing" }));
+    fireEvent.click(screen.getByRole("button", { name: "Processing" }));
+    fireEvent.click(screen.getByRole("button", { name: "Play exported video" }));
+    expect(screen.getByRole("dialog", { name: "Completed export" }).querySelector('button[aria-label="Expand preview"]')?.getAttribute("aria-pressed")).toBe("false");
+  });
   it("keeps original English token separators when correcting a word", async () => {
     const state = fixture();
     state.project.transcripts[0]!.words[0]!.text = " today";
@@ -3121,5 +3173,42 @@ describe("Task 7 natural derived text and localized assembly", () => {
     expect(
       (await screen.findByLabelText("Export summary")).textContent,
     ).toContain("1 cut ·");
+  });
+});
+
+describe("independent completed-export recovery controls", () => {
+  function delivered(state = assemblyFixture()) {
+    state.jobs = [{...state.jobs[0]!,id:"delivered",kind:"export",status:"completed",outputUrl:"clipdeck-media://approved/export-result"}];
+    return state;
+  }
+  async function openExport() {
+    fireEvent.click(await screen.findByRole("button",{name:"Processing"}));
+    const play=screen.getByRole("button",{name:"Play exported video"});play.focus();fireEvent.click(play);
+    const d=screen.getByRole("dialog",{name:"Completed export"});
+    fireEvent.click(d.querySelector<HTMLButtonElement>('button[aria-label="Expand preview"]')!);
+  }
+  it("independent: restores invalid retained draft after Save in expanded completed export",async()=>{
+    const b=bridge(delivered());render(<App api={b.api}/>);
+    fireEvent.click(await screen.findByRole("listitem",{name:/Cut 1:/}));
+    fireEvent.change(screen.getByLabelText("Cut out"),{target:{value:"00:00.000"}});
+    await openExport();fireEvent.keyDown(window,{key:"s",metaKey:true});
+    await screen.findByRole("alert");
+    expect(screen.queryByRole("dialog",{name:"Completed export"})).toBeNull();
+    const input=screen.getByLabelText("Cut out");expect(input).toHaveProperty("value","00:00.000");
+    await waitFor(()=>expect(document.activeElement).toBe(input));
+    expect(input.closest('[inert]')).toBeNull();expect(b.api.saveProject).not.toHaveBeenCalled();
+  });
+  it("independent: exposes Show file failure rather than covering alert with expanded completed export",async()=>{
+    const b=bridge(delivered());b.api.revealExport=vi.fn(async()=>{throw new Error("Export file no longer exists");});
+    render(<App api={b.api}/>);await openExport();fireEvent.click(screen.getByRole("button",{name:"Show exported video"}));
+    const alert=await screen.findByRole("alert");expect(alert.textContent).toContain("Export file no longer exists");
+    expect(screen.queryByRole("dialog",{name:"Completed export"})).toBeNull();
+    expect(document.activeElement).toBe(alert);expect(b.get().project.cuts).toHaveLength(2);
+  });
+  it("independent: returns focus to a connected editing control after closing delivered viewer",async()=>{
+    const b=bridge(delivered());render(<App api={b.api}/>);await openExport();
+    fireEvent.keyDown(window,{key:"Escape"});fireEvent.keyDown(window,{key:"Escape"});
+    expect(screen.queryByRole("dialog",{name:"Completed export"})).toBeNull();
+    expect(document.activeElement).toBe(screen.getByRole("button",{name:"Processing"}));
   });
 });

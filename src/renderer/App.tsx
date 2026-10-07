@@ -114,6 +114,7 @@ function Workbench({ api = window.clipdeck }: { api?: ClipDeckAPI }) {
     [drafts, setDraftsState] = useState<Record<string, CutDraft>>({}),
     [exportReview, setExportReview] = useState<ExportReview | null>(null),
     [completedExport, setCompletedExport] = useState<Job | null>(null),
+    [exportExpanded, setExportExpanded] = useState(false),
     [settingsRequest, setSettingsRequest] = useState(0),
     [correctionOpen, setCorrectionOpen] = useState(false),
     [corrections, setCorrections] = useState<Record<string, string>>({}),
@@ -121,6 +122,7 @@ function Workbench({ api = window.clipdeck }: { api?: ClipDeckAPI }) {
     [draftProblem, setDraftProblem] = useState<(DraftProblem & { request: number }) | null>(null);
   const closingRef = useRef(false);
   const projectNameInput = useRef<HTMLInputElement>(null);
+  const processingToggle = useRef<HTMLButtonElement>(null);
   const closeHandler = useRef<(action: CloseAction) => Promise<ClosePreparation>>(async () => ({ ready: false, locale: "en" }));
   const workspaceRef = useRef<WorkspaceSnapshot | null>(null);
   const snapshotGeneration = useRef(0);
@@ -155,6 +157,8 @@ function Workbench({ api = window.clipdeck }: { api?: ClipDeckAPI }) {
     busyRef = useRef(false);
   const revealDraft = useCallback((problem: DraftProblem) => {
     setPreviewExpanded(false);
+    setCompletedExport(null);
+    setExportExpanded(false);
     setSourceId(problem.assetId);
     setCutId(problem.cutId);
     setView("source");
@@ -245,6 +249,8 @@ function Workbench({ api = window.clipdeck }: { api?: ClipDeckAPI }) {
         return result;
       } catch (error) {
         setPreviewExpanded(false);
+        setCompletedExport(null);
+        setExportExpanded(false);
         setFailure(error instanceof CutDraftFailure ? {
           message: "Review this cut's range before saving.",
           cutOrdinal: error.problem.ordinal,
@@ -582,7 +588,11 @@ function Workbench({ api = window.clipdeck }: { api?: ClipDeckAPI }) {
     const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const element = document.querySelector<HTMLElement>(overlay);
     (element?.querySelector<HTMLElement>("[data-overlay-initial-focus]") ?? element?.querySelector<HTMLElement>("input:not(:disabled)") ?? element?.querySelector<HTMLElement>("button:not(:disabled),[tabindex='0']"))?.focus();
-    return () => { if (previous?.isConnected) previous.focus({ preventScroll: true }); };
+    return () => {
+      if (overlay === ".completed-export" && (!previous?.isConnected || previous === document.body))
+        processingToggle.current?.focus({ preventScroll: true });
+      else if (previous?.isConnected) previous.focus({ preventScroll: true });
+    };
   }, [overlay]);
   useEffect(() => {
     if (view === "assembly" && !previewUrl) {
@@ -1104,7 +1114,10 @@ function Workbench({ api = window.clipdeck }: { api?: ClipDeckAPI }) {
         event.preventDefault();
         if (helpOpen) setHelpOpen(false);
         else if (exportReview) setExportReview(null);
-        else if (completedExport) setCompletedExport(null);
+        else if (completedExport) {
+          if (exportExpanded) setExportExpanded(false);
+          else setCompletedExport(null);
+        }
         else if (correctionOpen) { if (!busyRef.current) setCorrectionOpen(false); }
         else if (previewExpanded) setPreviewExpanded(false);
         else if (queueOpen) setQueueOpen(false);
@@ -1117,9 +1130,10 @@ function Workbench({ api = window.clipdeck }: { api?: ClipDeckAPI }) {
         !!event.target.closest(
           'input,textarea,select,[contenteditable="true"]',
         );
-      if (previewExpanded && event.key === "Tab") {
+      if ((previewExpanded || completedExport) && event.key === "Tab") {
+        const scope = completedExport ? ".completed-export" : ".preview-expanded";
         const controls = Array.from(document.querySelectorAll<HTMLElement>(
-          ".preview-expanded button:not(:disabled),.preview-expanded input:not(:disabled)",
+          `${scope} button:not(:disabled),${scope} input:not(:disabled),${scope} video[controls]`,
         ));
         const first = controls[0], last = controls.at(-1);
         if (first && last && ((event.shiftKey && document.activeElement === first) ||
@@ -1217,7 +1231,7 @@ function Workbench({ api = window.clipdeck }: { api?: ClipDeckAPI }) {
         }
       }}
     >
-      <header className="project-toolbar" inert={previewExpanded || undefined}>
+      <header className="project-toolbar" inert={previewExpanded || !!completedExport || undefined}>
         <div className="brand">
           <Icon name="scissors" />
           <span>{t("ClipDeck")}</span>
@@ -1418,7 +1432,7 @@ function Workbench({ api = window.clipdeck }: { api?: ClipDeckAPI }) {
       ) : (
         <>
           <div className="workspace">
-            <aside className="sources" inert={previewExpanded || undefined}>
+            <aside className="sources" inert={previewExpanded || !!completedExport || undefined}>
               <div className="section-heading">
                 <h2>
                   {t("Sources")}
@@ -1505,7 +1519,7 @@ function Workbench({ api = window.clipdeck }: { api?: ClipDeckAPI }) {
                 <span>{t("Originals stay untouched")}</span>
               </div>
             </aside>
-            <section className="reading-pane" inert={previewExpanded || undefined}>
+            <section className="reading-pane" inert={previewExpanded || !!completedExport || undefined}>
               <div className="reading-heading">
                 <button
                   className="sources-toggle"
@@ -1822,6 +1836,7 @@ function Workbench({ api = window.clipdeck }: { api?: ClipDeckAPI }) {
                 )}
             </section>
             <aside className={`monitor-pane showing-${panel}${previewExpanded ? " preview-expanded" : ""}`}
+              inert={!!completedExport || undefined}
               role={previewExpanded ? "dialog" : undefined}
               aria-modal={previewExpanded || undefined}
               aria-label={previewExpanded ? t("Expanded preview") : undefined}>
@@ -2212,7 +2227,7 @@ function Workbench({ api = window.clipdeck }: { api?: ClipDeckAPI }) {
               ))}
             </aside>
           </div>
-          <section className="assembly" aria-label={t("Assembly")} inert={previewExpanded || undefined}>
+          <section className="assembly" aria-label={t("Assembly")} inert={previewExpanded || !!completedExport || undefined}>
             <div className="assembly-heading">
               <h2>
                 {t("Assembly")}{" "}
@@ -2392,7 +2407,7 @@ function Workbench({ api = window.clipdeck }: { api?: ClipDeckAPI }) {
               )}
             </div>
           </section>
-          <footer className="status-bar" inert={previewExpanded || undefined}>
+          <footer className="status-bar" inert={previewExpanded || !!completedExport || undefined}>
             <button
               className={`model-status ${snapshot.model.status}`}
               onClick={() => setQueueOpen(!queueOpen)}
@@ -2415,6 +2430,7 @@ function Workbench({ api = window.clipdeck }: { api?: ClipDeckAPI }) {
             <button
               onClick={() => setQueueOpen(!queueOpen)}
               aria-expanded={queueOpen}
+              ref={processingToggle}
             >
               <Icon name="list" />
               {t("Processing")}{" "}
@@ -2466,6 +2482,7 @@ function Workbench({ api = window.clipdeck }: { api?: ClipDeckAPI }) {
             onRetry={retryJob}
             onReveal={(j) => void run(() => api.revealExport(j.id))}
             onPlay={(j) => {
+              setExportExpanded(false);
               setCompletedExport(j);
               setQueueOpen(false);
             }}
@@ -2559,31 +2576,49 @@ function Workbench({ api = window.clipdeck }: { api?: ClipDeckAPI }) {
       )}
       {completedExport?.outputUrl && (
         <aside
-          className="export-summary completed-export"
+          className={`export-summary completed-export${exportExpanded ? " export-expanded" : ""}`}
+          role="dialog"
+          aria-modal="true"
           aria-label={t("Completed export")}
         >
           <div className="section-heading">
             <h2>{t("Export complete")}</h2>
-            <button onClick={() => setCompletedExport(null)}>
-              {t("Back to editing")}
-            </button>
+            <div className="completed-export-actions">
+              <button
+                className="preview-expand"
+                aria-label={t(exportExpanded ? "Reduce preview" : "Expand preview")}
+                aria-pressed={exportExpanded}
+                title={t(exportExpanded ? "Reduce preview (Esc)" : "Expand preview")}
+                data-overlay-initial-focus="true"
+                onClick={() => setExportExpanded(!exportExpanded)}
+              >
+                <Icon name={exportExpanded ? "close" : "expand"} />
+                <span>{t(exportExpanded ? "Reduce preview" : "Expand preview")}</span>
+              </button>
+              <button onClick={() => setCompletedExport(null)}>
+                {t("Back to editing")}
+              </button>
+            </div>
           </div>
           <video
             controls
+            controlsList="nofullscreen"
             src={completedExport.outputUrl}
             aria-label={t("Exported video")}
             preload="metadata"
           />
-          <p>
-            {t(
-              "Saved at the destination you chose. Show the file to see its name and location.",
-            )}
-          </p>
-          <button
-            onClick={() => void run(() => api.revealExport(completedExport.id))}
-          >
-            {t("Show exported video")}
-          </button>
+          <div className="completed-export-footer">
+            <p>
+              {t(
+                "Saved at the destination you chose. Show the file to see its name and location.",
+              )}
+            </p>
+            <button
+              onClick={() => void run(() => api.revealExport(completedExport.id))}
+            >
+              {t("Show exported video")}
+            </button>
+          </div>
         </aside>
       )}
       {exportReview && (
